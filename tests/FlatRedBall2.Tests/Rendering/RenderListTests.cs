@@ -121,6 +121,29 @@ public class RenderListTests
     }
 
     [Fact]
+    public void SortRenderList_AttachableChild_RespectsParentEntityZ()
+    {
+        var screen = new TestScreen();
+        var layer = new Layer("Test");
+        screen.Layers.Add(layer);
+
+        // Two attachables at the same local Z=0 but parented to entities at
+        // different Z. AbsoluteZ should drive the sort, so the child of the
+        // higher-Z entity draws last (in front).
+        var highEntity = new Entity { Z = 10f };
+        var lowEntity = new Entity { Z = 1f };
+        var highChild = new StubAttachable { Z = 0f, Parent = highEntity, Layer = layer, Name = "highChild" };
+        var lowChild = new StubAttachable { Z = 0f, Parent = lowEntity, Layer = layer, Name = "lowChild" };
+
+        screen.Add(highChild);
+        screen.Add(lowChild);
+        screen.SortRenderList();
+
+        screen.RenderList[0].Name.ShouldBe("lowChild");
+        screen.RenderList[1].Name.ShouldBe("highChild");
+    }
+
+    [Fact]
     public void Layer_UpdatesLayerOnRenderableChildren()
     {
         var screen = new TestScreen();

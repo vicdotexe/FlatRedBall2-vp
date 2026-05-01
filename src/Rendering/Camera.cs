@@ -112,7 +112,10 @@ public class Camera
     /// This camera's Gum UI root; visuals added via <see cref="Add(GraphicalUiElement, FlatRedBall2.Rendering.Layer?)"/>
     /// are parented here and laid out against this camera's canvas, drawn only in this camera's pass.
     /// </summary>
-    public GraphicalUiElement UiRoot => _uiRoot ??= new ContainerRuntime();
+    // HasEvents = false: ContainerRuntime's ctor turns it on, which makes the full-canvas
+    // root absorb the cursor and steal clicks from authored UI under it. The root is an
+    // implementation detail; children opt into events normally.
+    public GraphicalUiElement UiRoot => _uiRoot ??= new ContainerRuntime { Name = "Camera.UiRoot", HasEvents = false };
 
     /// <summary>
     /// The screen this camera is associated with. Set by <see cref="Screen"/> when this camera is
@@ -165,6 +168,20 @@ public class Camera
 
         OrthogonalHeight = orthogonalHeight;
         OrthogonalWidth = h > 0 ? (int)(orthogonalHeight * (w / (float)h)) : orthogonalHeight;
+        SizeUiRootToOrthogonalExtents();
+    }
+
+    /// <summary>
+    /// Sizes <see cref="UiRoot"/> to match the camera's current orthogonal extents,
+    /// scaled by <see cref="Zoom"/>. Called any time the orthogonal extents change so
+    /// that Gum elements added in <see cref="Screen.CustomInitialize"/> resolve their
+    /// PixelsFromCenter / PixelsFromTop coordinates against the correct parent size,
+    /// not the <c>ContainerRuntime</c> default of 150x150.
+    /// </summary>
+    internal void SizeUiRootToOrthogonalExtents()
+    {
+        UiRoot.Width  = OrthogonalWidth  / Zoom;
+        UiRoot.Height = OrthogonalHeight / Zoom;
     }
 
     internal void PhysicsUpdate(float dt)
@@ -190,6 +207,20 @@ public class Camera
         return new NumericsVector2(
             (worldPosition.X - X) * scaleX + vpW / 2f,
             -(worldPosition.Y - Y) * scaleY + vpH / 2f);
+    }
+
+    /// <summary>
+    /// Projects a world-space position to Gum-canvas (design unit) coordinates with origin
+    /// top-left and Y+ down. Use this — not <see cref="WorldToScreen"/> — when assigning
+    /// <c>GraphicalUiElement.X/Y</c> for a Gum visual rendered through the engine's GumBatch:
+    /// the batch already scales canvas units to viewport pixels, so passing pixels here would
+    /// double-scale and drift on horizontal window resize.
+    /// </summary>
+    public NumericsVector2 WorldToCanvas(NumericsVector2 worldPosition)
+    {
+        return new NumericsVector2(
+             (worldPosition.X - X) * Zoom + OrthogonalWidth  / 2f,
+            -(worldPosition.Y - Y) * Zoom + OrthogonalHeight / 2f);
     }
 
     /// <summary>

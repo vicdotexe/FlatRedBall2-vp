@@ -58,13 +58,28 @@ public class ContentDirectoryWatcher : IDisposable
         new(StringComparer.OrdinalIgnoreCase) { ".png" };
 
     /// <summary>
-    /// Per-path reload step invoked after successful copy but before <c>onChanged</c>, when the
-    /// file's extension is in <see cref="AutoReloadExtensions"/>. The <see cref="Screen"/> wires
-    /// this to <c>Engine.Content.TryReload(destPath)</c> when the watcher is registered via
-    /// <see cref="Screen.WatchContentDirectory(string, Action{string}, string?)"/>. Null by default
-    /// — the bare constructor does not assume a reload policy.
+    /// File extensions (case-insensitive, leading dot) that this watcher should ignore entirely:
+    /// no copy, no auto-reload, no user callback. Empty by default. Add file types here when
+    /// another hot-reload pipeline owns them and the user callback would conflict.
     /// </summary>
-    public Action<string>? AutoReloadAction { get; set; }
+    public HashSet<string> IgnoredExtensions { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Per-path reload step invoked after successful copy but before <c>onChanged</c>, when the
+    /// file's extension is in <see cref="AutoReloadExtensions"/>. Returns <c>true</c> if the
+    /// change was handled in-place (e.g. live <c>Texture2D.SetData</c> on a same-dimension PNG)
+    /// — in that case the user <c>onChanged</c> callback is suppressed, since
+    /// <c>RestartScreen(HotReload)</c> would tear down the very objects the in-place patch
+    /// just updated. Returns <c>false</c> if the engine couldn't handle it (different dimensions,
+    /// asset not registered, etc.) — the user callback fires as the fallback path.
+    /// <para>
+    /// The <see cref="Screen"/> wires this to <c>Engine.Content.TryReload(destPath)</c> when the
+    /// watcher is registered via <see cref="Screen.WatchContentDirectory(string, Action{string}, string?)"/>.
+    /// Null by default — the bare constructor does not assume a reload policy.
+    /// </para>
+    /// </summary>
+    public Func<string, bool>? AutoReloadAction { get; set; }
 
     /// <param name="source">Underlying directory event source.</param>
     /// <param name="onChanged">Invoked once per dirty file after copy succeeds.</param>
@@ -120,16 +135,19 @@ public class ContentDirectoryWatcher : IDisposable
         List<string>? failed = null;
         foreach (var rel in toProcess)
         {
+            if (IgnoredExtensions.Contains(Path.GetExtension(rel))) continue;
             try
             {
                 if (_copyToDestination(rel))
                 {
+                    bool handledInPlace = false;
                     if (AutoReloadAction != null
                         && AutoReloadExtensions.Contains(Path.GetExtension(rel)))
                     {
-                        AutoReloadAction(rel);
+                        handledInPlace = AutoReloadAction(rel);
                     }
-                    _onChanged(rel);
+                    if (!handledInPlace)
+                        _onChanged(rel);
                 }
             }
             catch (IOException)

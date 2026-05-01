@@ -162,7 +162,7 @@ Add(scoreLabel, layer: hudLayer);
 
 **Screen-space (default)**: `screen.Add(element)` places elements in Gum's native coordinate system (pixels, Y-down, origin top-left). Use for HUDs, menus.
 
-**World-space**: `entity.Add(element)` places a Gum element at the entity's world position. It follows the entity and shifts when the camera pans. The visual is automatically removed when the entity is destroyed.
+**World-space**: `entity.Add(element)` places a Gum element at the entity's world position. It follows the entity and shifts when the camera pans. The visual is automatically removed when the entity is destroyed. `entity.IsVisible = false` hides it — don't reach into `element.Visible`.
 
 ## Loading Gum Screens from a .gumx Project File
 
@@ -210,11 +210,11 @@ startButton.Click += (_, _) => MoveToScreen<GameScreen>();
 
 ### Mode 3 — Codegen (strongly-typed)
 
-After running `gumcli codegen`, each Gum screen and component gets a generated C# class. Instantiate the class directly — no `ToGraphicalUiElement()` or string-based lookup needed:
+After running `gumcli codegen`, each Gum screen and component gets a generated C# class **with the same name as the Gum XML element** (use the `Gum` suffix on element names — see the `gumcli` skill — to avoid colliding with FRB2 `Screen` subclasses). Instantiate the class directly — no `ToGraphicalUiElement()` or string-based lookup needed:
 
 ```csharp
-// Generated class for "MainMenuScreen" Gum screen:
-var mainMenu = new MainMenuScreenRuntime();
+// Gum element "MainMenuScreenGum" → generated class MainMenuScreenGum:
+var mainMenu = new MainMenuScreenGum();
 Add(mainMenu);
 
 // Properties match the instance names defined in the Gum XML:
@@ -222,10 +222,10 @@ mainMenu.StartButton.Click += (_, _) => MoveToScreen<GameScreen>();
 mainMenu.QuitButton.Click += (_, _) => Exit();
 ```
 
-- Generated classes are named `<ElementName>Runtime` by convention (e.g., `MainMenuScreenRuntime`, `PauseMenuRuntime`).
+- Generated classes inherit from `Gum.Forms.Controls.FrameworkElement`. The parameterless constructor builds the visual tree from a `[ModuleInitializer]`-registered template — just `new XxxGum()` and `Add(...)`.
 - Accessing a property that doesn't exist is a compile error — much safer than string-based `GetFrameworkElementByName`.
+- State categories on a component generate `enum` types and nullable property setters that apply the state on assignment (e.g., `card.SuitState = CardGum.Suit.Hearts`).
 - After any edit to the Gum XML, re-run `gumcli codegen` before referencing new/renamed instances in C#.
-- `Add(mainMenu)` works the same as other modes — pass the generated runtime object directly.
 
 ## Showing / Hiding a Control
 

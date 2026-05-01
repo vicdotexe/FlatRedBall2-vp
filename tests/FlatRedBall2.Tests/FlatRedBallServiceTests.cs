@@ -28,6 +28,27 @@ public class FlatRedBallServiceTests
     }
 
     [Fact]
+    public void ApplyClientSizeChange_SizesUiRootToOrthogonalExtents()
+    {
+        // Without this, UiRoot keeps its ContainerRuntime default (150x150) until
+        // the first Draw frame. Gum elements added during Screen.CustomInitialize
+        // resolve PixelsFromCenter / PixelsFromTop coords against the wrong parent
+        // size — anything centered with a non-zero PixelsFromCenter offset ends
+        // up far off-screen. UiRoot must match the camera's orthogonal extents
+        // by the time CustomInitialize runs.
+        var engine = new FlatRedBallService();
+        engine.DisplaySettings.AspectPolicy = AspectPolicy.Free;
+        engine.DisplaySettings.ResolutionWidth = 1280;
+        engine.DisplaySettings.ResolutionHeight = 720;
+        var camera = new Camera();
+
+        engine.ApplyClientSizeChange(1280, 720, allowUserResizing: true, camera);
+
+        camera.UiRoot.Width.ShouldBe(1280f);
+        camera.UiRoot.Height.ShouldBe(720f);
+    }
+
+    [Fact]
     public void ApplyClientSizeChange_AllowUserResizingFalse_LeavesCameraViewportUnchanged()
     {
         // Repro for KNI BlazorGL fixed-size canvas: when AllowUserResizing is false, browser-window

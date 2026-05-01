@@ -3,6 +3,7 @@ using Gum.Wireframe;
 using MonoGameGum.GueDeriving;
 using Shouldly;
 using Xunit;
+using FlatRedBall2;
 
 namespace FlatRedBall2.Tests;
 
@@ -72,6 +73,52 @@ public class GumHudTests
         var renderable = screen.GumRenderables[0];
         // Overlay renderables are drawn in a post-camera pass, never inside the per-camera loop.
         renderable.ShouldDrawForCamera(screen.Cameras[0]).ShouldBeFalse();
+    }
+
+    // Engine-created Gum roots (Camera.UiRoot, Screen.OverlayRoot) are full-canvas-sized
+    // ContainerRuntimes. ContainerRuntime's ctor sets HasEvents=true, which means the
+    // cursor's hit-test treats the root itself as the target and steals clicks away from
+    // any authored UI underneath. The roots are an implementation detail — they should be
+    // input-transparent so children opt into events normally.
+
+    [Fact]
+    public void CameraUiRoot_HasEventsIsFalse_SoCursorPassesThroughToChildren()
+    {
+        var screen = new TestScreen();
+        var uiRoot = (InteractiveGue)screen.Cameras[0].UiRoot;
+        uiRoot.HasEvents.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void OverlayRoot_HasEventsIsFalse_SoCursorPassesThroughToChildren()
+    {
+        var screen = new TestScreen();
+        var overlayRoot = (InteractiveGue)screen.OverlayRoot;
+        overlayRoot.HasEvents.ShouldBeFalse();
+    }
+
+    // Setting Entity.IsVisible = false should hide every renderable the entity owns, including
+    // entity-attached Gum visuals — matching how it hides Sprites and Shapes. The render loop
+    // skips any IAttachable whose Parent.IsAbsoluteVisible is false, so verify the Gum
+    // renderable's Parent points back to the entity (so that gate fires).
+
+    [Fact]
+    public void EntityAttachedGumVisual_RenderableParentedToEntity_HiddenWhenEntityIsInvisible()
+    {
+        var engine = new FlatRedBallService();
+        engine.Start<TestScreen>();
+        engine.Update(new Microsoft.Xna.Framework.GameTime());
+        var screen = (TestScreen)engine.CurrentScreen;
+        var entity = new Entity();
+        screen.Register(entity);
+        var visual = new ContainerRuntime();
+        entity.Add(visual);
+
+        entity.IsVisible = false;
+
+        var renderable = (IAttachable)screen.GumRenderables[0];
+        renderable.Parent.ShouldBe(entity);
+        renderable.Parent.IsAbsoluteVisible.ShouldBeFalse();
     }
 
 }

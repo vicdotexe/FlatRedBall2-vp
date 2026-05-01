@@ -143,10 +143,18 @@ Then invoke the `gumcli` skill and follow its instructions for the chosen mode b
 using var game = new YourSample.Game1();
 game.Run();
 
-// Game1.cs — constructor must set Content.RootDirectory
+// Game1.cs — needs `using Microsoft.Xna.Framework.Graphics;` for GraphicsProfile.
 public Game1()
 {
     _graphics = new GraphicsDeviceManager(this);
+    // REQUIRED — Apos.Shapes needs SM 4.0+. Default GraphicsProfile is Reach (SM 2.0),
+    // which crashes at startup with "Shader model 4.0 is not supported by the current
+    // graphics profile 'Reach'". MonoGame tops out at HiDef; KNI uses FL10_0.
+#if KNI
+    _graphics.GraphicsProfile = GraphicsProfile.FL10_0;
+#else
+    _graphics.GraphicsProfile = GraphicsProfile.HiDef;
+#endif
     Content.RootDirectory = "Content";  // REQUIRED — Apos.Shapes loads its shader from here
     IsMouseVisible = true;              // set to false only for keyboard/gamepad-only games
     FlatRedBall2.FlatRedBallService.Default.PrepareWindow<YourScreen>(_graphics);

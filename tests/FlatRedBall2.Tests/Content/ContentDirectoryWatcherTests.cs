@@ -205,12 +205,14 @@ public class ContentDirectoryWatcherTests
     // requiring per-game boilerplate in HandleContentChanged.
 
     [Fact]
-    public void AutoReload_PngChanged_InvokesAutoReloadActionThenOnChanged()
+    public void AutoReload_PngChanged_ActionReturnsFalse_FallsBackToOnChanged()
     {
+        // AutoReloadAction returning false means "I couldn't handle it" — onChanged fires
+        // as the fallback path so the caller can RestartScreen.
         var src = new FakeDirectoryWatcher();
         var order = new List<string>();
         var w = Make(src, rel => order.Add($"onChanged:{rel}"));
-        w.AutoReloadAction = rel => order.Add($"reload:{rel}");
+        w.AutoReloadAction = rel => { order.Add($"reload:{rel}"); return false; };
         var t0 = DateTime.UtcNow;
 
         w.MarkChangedAt("ship.png", t0);
@@ -220,13 +222,31 @@ public class ContentDirectoryWatcherTests
     }
 
     [Fact]
+    public void AutoReload_PngChanged_ActionReturnsTrue_SuppressesOnChanged()
+    {
+        // AutoReloadAction returning true means "I handled it in-place" — onChanged is
+        // suppressed because the typical RestartScreen handler would tear down the very
+        // objects the in-place patch just updated.
+        var src = new FakeDirectoryWatcher();
+        var calls = new List<string>();
+        var w = Make(src, calls.Add);
+        w.AutoReloadAction = _ => true;
+        var t0 = DateTime.UtcNow;
+
+        w.MarkChangedAt("ship.png", t0);
+        w.Tick(t0 + TimeSpan.FromMilliseconds(250));
+
+        calls.ShouldBeEmpty();
+    }
+
+    [Fact]
     public void AutoReload_NonPngChanged_DoesNotInvokeAutoReloadAction()
     {
         var src = new FakeDirectoryWatcher();
         var calls = new List<string>();
         var reloads = new List<string>();
         var w = Make(src, calls.Add);
-        w.AutoReloadAction = reloads.Add;
+        w.AutoReloadAction = rel => { reloads.Add(rel); return false; };
         var t0 = DateTime.UtcNow;
 
         w.MarkChangedAt("config.json", t0);
@@ -257,7 +277,7 @@ public class ContentDirectoryWatcherTests
         var src = new FakeDirectoryWatcher();
         var reloads = new List<string>();
         var w = Make(src, _ => { }, copyToDestination: _ => false);
-        w.AutoReloadAction = reloads.Add;
+        w.AutoReloadAction = rel => { reloads.Add(rel); return false; };
         var t0 = DateTime.UtcNow;
 
         w.MarkChangedAt("ship.png", t0);
@@ -272,7 +292,7 @@ public class ContentDirectoryWatcherTests
         var src = new FakeDirectoryWatcher();
         var reloads = new List<string>();
         var w = Make(src, _ => { });
-        w.AutoReloadAction = reloads.Add;
+        w.AutoReloadAction = rel => { reloads.Add(rel); return false; };
         var t0 = DateTime.UtcNow;
 
         w.MarkChangedAt("SHIP.PNG", t0);
@@ -288,7 +308,7 @@ public class ContentDirectoryWatcherTests
         var reloads = new List<string>();
         var w = Make(src, _ => { });
         w.AutoReloadExtensions.Add(".achx");
-        w.AutoReloadAction = reloads.Add;
+        w.AutoReloadAction = rel => { reloads.Add(rel); return false; };
         var t0 = DateTime.UtcNow;
 
         w.MarkChangedAt("player.achx", t0);

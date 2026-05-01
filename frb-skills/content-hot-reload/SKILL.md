@@ -103,20 +103,25 @@ Use when the change invalidates references the game holds.
 
 ## Source root detection
 
-`FlatRedBallService.SourceContentRoot` is auto-detected at engine construction by walking up from `AppContext.BaseDirectory` looking for a `.csproj`. Common project layouts just work:
+`FlatRedBallService.SourceContentRoots` is a list of source directories, auto-detected at engine construction:
 
-- `<csproj_dir>/bin/Debug/net10.0/MyGame.exe` → walks up to `<csproj_dir>` → finds `MyGame.csproj` → that's the root.
+1. Walk up from `AppContext.BaseDirectory` looking for a `.sln` or `.slnx`. If found, every referenced project that has a `Content/` subdirectory is added to the list — multi-project layouts (e.g. `Common`+`Desktop`+`Web`) just work.
+2. If no solution is found, fall back to the first `.csproj` directory walking up (single root).
+3. If neither, the list is empty and `WatchContent`* methods no-op.
 
-Override if auto-detection picks the wrong root (multi-project repos, unusual layouts):
+`WatchContent("Content/foo.json", ...)` and `WatchContentDirectory("Content", ...)` resolve the path against every root and register a watcher per root that contains the path.
+
+Override for unusual layouts:
 ```csharp
-engine.SourceContentRoot = "C:/path/to/my/project";
+engine.SourceContentRoots.Clear();
+engine.SourceContentRoots.Add("C:/path/to/my/project");
 ```
 
 `OutputContentRoot` defaults to `AppContext.BaseDirectory`. Override only if your build writes content to a non-standard location.
 
 ## Shipping builds
 
-In a shipped game there's no `.csproj` next to the executable, so `SourceContentRoot` is `null`. `WatchContent`/`WatchContentDirectory` return `null` and skip registration. In debug builds, the engine writes a diagnostic message explaining this is expected when `SourceContentRoot` is unavailable. **No `#if DEBUG` needed** — hot-reload is a dev-only no-op in release.
+In a shipped game there's no `.csproj`/`.sln` next to the executable, so `SourceContentRoots` is empty. `WatchContent`/`WatchContentDirectory` return `null` and skip registration. **No `#if DEBUG` needed** — hot-reload is a dev-only no-op in release.
 
 ## Debouncing
 
@@ -155,6 +160,6 @@ Other extensions still follow the dest-exists gate — a brand-new `.json` or `.
 
 ## Gotchas
 
-- **Watch the source folder, not `bin/Debug`.** The engine handles this for you when you use the path-based overloads (`WatchContent("Content/foo.json", ...)`); paths are resolved against `SourceContentRoot`. If you bypass it with the `IFileWatcher` injection overload, you choose the path yourself.
+- **Watch the source folder, not `bin/Debug`.** The engine handles this for you when you use the path-based overloads (`WatchContent("Content/foo.json", ...)`); paths are resolved against `SourceContentRoots`. If you bypass it with the `IFileWatcher` injection overload, you choose the path yourself.
 - **Hot-reload is dev-time iteration.** Don't rely on `WatchContent` calls as gameplay logic — in shipping they no-op.
 - **In-place reload requires the type/shape to be unchanged.** A schema change in your JSON still requires a screen restart — the live object's fields don't know about new property names.

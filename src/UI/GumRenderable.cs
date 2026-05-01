@@ -85,11 +85,16 @@ public class GumRenderable : IRenderable, IAttachable
         if (!Visual.Visible) return;
         if (Parent != null)
         {
-            var screenPos = camera.WorldToScreen(
+            // Canvas-space, not viewport pixels: GumRenderBatch's Begin matrix already scales
+            // canvas units to viewport pixels via Camera.PixelsPerUnit. Setting Visual.X/Y in
+            // pixels would double-scale and drift on horizontal resize.
+            var canvasPos = camera.WorldToCanvas(
                 new System.Numerics.Vector2(AbsoluteX, AbsoluteY));
-            Visual.X = screenPos.X;
-            Visual.Y = screenPos.Y;
+            Visual.X = canvasPos.X;
+            Visual.Y = canvasPos.Y;
         }
         GumRenderBatch.Instance.DrawElement(Visual);
     }
+
+    public override string ToString() => Visual?.ToString() ?? "No Gum Object";
 }

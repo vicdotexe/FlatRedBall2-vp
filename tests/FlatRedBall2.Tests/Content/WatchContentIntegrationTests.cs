@@ -29,7 +29,9 @@ public class WatchContentIntegrationTests : IDisposable
 
     private FlatRedBallService MakeEngine()
     {
-        var engine = new FlatRedBallService { SourceContentRoot = _srcRoot, OutputContentRoot = _destRoot };
+        var engine = new FlatRedBallService { OutputContentRoot = _destRoot };
+        engine.SourceContentRoots.Clear();
+        engine.SourceContentRoots.Add(_srcRoot);
         engine.Start<TestScreen>();
         return engine;
     }
@@ -37,15 +39,66 @@ public class WatchContentIntegrationTests : IDisposable
     private class TestScreen : Screen { }
 
     [Fact]
-    public void WatchContent_WithNullSourceContentRoot_ReturnsNullAndDoesNotRegister()
+    public void WatchContent_WithEmptySourceContentRoots_ReturnsNullAndDoesNotRegister()
     {
-        var engine = new FlatRedBallService { SourceContentRoot = null };
+        var engine = new FlatRedBallService();
+        engine.SourceContentRoots.Clear();
         engine.Start<TestScreen>();
 
         var watcher = engine.CurrentScreen.WatchContent("Content/foo.json", () => { });
 
         watcher.ShouldBeNull();
         engine.CurrentScreen.ContentWatchers.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void WatchContentDirectory_IgnoredExtensionAdded_FilesOfThatTypeSuppressed()
+    {
+        // IgnoredExtensions is empty by default — game opts in by adding extensions whose
+        // hot-reload is owned by another pipeline (e.g. .gucx handled by Gum's reload event).
+        var engine = MakeEngine();
+        var srcDir = Path.Combine(_srcRoot, "Content");
+        var destDir = Path.Combine(_destRoot, "Content");
+        Directory.CreateDirectory(srcDir);
+        Directory.CreateDirectory(destDir);
+        File.WriteAllText(Path.Combine(srcDir, "CardGum.gucx"), "<gucx/>");
+        File.WriteAllText(Path.Combine(destDir, "CardGum.gucx"), "<gucx/>");
+
+        var fake = new FakeDirectoryWatcher();
+        var calls = new System.Collections.Generic.List<string>();
+        var w = engine.CurrentScreen.WatchContentDirectory(
+            fake,
+            onChanged: calls.Add,
+            sourceAbsoluteRoot: srcDir,
+            destinationAbsoluteRoot: destDir);
+        w.Debounce = TimeSpan.Zero;
+        w.IgnoredExtensions.Add(".gucx");
+
+        fake.Fire("CardGum.gucx");
+        engine.Update(new Microsoft.Xna.Framework.GameTime());
+
+        calls.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void WatchContentDirectory_WithGumProjectInTree_AutoEnablesGumHotReload()
+    {
+        // The engine's content watcher intentionally ignores .gumx/.gusx/.gucx
+        // files because Gum runs its own hot-reload pipeline. That pipeline is
+        // off by default — having to call Engine.Gum.EnableHotReload(...) at
+        // every game's CustomInitialize is friction. Instead, when a screen
+        // watches a directory that contains a Gum project, the engine should
+        // auto-start the Gum pipeline for it.
+        var gumxAbs = Path.Combine(_srcRoot, "Content", "GumProject", "GumProject.gumx");
+        Directory.CreateDirectory(Path.GetDirectoryName(gumxAbs)!);
+        File.WriteAllText(gumxAbs, "<GumProjectSave/>");
+
+        var engine = MakeEngine();
+        engine.IsGumHotReloadEnabled.ShouldBeFalse();
+
+        engine.CurrentScreen.WatchContentDirectory("Content", _ => { });
+
+        engine.IsGumHotReloadEnabled.ShouldBeTrue();
     }
 
     [Fact]
@@ -149,9 +202,10 @@ public class WatchContentIntegrationTests : IDisposable
     }
 
     [Fact]
-    public void WatchContentDirectory_WithNullSourceContentRoot_ReturnsNull()
+    public void WatchContentDirectory_WithEmptySourceContentRoots_ReturnsNull()
     {
-        var engine = new FlatRedBallService { SourceContentRoot = null };
+        var engine = new FlatRedBallService();
+        engine.SourceContentRoots.Clear();
         engine.Start<TestScreen>();
 
         var w = engine.CurrentScreen.WatchContentDirectory("Content", _ => { });
@@ -444,6 +498,99 @@ public class WatchContentIntegrationTests : IDisposable
         engine.Update(new Microsoft.Xna.Framework.GameTime());
 
         reloaderCalls.ShouldBe(1);
+    }
+
+    [Fact]
+    public void WatchContentDirectory_PngChanged_SameDimensions_SuppressesUserCallback()
+    {
+        // In-place reload contract: when AutoReloadAction handles the change (returns true),
+        // the user callback is the fallback path — and shouldn't fire. Otherwise a typical
+        // RestartScreen handler tears the screen down for nothing.
+        var engine = MakeEngine();
+        engine.Content.TextureLoader = _ => null!;
+        engine.Content.TextureReloader = (_, _) => true; // pretend in-place patch succeeded
+
+        var srcDir = Path.Combine(_srcRoot, "Content");
+        var destDir = Path.Combine(_destRoot, "Content");
+        Directory.CreateDirectory(srcDir);
+        Directory.CreateDirectory(destDir);
+        File.WriteAllText(Path.Combine(srcDir, "ship.png"), "v2");
+        File.WriteAllText(Path.Combine(destDir, "ship.png"), "v1");
+        engine.Content.Load<Microsoft.Xna.Framework.Graphics.Texture2D>(Path.Combine(destDir, "ship.png"));
+
+        var fake = new FakeDirectoryWatcher();
+        var calls = new System.Collections.Generic.List<string>();
+        var w = engine.CurrentScreen.WatchContentDirectory(
+            fake,
+            onChanged: calls.Add,
+            sourceAbsoluteRoot: srcDir,
+            destinationAbsoluteRoot: destDir);
+        w.Debounce = TimeSpan.Zero;
+
+        fake.Fire("ship.png");
+        engine.Update(new Microsoft.Xna.Framework.GameTime());
+
+        calls.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void WatchContentDirectory_PngChanged_DifferentDimensions_FiresUserCallbackFallback()
+    {
+        // When in-place reload reports it couldn't handle the change (e.g. dimensions differ),
+        // the user callback runs as the fallback so the screen can RestartScreen.
+        var engine = MakeEngine();
+        engine.Content.TextureLoader = _ => null!;
+        engine.Content.TextureReloader = (_, _) => false; // pretend dimensions differ
+
+        var srcDir = Path.Combine(_srcRoot, "Content");
+        var destDir = Path.Combine(_destRoot, "Content");
+        Directory.CreateDirectory(srcDir);
+        Directory.CreateDirectory(destDir);
+        File.WriteAllText(Path.Combine(srcDir, "ship.png"), "v2");
+        File.WriteAllText(Path.Combine(destDir, "ship.png"), "v1");
+        engine.Content.Load<Microsoft.Xna.Framework.Graphics.Texture2D>(Path.Combine(destDir, "ship.png"));
+
+        var fake = new FakeDirectoryWatcher();
+        var calls = new System.Collections.Generic.List<string>();
+        var w = engine.CurrentScreen.WatchContentDirectory(
+            fake,
+            onChanged: calls.Add,
+            sourceAbsoluteRoot: srcDir,
+            destinationAbsoluteRoot: destDir);
+        w.Debounce = TimeSpan.Zero;
+
+        fake.Fire("ship.png");
+        engine.Update(new Microsoft.Xna.Framework.GameTime());
+
+        calls.ShouldBe(new[] { "ship.png" });
+    }
+
+    [Fact]
+    public void WatchContentDirectory_PngChanged_TextureNotRegistered_FiresUserCallbackFallback()
+    {
+        // No texture was loaded at this path, so TryReload returns false (nothing to patch).
+        // The user callback must fire so the game can restart and pick up the new file.
+        var engine = MakeEngine();
+        var srcDir = Path.Combine(_srcRoot, "Content");
+        var destDir = Path.Combine(_destRoot, "Content");
+        Directory.CreateDirectory(srcDir);
+        Directory.CreateDirectory(destDir);
+        File.WriteAllText(Path.Combine(srcDir, "unloaded.png"), "v2");
+        File.WriteAllText(Path.Combine(destDir, "unloaded.png"), "v1");
+
+        var fake = new FakeDirectoryWatcher();
+        var calls = new System.Collections.Generic.List<string>();
+        var w = engine.CurrentScreen.WatchContentDirectory(
+            fake,
+            onChanged: calls.Add,
+            sourceAbsoluteRoot: srcDir,
+            destinationAbsoluteRoot: destDir);
+        w.Debounce = TimeSpan.Zero;
+
+        fake.Fire("unloaded.png");
+        engine.Update(new Microsoft.Xna.Framework.GameTime());
+
+        calls.ShouldBe(new[] { "unloaded.png" });
     }
 
     [Fact]

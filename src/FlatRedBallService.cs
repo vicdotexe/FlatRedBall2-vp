@@ -70,28 +70,35 @@ public class FlatRedBallService
     private readonly Camera _overlayCamera = new Camera();
 
     /// <summary>
-    /// Constructs an engine instance and auto-detects <see cref="SourceContentRoot"/>. Most
+    /// Constructs an engine instance and auto-detects <see cref="SourceContentRoots"/>. Most
     /// games use <see cref="Default"/> rather than constructing their own — multi-instance
     /// engines are only useful for advanced testing scenarios.
     /// </summary>
     public FlatRedBallService()
     {
-        SourceContentRoot = DetectSourceContentRoot(AppContext.BaseDirectory);
+        SourceContentRoots = new List<string>(DetectSourceContentRoots(AppContext.BaseDirectory));
         OutputContentRoot = AppContext.BaseDirectory;
     }
 
     /// <summary>
-    /// Absolute path to the project's source content folder, used by <see cref="Screen.WatchContent(string, Action, string?)"/>
-    /// and <see cref="Screen.WatchContentDirectory(string, Action{string}, string?)"/> to locate
-    /// the file the user actually edits (vs the copy MSBuild dropped into the build output).
+    /// Absolute paths to the project's source content folders, used by
+    /// <see cref="Screen.WatchContent(string, Action, string?)"/> and
+    /// <see cref="Screen.WatchContentDirectory(string, Action{string}, string?)"/> to locate the
+    /// files the user actually edits (vs the copies MSBuild dropped into the build output).
     /// <para>
-    /// Auto-detected at construction by walking up from <see cref="AppContext.BaseDirectory"/>
-    /// looking for a <c>.csproj</c>; in a shipping build this returns <c>null</c> and the
-    /// <c>WatchContent</c>* overloads silently no-op. Override this if auto-detection picks the
-    /// wrong root (e.g. unusual project layouts, multi-project repos).
+    /// Auto-detected at construction by walking up from <see cref="AppContext.BaseDirectory"/>:
+    /// if a solution file (<c>.sln</c>/<c>.slnx</c>) is found, every referenced project that has
+    /// a <c>Content/</c> subdirectory is added to this list (so multi-project samples like
+    /// <c>Common</c>+<c>Desktop</c> just work). Otherwise we fall back to the first <c>.csproj</c>
+    /// directory found going up. In a shipping build neither is found and the list is empty —
+    /// <c>WatchContent</c>* overloads silently no-op.
+    /// </para>
+    /// <para>
+    /// The list is mutable: clear and add to override auto-detection (e.g. unusual project
+    /// layouts, content outside any <c>Content/</c> folder).
     /// </para>
     /// </summary>
-    public string? SourceContentRoot { get; set; }
+    public IList<string> SourceContentRoots { get; }
 
     /// <summary>
     /// Absolute path to the build-output folder where copied content lives at runtime. Defaults
@@ -101,20 +108,88 @@ public class FlatRedBallService
     public string OutputContentRoot { get; set; } = AppContext.BaseDirectory;
 
     /// <summary>
-    /// Walks up from <paramref name="startDirectory"/> looking for a <c>.csproj</c>. Returns the
-    /// directory containing the first match, or <c>null</c> if none found within ~10 levels.
-    /// Public for testing.
+    /// Walks up from <paramref name="startDirectory"/> looking for a solution file
+    /// (<c>.sln</c>/<c>.slnx</c>) within ~10 levels. If found, returns every referenced
+    /// project directory that has a <c>Content/</c> subdirectory. If no solution is found,
+    /// falls back to the first <c>.csproj</c> directory found going up (single element).
+    /// Returns an empty sequence if neither is found. Public for testing.
     /// </summary>
-    public static string? DetectSourceContentRoot(string startDirectory)
+    public static IReadOnlyList<string> DetectSourceContentRoots(string startDirectory)
     {
+        // Walk up looking for a solution file first — multi-project samples usually have
+        // their content in a sibling project (e.g. Common) rather than the head project (Desktop).
         var dir = new DirectoryInfo(startDirectory);
         for (int i = 0; i < 10 && dir != null; i++)
         {
-            if (dir.GetFiles("*.csproj").Length > 0)
-                return dir.FullName;
+            var slnFiles = dir.GetFiles("*.sln").Concat(dir.GetFiles("*.slnx")).ToArray();
+            if (slnFiles.Length > 0)
+            {
+                var roots = ParseSolutionForContentRoots(slnFiles[0].FullName);
+                if (roots.Count > 0) return roots;
+                // Solution found but no project under it has a Content/ folder — fall through
+                // to the .csproj fallback so we still return *something* useful.
+                break;
+            }
             dir = dir.Parent;
         }
-        return null;
+
+        // Fallback: nearest .csproj going up. Matches the historical single-root behavior.
+        dir = new DirectoryInfo(startDirectory);
+        for (int i = 0; i < 10 && dir != null; i++)
+        {
+            if (dir.GetFiles("*.csproj").Length > 0)
+                return new[] { dir.FullName };
+            dir = dir.Parent;
+        }
+        return Array.Empty<string>();
+    }
+
+    // Parse a .sln (text) or .slnx (XML) for project relative paths, return absolute project
+    // directories that contain a Content/ subdirectory. Capped at 50 projects to keep monorepo
+    // scans fast — projects without Content/ are filtered before counting.
+    private static IReadOnlyList<string> ParseSolutionForContentRoots(string solutionPath)
+    {
+        const int MaxProjectsScanned = 50;
+        var solutionDir = Path.GetDirectoryName(solutionPath)!;
+        var ext = Path.GetExtension(solutionPath).ToLowerInvariant();
+        IEnumerable<string> relativePaths;
+
+        if (ext == ".slnx")
+        {
+            try
+            {
+                var doc = System.Xml.Linq.XDocument.Load(solutionPath);
+                relativePaths = doc.Descendants("Project")
+                    .Select(p => (string?)p.Attribute("Path"))
+                    .Where(p => !string.IsNullOrEmpty(p))!;
+            }
+            catch
+            {
+                relativePaths = Array.Empty<string>();
+            }
+        }
+        else
+        {
+            // .sln format: Project("{type-guid}") = "Name", "Relative\Path.csproj", "{guid}"
+            var text = File.ReadAllText(solutionPath);
+            var matches = System.Text.RegularExpressions.Regex.Matches(
+                text, @"^Project\([^)]*\)\s*=\s*""[^""]*""\s*,\s*""([^""]+\.csproj)""",
+                System.Text.RegularExpressions.RegexOptions.Multiline);
+            relativePaths = matches.Cast<System.Text.RegularExpressions.Match>()
+                .Select(m => m.Groups[1].Value);
+        }
+
+        var roots = new List<string>();
+        int scanned = 0;
+        foreach (var rel in relativePaths)
+        {
+            if (scanned++ >= MaxProjectsScanned) break;
+            var projAbs = Path.GetFullPath(Path.Combine(solutionDir, rel.Replace('\\', Path.DirectorySeparatorChar)));
+            var projDir = Path.GetDirectoryName(projAbs);
+            if (projDir != null && Directory.Exists(Path.Combine(projDir, "Content")) && !roots.Contains(projDir))
+                roots.Add(projDir);
+        }
+        return roots;
     }
 
     /// <summary>
@@ -474,10 +549,12 @@ public class FlatRedBallService
 
     private void ApplyCameraSettings(Camera camera, int windowWidth, int windowHeight)
     {
-        UpdateCameraViewportAndExtents(camera, windowWidth, windowHeight);
-        // Reset runtime zoom to 1 at screen activation. Screens that want a non-default starting
-        // zoom assign Camera.Zoom in CustomInitialize.
+        // Reset runtime zoom to 1 at screen activation BEFORE UpdateCameraViewportAndExtents
+        // sizes UiRoot, so UiRoot reflects the new screen's orthogonal extents at Zoom=1
+        // rather than carrying a stale Zoom value from the previous screen. Screens that
+        // want a non-default starting zoom assign Camera.Zoom in CustomInitialize.
         camera.Zoom = 1f;
+        UpdateCameraViewportAndExtents(camera, windowWidth, windowHeight);
     }
 
     private void HandleClientSizeChanged(object? sender, EventArgs e)
@@ -561,6 +638,7 @@ public class FlatRedBallService
 
         camera.OrthogonalWidth = orthoW;
         camera.OrthogonalHeight = orthoH;
+        camera.SizeUiRootToOrthogonalExtents();
     }
 
     // Sub-systems
@@ -584,6 +662,36 @@ public class FlatRedBallService
     /// load Gum projects, or configure themes.
     /// </summary>
     public GumService Gum => _gum;
+
+    /// <summary>
+    /// True when the engine has enabled Gum's hot-reload pipeline for a project under
+    /// a watched directory. Auto-set by <see cref="Screen.WatchContentDirectory(string, System.Action{string}, string?)"/>
+    /// when a <c>.gumx</c> file is found beneath the source directory it's pointed at —
+    /// callers don't need to call <see cref="GumService.EnableHotReload"/> themselves.
+    /// </summary>
+    public bool IsGumHotReloadEnabled { get; private set; }
+
+    internal void EnableGumHotReload(string absoluteGumxSourcePath)
+    {
+        if (IsGumHotReloadEnabled) return;
+        _gum.EnableHotReload(absoluteGumxSourcePath);
+        _gum.HotReloadCompleted += () => GumHotReloadCompleted?.Invoke();
+        IsGumHotReloadEnabled = true;
+        System.Diagnostics.Debug.WriteLine($"FlatRedBall2: Gum hot-reload enabled for {absoluteGumxSourcePath}");
+    }
+
+    /// <summary>
+    /// Raised after Gum's hot-reload pass completes — a project file changed on disk and
+    /// Gum has rebuilt the UI root's children from the updated <c>ElementSave</c>s.
+    /// <para>
+    /// Subscribe from your screen's <c>CustomInitialize</c> to react to project changes that
+    /// Gum's in-place patch can't reach — e.g. entity-attached Gum visuals (cards, HUD elements
+    /// owned by entities) whose <c>GraphicalUiElement</c> isn't a child of Gum's root and so
+    /// is skipped by the in-place reload. The simplest reaction is <c>RestartScreen(HotReload)</c>;
+    /// finer-grained handlers can rebuild only the affected entity visuals.
+    /// </para>
+    /// </summary>
+    public event Action? GumHotReloadCompleted;
 
     /// <summary>The active screen's camera. Shortcut for <see cref="CurrentScreen"/>.<see cref="Screen.Camera"/>.</summary>
     public Camera Camera => CurrentScreen.Camera;

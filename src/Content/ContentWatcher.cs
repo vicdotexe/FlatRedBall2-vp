@@ -15,8 +15,8 @@ public enum ContentWatchRegistrationStatus
     Registered,
 
     /// <summary>
-    /// Content watch registration failed because the engine's <see cref="FlatRedBallService.SourceContentRoot"/>
-    /// is not set. This is typical in shipping builds where content is pre-built and embedded;
+    /// Content watch registration failed because the engine's <see cref="FlatRedBallService.SourceContentRoots"/>
+    /// is empty. This is typical in shipping builds where content is pre-built and embedded;
     /// hot-reload is disabled in those scenarios.
     /// </summary>
     SourceContentRootUnavailable,

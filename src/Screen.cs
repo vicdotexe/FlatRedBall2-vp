@@ -275,7 +275,9 @@ public class Screen
     /// against the full back-buffer dimensions, drawn in a single pass after the per-camera loop.
     /// Use this for pause menus, title cards, and other UI that should not be split per viewport.
     /// </summary>
-    public GraphicalUiElement OverlayRoot => _overlayRoot ??= new ContainerRuntime();
+    // HasEvents = false: see comment on Camera.UiRoot. Same rationale applies — a full-buffer
+    // overlay root that absorbs the cursor would steal clicks from any UI under it.
+    public GraphicalUiElement OverlayRoot => _overlayRoot ??= new ContainerRuntime { Name = "Screen.OverlayRoot", HasEvents = false };
 
     /// <summary>
     /// Adds a Gum visual to the screen-level overlay layer, drawn full-window after every
@@ -536,14 +538,16 @@ public class Screen
 
     /// <summary>
     /// Watches a single content file for changes. Resolves <paramref name="sourcePath"/> against
-    /// <see cref="FlatRedBallService.SourceContentRoot"/> (so the user-edited source file is the
+    /// <see cref="FlatRedBallService.SourceContentRoots"/> (so the user-edited source file is the
     /// one being watched, not the build-output copy), copies the changed source to the build
     /// output before invoking <paramref name="onChanged"/>, and invokes the callback on the game
     /// thread once writes settle.
     /// <para>
-    /// If <see cref="FlatRedBallService.SourceContentRoot"/> is <c>null</c> (typically a shipping
+    /// If <see cref="FlatRedBallService.SourceContentRoots"/> is empty (typically a shipping
     /// build with no <c>.csproj</c> next to the executable), this method returns <c>null</c> and
-    /// no watcher is registered — hot-reload is a dev-only convenience.
+    /// no watcher is registered — hot-reload is a dev-only convenience. If multiple roots
+    /// contain <paramref name="sourcePath"/>, a watcher is registered for each; the first one
+    /// is returned. All registered watchers appear in <see cref="ContentWatchers"/>.
     /// </para>
     /// <para>
     /// <paramref name="destinationPath"/> defaults to <paramref name="sourcePath"/>. Override when
@@ -572,16 +576,31 @@ public class Screen
         out ContentWatcher? watcher,
         string? destinationPath = null)
     {
-        if (Engine.SourceContentRoot == null)
-        {
-            watcher = null;
+        watcher = null;
+        if (Engine.SourceContentRoots.Count == 0)
             return ContentWatchRegistrationStatus.SourceContentRootUnavailable;
+
+        var destAbs = Path.Combine(Engine.OutputContentRoot, destinationPath ?? sourcePath);
+        bool registered = false;
+        foreach (var root in Engine.SourceContentRoots)
+        {
+            var srcAbs = Path.Combine(root, sourcePath);
+            if (!File.Exists(srcAbs)) continue;
+            var w = WatchContent(new FileSystemFileWatcher(srcAbs), onChanged,
+                sourceAbsolutePath: srcAbs, destinationAbsolutePath: destAbs);
+            watcher ??= w;
+            registered = true;
         }
 
-        var srcAbs = Path.Combine(Engine.SourceContentRoot, sourcePath);
-        var destAbs = Path.Combine(Engine.OutputContentRoot, destinationPath ?? sourcePath);
-        watcher = WatchContent(new FileSystemFileWatcher(srcAbs), onChanged,
-            sourceAbsolutePath: srcAbs, destinationAbsolutePath: destAbs);
+        if (!registered)
+        {
+            // No root contained the file. Fall back to the first root so the watcher exists
+            // (and will pick the file up if it appears later) — matches the historical
+            // single-root behavior where srcAbs was used regardless of file existence.
+            var srcAbs = Path.Combine(Engine.SourceContentRoots[0], sourcePath);
+            watcher = WatchContent(new FileSystemFileWatcher(srcAbs), onChanged,
+                sourceAbsolutePath: srcAbs, destinationAbsolutePath: destAbs);
+        }
         return ContentWatchRegistrationStatus.Registered;
     }
 
@@ -608,8 +627,10 @@ public class Screen
     /// <paramref name="sourceDirectory"/>. The engine copies each changed file to the matching
     /// path under the build output before invoking the callback.
     /// <para>
-    /// Returns <c>null</c> when <see cref="FlatRedBallService.SourceContentRoot"/> is unset
-    /// (shipping build).
+    /// Returns <c>null</c> when <see cref="FlatRedBallService.SourceContentRoots"/> is empty
+    /// (shipping build). When multiple roots contain <paramref name="sourceDirectory"/>, a
+    /// watcher is registered for each; the first one is returned, all are tracked in
+    /// <see cref="ContentDirectoryWatchers"/>.
     /// </para>
     /// <para>
     /// For an explicit registration result, call <see cref="TryWatchContentDirectory"/>.
@@ -634,16 +655,46 @@ public class Screen
         out ContentDirectoryWatcher? watcher,
         string? destinationDirectory = null)
     {
-        if (Engine.SourceContentRoot == null)
-        {
-            watcher = null;
+        watcher = null;
+        if (Engine.SourceContentRoots.Count == 0)
             return ContentWatchRegistrationStatus.SourceContentRootUnavailable;
+
+        var destAbs = Path.Combine(Engine.OutputContentRoot, destinationDirectory ?? sourceDirectory);
+        bool registered = false;
+
+        foreach (var root in Engine.SourceContentRoots)
+        {
+            var srcAbs = Path.Combine(root, sourceDirectory);
+            if (!Directory.Exists(srcAbs)) continue;
+
+            var w = WatchContentDirectory(new FileSystemDirectoryWatcher(srcAbs), onChanged,
+                sourceAbsoluteRoot: srcAbs, destinationAbsoluteRoot: destAbs);
+            watcher ??= w;
+            registered = true;
+
+            // Engine-level content watching deliberately filters out Gum file types
+            // (.gumx, .gusx, .gucx, .gutx, .behx, .ganx) because Gum runs its own
+            // hot-reload pipeline. That pipeline is opt-in — without this, callers
+            // would have to follow every WatchContentDirectory with a separate
+            // Engine.Gum.EnableHotReload call. When the watched directory contains
+            // a Gum project, auto-start it.
+            foreach (var gumx in Directory.EnumerateFiles(srcAbs, "*.gumx", SearchOption.AllDirectories))
+            {
+                Engine.EnableGumHotReload(gumx);
+                break; // one project per watched tree is the assumed shape
+            }
         }
 
-        var srcAbs = Path.Combine(Engine.SourceContentRoot, sourceDirectory);
-        var destAbs = Path.Combine(Engine.OutputContentRoot, destinationDirectory ?? sourceDirectory);
-        watcher = WatchContentDirectory(new FileSystemDirectoryWatcher(srcAbs), onChanged,
-            sourceAbsoluteRoot: srcAbs, destinationAbsoluteRoot: destAbs);
+        if (!registered)
+        {
+            // No root contained the directory. Fall back to the first root so a watcher exists
+            // (matches historical single-root behavior). The watcher will simply produce no
+            // events until the directory appears.
+            var srcAbs = Path.Combine(Engine.SourceContentRoots[0], sourceDirectory);
+            watcher = WatchContentDirectory(new FileSystemDirectoryWatcher(srcAbs), onChanged,
+                sourceAbsoluteRoot: srcAbs, destinationAbsoluteRoot: destAbs);
+        }
+
         return ContentWatchRegistrationStatus.Registered;
     }
 
@@ -667,8 +718,11 @@ public class Screen
             copy = _ => true;
         watcher = new ContentDirectoryWatcher(source, onChanged, copy);
         // Default auto-reload policy: PNG edits patch the live Texture2D in-place via
-        // Engine.Content.TryReload before onChanged fires. No-op when the texture isn't
-        // registered. Set watcher.AutoReloadAction = null to opt out.
+        // Engine.Content.TryReload. If the patch succeeds, onChanged is suppressed (the
+        // in-place edit was sufficient — running a typical RestartScreen handler would tear
+        // down the objects we just patched). Returns false when the texture isn't registered
+        // or dimensions differ, in which case onChanged fires as the fallback.
+        // Set watcher.AutoReloadAction = null to opt out.
         if (destinationAbsoluteRoot != null)
             watcher.AutoReloadAction = relPath =>
                 Engine.Content.TryReload(Path.Combine(destinationAbsoluteRoot, relPath));
@@ -1079,7 +1133,13 @@ public class Screen
         int layerB = b.Layer != null ? Layers.IndexOf(b.Layer) : -1;
         if (layerA != layerB) return layerA.CompareTo(layerB);
 
-        int zCmp = a.Z.CompareTo(b.Z);
+        // Use AbsoluteZ for IAttachables so parent-entity Z propagates to the
+        // sort. A bare IRenderable's Z is its own; an attached child renders at
+        // parent.AbsoluteZ + child.Z, mirroring the AbsoluteY behavior used by
+        // ZSecondaryParentY below.
+        float aZ = a is IAttachable ia ? ia.AbsoluteZ : a.Z;
+        float bZ = b is IAttachable ib ? ib.AbsoluteZ : b.Z;
+        int zCmp = aZ.CompareTo(bZ);
         if (zCmp != 0) return zCmp;
 
         if (SortMode == Rendering.SortMode.ZSecondaryParentY)
