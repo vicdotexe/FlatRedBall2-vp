@@ -35,18 +35,13 @@ public class GumRenderBatch : IRenderBatch
     public void Begin(SpriteBatch spriteBatch, Camera camera)
     {
         // PixelsPerUnit folds together window-vs-resolution scale AND the FlatRedBall Camera.Zoom.
-        // Two consumers need it:
-        //   1. Rendering — Gum's BasicEffect path (NET8+) reads ForcedMatrix as the world transform;
-        //      without it, world = Identity and the Camera.Zoom alone won't scale draws.
-        //   2. Forms input — Cursor.XRespectingGumZoomAndBounds reads Renderer.Camera.Zoom directly
-        //      to convert window pixels into canvas units for hit-testing.
-        // Drive both from the same source so render and hit-test never disagree.
-        var scale = camera.PixelsPerUnit;
-        RenderingLibrary.SystemManagers.Default.Renderer.Camera.Zoom = scale;
-        var matrix = scale == 1f
-            ? (Matrix?)null
-            : Matrix.CreateScale(scale, scale, 1f);
-        _inner!.Begin(matrix);
+        // We drive Gum rendering and Gum hit-testing from a single source — Renderer.Camera.Zoom —
+        // which Gum's GetZoomAndMatrix bakes into basicEffect.View, and which
+        // Cursor.XRespectingGumZoomAndBounds reads directly when converting window pixels into
+        // canvas units. Pass null to GumBatch.Begin so we don't double-apply the scale on top
+        // of Camera.Zoom.
+        RenderingLibrary.SystemManagers.Default.Renderer.Camera.Zoom = camera.PixelsPerUnit;
+        _inner!.Begin(null);
     }
 
     /// <inheritdoc/>

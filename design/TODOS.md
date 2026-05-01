@@ -52,6 +52,18 @@ Gum currently ships with raster-only visuals (`Sprite`, `NineSlice`, `ColoredRec
 
 Rive is the interactive-animation alternative to Lottie — richer state-machine model, but a heavier runtime and a paid editor. Track this only as the secondary option after Lottie lands; if Lottie covers the actual UI animation use cases the engine sees, Rive may never be worth the integration cost. Decision criteria: does any sample or downstream user actually need Rive's interactive features (state machines triggered from game code), or are pre-rendered animation clips sufficient?
 
+## Clean up build warnings to zero
+
+Every recent build of Solitaire reports the same three warnings, and the engine project has more under nullability / missing-XML-doc rules. Currently these are background noise — but they hide *real* warnings that get introduced, and the eventual goal (per `src/FlatRedBall2.csproj`'s comment on `GenerateDocumentationFile`: "Promote to error before the first stable (non-preview) NuGet ships") is zero warnings on a clean build.
+
+Known categories:
+- **`CS1591` — missing XML doc on public members.** Engine-side. Currently surfaces on `GumRenderable.ToString()` and likely others. Fix: write the docs (most are obvious from the member name) or, where the type is genuinely an internal-leak that shouldn't be public, narrow the visibility.
+- **`CS0108` / `CS0114` — generated Gum control classes hide inherited members** (`MenuItem.MenuItemCategoryState`, `PasswordBox.Placeholder`, others). These come out of Gum's codegen; fix is upstream in Gum (emit `new` / `override` keyword) or a codegen-template tweak the consumer can apply. Track separately from engine work.
+- **Nullability warnings inside `tests/`.** The two `EntityVector2TweenTests`/`EntityColorTweenTests` `CS8600`/`CS8625` patterns in test code that aren't covered by `Nullable=enable`. Easy mechanical fix.
+- **Gum source warnings** (when project-referenced, not packaged). Out of scope here — they only appear during in-place Gum debugging and aren't shipped.
+
+Do this as a sweep, not piecemeal: a single PR that drives the engine and sample warning count to zero, then promotes warnings to errors in CI so regressions are caught.
+
 ## 3D transformations on entities (and Gum visuals attached to them)
 
 We have no story for 3D effects — card flip, page turn, screen fold-out, perspective tilt — on either sprites or entity-attached Gum hierarchies. Today an entity has `Rotation` (Z-axis only) and `Position`; nothing exposes the full 3D world matrix needed for a perspective quad.
