@@ -4,18 +4,36 @@
 
 Open work only. When an item ships, delete it — don't leave a "landed" breadcrumb. Design decisions and historical context that outlive a TODO belong in skill files, XML docs, or commit messages, not here.
 
-## Entity-attached Gum visuals are not in Gum's update tree
+## Gum hot-reload clobbers runtime-set properties
 
-`Entity.Add(GraphicalUiElement)` and `Entity.Add(FrameworkElement)` wrap the visual in a `GumRenderable`, register it for rendering, and drive its position from the entity's `AbsoluteX/Y` each frame — but never add it as a child of any Gum root. Consequences:
+Gum's hot-reload patcher reassigns every property on each live instance from the file's defaults whenever a `.gucx`/`.gusx`/`.gumx` changes — including properties the consumer mutated at runtime. Concrete failures observed in Solitaire when `GumHotReloadCompleted` is *not* used to restart the screen:
 
-1. **Forms controls aren't live.** A `Button` added to an entity renders but doesn't receive cursor/click events, because Gum Forms input handling walks `Root.Children` (or `MainRoot`) to dispatch. The user sees a button-shaped thing that does nothing.
-2. **Hot-reload skips them.** `GumHotReloadManager.PerformReload` only rebuilds `root.Children`. Entity-attached visuals are invisible to it. Today the workaround is to subscribe to `FlatRedBallService.GumHotReloadCompleted` and `RestartScreen(HotReload)`, which works but throws out everything.
-3. **Animations/state interpolations on entity visuals may not tick** if Gum's per-frame update walks `Root` rather than tracking elements globally.
+- Entity-attached card visuals (now reachable through `Screen.EntityVisualsRoot`) get layout passes that move inner instances back to gucx-default positions, even though the outer card position is re-driven each frame by `GumRenderable`.
+- The win overlay's runtime `IsVisible = false` resets to the gucx default (visible).
 
-Possible directions:
-- Add a hidden "entity-attached" Gum sub-root that the engine maintains as a child of `Root`, parented under it for update/input/hot-reload purposes but with layout that doesn't disturb world-space-driven positioning. Visuals added via `Entity.Add(...)` go in there.
-- Or reach into Gum's Forms input system to register entity-attached `FrameworkElement`s as input-eligible without re-parenting.
-- Either way: fixing this also fixes per-element hot-reload for entity visuals (no screen restart needed), so it's worth doing properly rather than papering over each symptom.
+Both of these are the same underlying issue: the patcher has no model of "this property was set by user code; don't touch it."
+
+Fix lives in **Gum**, not FRB2. Recommended direction: per-property dirty tracking on Gum runtime instances. When game code writes to a property, set a "user-overridden" bit; when hot-reload patches an instance, skip dirty properties. Generalizes correctly: hot-reload still updates anything the game hasn't touched (logo X moves on edit), but never overwrites runtime-controlled state. A `Visible`/`X`/`Y` whitelist is *not* enough — game code can also choose to leave those file-driven (e.g. authored screen logo position), and a whitelist would surprise that consumer.
+
+Until then, the Solitaire sample's hot-reload of card visuals is intentionally broken (positions and overlay visibility reset on Gum edits). No FRB2-side workaround retained — when Gum lands the fix, the sample heals itself with no code change here.
+
+## Font rendering quality on web at non-native resolutions
+
+Gum renders text from pre-baked bitmap font (`.fnt`) atlases sized for a fixed design resolution. On the BlazorGL/KNI WASM target the browser viewport changes constantly — user resizes, devicePixelRatio differences, mobile rotations — so the atlas gets sampled at fractional scales and text turns blurry / aliased. Solitaire is the obvious repro: at most browser sizes the card-rank/suit labels and any HUD text look noticeably worse than on desktop.
+
+Open questions before designing a fix: (a) bake atlases at multiple resolutions and pick the closest, (b) switch web text to SDF / MSDF fonts (one atlas, scales cleanly — but requires a different shader and Gum-side support), (c) re-rasterize atlases on the fly when the canvas size changes (cheap to author, costly per resize), or (d) switch to vector text rendering on web only (Skia/HarfBuzz path, much heavier dependency). Need to confirm whether the right layer for the fix is FRB2, Gum, or the runtime that ships the `.fnt` consumer — and whether desktop has the same problem at high-DPI displays even though it's less obvious.
+
+## Render-state thrashing when Apos.Shapes, fonts, and sprites interleave
+
+Each of the three pipelines wants its own GPU state — `Apos.Shapes` (the shapes library used by `ShapesBatch`) sets its own effect/buffers, bitmap-font text goes through `SpriteBatch`, sprite rendering goes through `SpriteBatch` (or batched variants) — and every transition between them is a flush + state swap. A frame that draws shapes → text → sprite → shapes → text triggers multiple flushes per layer, and the cost shows up as draw-call count and visible CPU time on the WASM target especially. Need to (a) measure where the actual cost lands (flush count vs. effect rebind vs. vertex-buffer churn) on a representative scene, (b) decide whether the fix is reordering within a layer (group by primitive type when z-order allows), unifying the shape/sprite/text path through one batcher, or batching across layers when the engine knows two adjacent layers can share state, and (c) confirm the win on web is meaningfully larger than on desktop, since that's where the problem bites first.
+
+## Touch input on mobile web — clicks/pushes don't fire
+
+Solitaire on a mobile browser shows the cards but tapping them does nothing — drags and pushes never register. `Cursor.UpdateTouch` already calls `TouchPanel.GetState()` and updates `_touchScreenPos` / `_touchActive` while a touch is held, but it never maps touch state transitions onto the primary-click pathway that gameplay code (and Gum Forms) listens on. So the cursor *position* tracks the finger, but `PrimaryClick` / `PrimaryPush` / `PrimaryRelease` stay false the whole time and nothing reacts to taps.
+
+Likely fix: walk the `TouchCollection` for `TouchLocationState.Pressed` and `Released` and translate those into the same primary-button down/up events the mouse path emits, so click/push detection works without every gameplay system having to special-case touch. Open question — multitouch: do we report only the first finger as the primary cursor (current behavior, simplest) or expose secondary touches for two-finger gestures down the road? Solitaire only needs single-touch; defer multitouch unless a sample needs it.
+
+Repro is mobile Solitaire; confirm the fix on at least one Android Chrome and one iOS Safari session since touch event quirks differ between them.
 
 ## Web load times for large Gum projects
 

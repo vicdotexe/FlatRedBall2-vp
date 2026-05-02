@@ -103,14 +103,6 @@ public class GameScreen : Screen
         // edits patch the live Texture2D in-place via Engine.Content.TryReload and skip
         // the restart automatically.
         WatchContentDirectory("Content", _ => RestartScreen(RestartMode.HotReload));
-
-        // Gum project edits (.gucx/.gusx/.gumx) flow through Gum's own hot-reload
-        // pipeline. That patches Root.Children in-place — but card visuals are entity-
-        // attached (CardEntity.Add(_gum)) and aren't children of Root, so Gum's patch
-        // doesn't reach them. Restart the screen after Gum finishes so card visuals get
-        // rebuilt against the freshly-loaded ElementSaves. Done as an opt-in subscription
-        // so static-UI screens can choose finer-grained handling.
-        Engine.GumHotReloadCompleted += HandleGumHotReloadCompleted;
     }
 
     private void BuildWinOverlay()
@@ -144,16 +136,6 @@ public class GameScreen : Screen
         SpawnAllCardEntities();
         RebuildVisuals();
         _winOverlay.IsVisible = false;
-    }
-
-    public override void CustomDestroy()
-    {
-        Engine.GumHotReloadCompleted -= HandleGumHotReloadCompleted;
-    }
-
-    private void HandleGumHotReloadCompleted()
-    {
-        RestartScreen(RestartMode.HotReload);
     }
 
     public override void CustomActivity(FrameTime time)
