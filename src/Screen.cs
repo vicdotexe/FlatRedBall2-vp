@@ -307,12 +307,37 @@ public class Screen
     /// <summary>Removes a Forms control previously added with <see cref="AddOverlay(FrameworkElement, Layer?)"/>.</summary>
     public void RemoveOverlay(FrameworkElement element) => RemoveOverlay(element.Visual);
 
+    // ---------- Entity-attached visuals ----------
+
+    private GraphicalUiElement? _entityVisualsRoot;
+
+    /// <summary>
+    /// Lazily-created Gum root that holds every entity-attached visual added via
+    /// <see cref="Entity.Add(GraphicalUiElement, Layer?)"/>. Entity visuals must live under
+    /// a Gum root so that Forms input dispatch, animation tick, and hot-reload can reach
+    /// them — but they are world-projected, not screen-anchored UI, so they need their own
+    /// root rather than sharing <see cref="Camera.UiRoot"/> (camera-scoped) or
+    /// <see cref="OverlayRoot"/> (carries topmost cursor priority by design). Position-driving
+    /// each frame still happens in <see cref="UI.GumRenderable"/>; this root is bookkeeping.
+    /// </summary>
+    // HasEvents = false: see comment on Camera.UiRoot. A full-canvas root that absorbs the
+    // cursor would steal clicks from any entity-attached UI underneath.
+    public GraphicalUiElement EntityVisualsRoot
+        => _entityVisualsRoot ??= new ContainerRuntime { Name = "Screen.EntityVisualsRoot", HasEvents = false };
+
     internal void AddGumForEntity(GraphicalUiElement visual, Entity worldParent, Layer? layer)
     {
+        EntityVisualsRoot.Children.Add(visual);
         var renderable = new GumRenderable(visual) { Parent = worldParent, Layer = layer };
         _gumRenderables.Add(renderable);
         _gumByVisual[visual] = renderable;
         _renderList.Add(renderable);
+    }
+
+    internal void RemoveGumForEntity(GraphicalUiElement visual)
+    {
+        EntityVisualsRoot.Children.Remove(visual);
+        RemoveGumVisualInternal(visual);
     }
 
     internal void AddGumForCamera(GraphicalUiElement visual, Camera owningCamera, Layer? layer)

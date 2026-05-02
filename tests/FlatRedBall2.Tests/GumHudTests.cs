@@ -121,4 +121,72 @@ public class GumHudTests
         renderable.Parent.IsAbsoluteVisible.ShouldBeFalse();
     }
 
+    // EntityVisualsRoot is the screen-level root that entity-attached Gum visuals are parented
+    // under — the missing piece that makes them reachable from Gum's update tree (cursor input,
+    // animation tick, hot-reload). Without parenting, Gum has no way to walk to them.
+
+    [Fact]
+    public void EntityAdd_GraphicalUiElement_VisualParentedToEntityVisualsRoot()
+    {
+        var engine = new FlatRedBallService();
+        engine.Start<TestScreen>();
+        engine.Update(new Microsoft.Xna.Framework.GameTime());
+        var screen = (TestScreen)engine.CurrentScreen;
+        var entity = new Entity();
+        screen.Register(entity);
+        var visual = new ContainerRuntime();
+
+        entity.Add(visual);
+
+        screen.EntityVisualsRoot.Children.ShouldContain(visual);
+    }
+
+    [Fact]
+    public void EntityRemove_GraphicalUiElement_VisualUnparentedFromEntityVisualsRoot()
+    {
+        var engine = new FlatRedBallService();
+        engine.Start<TestScreen>();
+        engine.Update(new Microsoft.Xna.Framework.GameTime());
+        var screen = (TestScreen)engine.CurrentScreen;
+        var entity = new Entity();
+        screen.Register(entity);
+        var visual = new ContainerRuntime();
+        entity.Add(visual);
+
+        entity.Remove(visual);
+
+        screen.EntityVisualsRoot.Children.ShouldNotContain(visual);
+    }
+
+    [Fact]
+    public void EntityDestroy_UnparentsAllGumVisualsFromEntityVisualsRoot()
+    {
+        var engine = new FlatRedBallService();
+        engine.Start<TestScreen>();
+        engine.Update(new Microsoft.Xna.Framework.GameTime());
+        var screen = (TestScreen)engine.CurrentScreen;
+        var entity = new Entity();
+        screen.Register(entity);
+        var a = new ContainerRuntime();
+        var b = new ContainerRuntime();
+        entity.Add(a);
+        entity.Add(b);
+
+        entity.Destroy();
+
+        screen.EntityVisualsRoot.Children.ShouldNotContain(a);
+        screen.EntityVisualsRoot.Children.ShouldNotContain(b);
+    }
+
+    [Fact]
+    public void EntityVisualsRoot_HasEventsIsFalse_SoCursorPassesThroughToChildren()
+    {
+        // Same rationale as Camera.UiRoot and OverlayRoot: a full-canvas root with
+        // HasEvents=true would steal cursor hit-tests from its children. The root is
+        // engine bookkeeping; only the children should receive events.
+        var screen = new TestScreen();
+        var entityVisualsRoot = (InteractiveGue)screen.EntityVisualsRoot;
+        entityVisualsRoot.HasEvents.ShouldBeFalse();
+    }
+
 }

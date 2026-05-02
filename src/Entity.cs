@@ -456,7 +456,7 @@ public class Entity : ICollidable, IAttachable
     public void Remove(GraphicalUiElement visual)
     {
         _gumChildren.Remove(visual);
-        _engine?.CurrentScreen?.Remove(visual);
+        _engine?.CurrentScreen?.RemoveGumForEntity(visual);
     }
 
     /// <summary>Removes a Gum Forms control previously added with <see cref="Add(FrameworkElement, Layer?)"/>.</summary>
@@ -560,7 +560,7 @@ public class Entity : ICollidable, IAttachable
         CustomDestroy();
         _tweens.Clear();
         foreach (var visual in _gumChildren)
-            _engine?.CurrentScreen?.Remove(visual);
+            _engine?.CurrentScreen?.RemoveGumForEntity(visual);
         _gumChildren.Clear();
         Parent?.Remove(this);
         foreach (var child in new List<IAttachable>(_children))
@@ -596,7 +596,7 @@ public class Entity : ICollidable, IAttachable
         var screen = _engine?.CurrentScreen;
         if (screen == null) return;
         foreach (var visual in _gumChildren)
-            screen.Remove(visual);
+            screen.RemoveGumForEntity(visual);
         foreach (var child in _children)
         {
             if (child is IRenderable renderable)

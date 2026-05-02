@@ -812,6 +812,12 @@ public class FlatRedBallService
             // UpdateLayout when dims change).
             _gumUpdateList.Clear();
             _gumUpdateList.Add(_gum.Root);
+            // EntityVisualsRoot sits between _gum.Root and the per-camera UiRoots so that
+            // entity-attached visuals have lower cursor priority than HUD elements (which
+            // live on Camera.UiRoot) and far lower than modal overlays (OverlayRoot, last).
+            // This matches the visual stacking: world-projected entity Gum draws beneath HUD,
+            // so its input dispatch should also lose to HUD on overlap.
+            _gumUpdateList.Add(CurrentScreen.EntityVisualsRoot);
             for (int i = 0; i < CurrentScreen.Cameras.Count; i++)
                 _gumUpdateList.Add(CurrentScreen.Cameras[i].UiRoot);
             _gumUpdateList.Add(CurrentScreen.OverlayRoot);
@@ -910,6 +916,11 @@ public class FlatRedBallService
             _overlayCamera.ApplyToHostRect(fullWindow, pp.BackBufferHeight);
             CurrentScreen.OverlayRoot.Width  = pp.BackBufferWidth;
             CurrentScreen.OverlayRoot.Height = pp.BackBufferHeight;
+            // Entity visuals are world-projected; their canvas position is written each frame
+            // by GumRenderable.Draw. Size their root to the back buffer so children laid out
+            // in canvas pixels are not clipped/culled by the parent's bounds.
+            CurrentScreen.EntityVisualsRoot.Width  = pp.BackBufferWidth;
+            CurrentScreen.EntityVisualsRoot.Height = pp.BackBufferHeight;
             CurrentScreen.DrawOverlay(_spriteBatch, RenderDiagnostics, _overlayCamera);
         }
 
