@@ -17,20 +17,9 @@ Possible directions:
 - Or reach into Gum's Forms input system to register entity-attached `FrameworkElement`s as input-eligible without re-parenting.
 - Either way: fixing this also fixes per-element hot-reload for entity visuals (no screen restart needed), so it's worth doing properly rather than papering over each symptom.
 
-## Window resize misaligns world-space cards in Solitaire
+## Deterministic seeds for game-owned Randoms under automation mode
 
-Resizing the Solitaire window causes every card to draw at an offset from its slot. Cards
-are positioned via `SlotWorldCenter` which converts a Gum slot's `AbsoluteLeft/Top` (canvas
-space) into world coords by subtracting half the camera's orthogonal extents — but on resize
-the canvas-to-world relationship shifts (Pattern A stretch-to-viewport), and either the slot
-absolutes, the camera extents, or the cached anchor positions go stale. Repro: launch
-Solitaire desktop, resize the window, observe cards drift relative to the green-felt slot
-graphics. Decide whether the fix belongs in the sample (re-run layout on resize), in the
-engine's world↔canvas helper, or in Gum's resize signaling.
-
-## Deterministic randoms under automation mode
-
-When automation mode is active, `FlatRedBallService.Random` (and any other engine-owned `GameRandom` paths) should seed deterministically so that recorded automation runs reproduce exactly. Game code that constructs its own `Random` / `GameRandom` should still get a well-defined seed when it asks the engine for one, so non-determinism doesn't sneak in through `new Random()` calls. Open question: how the seed is communicated (env var, automation-mode init field, dedicated `AutomationOptions.Seed`?) — settle that before implementing.
+`FlatRedBallService.Random` is now seeded deterministically when automation activates (via `EnableAutomationMode(seed)`). What's still open: game code that constructs its own `Random` / `GameRandom` doesn't go through the engine's instance, so `new Random()` calls leak non-determinism into recorded runs. Need an API for game code to ask the engine for a seed (e.g. `FlatRedBallService.NextSeed()` derived from the engine's seeded sequence) so all gameplay randomness collapses onto one reproducible chain. Decide whether this should also retroactively cover libraries the engine consumes that allocate their own RNG internally, or whether that's strictly the game's problem.
 
 ## Web load times for large Gum projects
 
