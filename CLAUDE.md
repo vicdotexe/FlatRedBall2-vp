@@ -50,6 +50,7 @@ Invoke these with the Skill tool when working on specific topics:
 - `screens` — Screen lifecycle and transitions
 - `gumcli` — **Ask first** before any Gum UI code: use gumcli tool or code-only? Covers gumcli new, .csproj content includes, codegen
 - `gum-integration` — UI with Gum (runtime usage; use `gumcli` skill first if user chose Gum tool)
+- `gum-packaging` — Bundle a `.gumx` Gum project into a single `.gumpkg` (tar+brotli) for distribution; toggle loose-vs-bundle in csproj for diagnostics
 - `content-and-assets` — Asset loading
 - `content-hot-reload` — `Screen.WatchContent`, `ContentWatcher`, debouncing, in-place vs screen-restart decision
 - `engine-overview` — **Start here.** What the engine does automatically, what game code must implement, what is stubbed, and critical gotchas

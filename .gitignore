@@ -2,6 +2,9 @@
 **/bin/
 **/obj/
 
+# Gum bundle output (produced by `gumcli pack`; loose source is checked in)
+**/*.gumpkg
+
 # Visual Studio / Rider / IDE
 **/.vs/
 
@@ -30,6 +33,7 @@
 /.claude/skills/entities-and-factories
 /.claude/skills/grid-movement
 /.claude/skills/gum-integration
+/.claude/skills/gum-packaging
 /.claude/skills/gumcli
 /.claude/skills/input-system
 /.claude/skills/levels

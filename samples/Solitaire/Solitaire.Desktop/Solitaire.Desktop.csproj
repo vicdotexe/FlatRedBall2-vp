@@ -21,10 +21,22 @@
     <ProjectReference Include="..\Solitaire.Common\Solitaire.Common.csproj" />
   </ItemGroup>
 
-  <!-- Link Common's Gum project files into Desktop's Content/ output. -->
-  <ItemGroup>
+  <!--
+    Link Common's Gum project files into Desktop's Content/ output.
+    See ../Solitaire.GumPackage.targets for the UseGumPackage toggle.
+  -->
+  <Import Project="..\Solitaire.GumPackage.targets" />
+
+  <ItemGroup Condition="'$(UseGumPackage)' != 'true'">
     <Content Include="..\Solitaire.Common\Content\GumProject\**\*.*"
+             Exclude="..\Solitaire.Common\Content\GumProject\**\*.gumpkg"
              Link="Content\GumProject\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseGumPackage)' == 'true'">
+    <Content Include="..\Solitaire.Common\Content\GumProject\GumProject.gumpkg"
+             Link="Content\GumProject\GumProject.gumpkg"
              CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

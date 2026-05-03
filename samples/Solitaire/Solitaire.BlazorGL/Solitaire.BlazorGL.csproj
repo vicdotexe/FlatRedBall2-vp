@@ -46,10 +46,25 @@
   <!--
     Common's Gum project files must land in the project's PHYSICAL wwwroot/Content/ so
     Blazor's static-web-asset manifest serves them. Source of truth lives in Common.
+
+    See ../Solitaire.GumPackage.targets for the UseGumPackage toggle. In bundle mode
+    we exclude the loose Gum files so the runtime falls back to the .gumpkg sibling.
   -->
-  <ItemGroup>
+  <Import Project="..\Solitaire.GumPackage.targets" />
+
+  <ItemGroup Condition="'$(UseGumPackage)' != 'true'">
     <_CommonRawAssets Include="..\Solitaire.Common\Content\**\*.*"
-                      Exclude="..\Solitaire.Common\Content\**\*.mgcb;..\Solitaire.Common\Content\bin\**;..\Solitaire.Common\Content\obj\**" />
+                      Exclude="..\Solitaire.Common\Content\**\*.mgcb;..\Solitaire.Common\Content\bin\**;..\Solitaire.Common\Content\obj\**;..\Solitaire.Common\Content\**\*.gumpkg" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseGumPackage)' == 'true'">
+    <!-- Ship everything outside GumProject/ as-is, plus the single .gumpkg from inside GumProject/. -->
+    <_CommonRawAssets Include="..\Solitaire.Common\Content\**\*.*"
+                      Exclude="..\Solitaire.Common\Content\**\*.mgcb;..\Solitaire.Common\Content\bin\**;..\Solitaire.Common\Content\obj\**;..\Solitaire.Common\Content\GumProject\**\*.*" />
+    <!-- Glob form ensures the CopyCommonRawAssetsToWwwroot target's %(RecursiveDir)
+         resolves to "GumProject\" so the file lands at wwwroot/Content/GumProject/GumProject.gumpkg
+         (sibling of where the .gumx would be in loose mode). -->
+    <_CommonRawAssets Include="..\Solitaire.Common\Content\**\*.gumpkg" />
   </ItemGroup>
   <Target Name="CopyCommonRawAssetsToWwwroot"
           BeforeTargets="GenerateStaticWebAssetsManifest;AssignTargetPaths"

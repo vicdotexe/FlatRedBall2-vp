@@ -228,6 +228,19 @@ public class FlatRedBallService
 
         game.Window.ClientSizeChanged += HandleClientSizeChanged;
 
+#if KNI
+        // KNI/Blazor has no real filesystem — content lives behind TitleContainer (HTTP on
+        // BlazorGL, AssetManager on Android, NSBundle on iOS). Gum's FileManager only auto-
+        // routes to TitleContainer on Android/iOS; on every other KNI target we install the
+        // hook explicitly so Gum reads (loose .gumx, .gumpkg, textures, fonts, CSV/RESX)
+        // resolve against deployed content. Compose with any pre-existing host hook so we
+        // don't clobber a game that has set up its own asset bundling.
+        if (ToolsUtilities.FileManager.CustomGetStreamFromFile == null)
+        {
+            ToolsUtilities.FileManager.CustomGetStreamFromFile = Microsoft.Xna.Framework.TitleContainer.OpenStream;
+        }
+#endif
+
         if (settings?.GumProjectFile is string gumProjectFile)
         {
             _gum.Initialize(game, gumProjectFile);
