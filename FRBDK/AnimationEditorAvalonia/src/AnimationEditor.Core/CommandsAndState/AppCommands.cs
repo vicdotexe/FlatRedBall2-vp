@@ -97,7 +97,7 @@ namespace AnimationEditor.Core.CommandsAndState
             var target = fileName ?? ProjectManager.Self.FileName;
             if (!string.IsNullOrEmpty(target))
             {
-                ProjectManager.Self.AnimationChainListSave?.Save(target);
+                ProjectManager.Self.SaveAnimationChainList(target);
             }
         }
 
@@ -683,6 +683,7 @@ namespace AnimationEditor.Core.CommandsAndState
         {
             ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
             ProjectManager.Self.FileName = string.Empty;
+            ProjectManager.Self.OnDiskCoordinateType = FlatRedBall.Graphics.TextureCoordinateType.Pixel;
             SelectedState.Self.SelectedChain = null;
             SelectedState.Self.SelectedFrame = null;
             RefreshTreeViewRequested?.Invoke();

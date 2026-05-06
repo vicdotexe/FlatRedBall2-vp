@@ -47,7 +47,10 @@ public class WireframeControl : Control
     /// </summary>
     private sealed class RenderSnapshot
     {
-        public SKBitmap? Bitmap;
+        // SKImage (not SKBitmap) — immutable and explicitly safe to read on the
+        // Avalonia render thread while the UI thread holds the source bitmap.
+        public SKImage? Image;
+        public int ImageWidth, ImageHeight;
         public float PanX, PanY, Zoom;
         public bool ShowGrid;
         public int GridSize;
@@ -83,17 +86,17 @@ public class WireframeControl : Control
         {
             canvas.Clear(new SKColor(30, 30, 30));
 
-            if (s.Bitmap != null)
+            if (s.Image != null)
             {
                 var dest = new SKRect(
                     s.PanX, s.PanY,
-                    s.PanX + s.Bitmap.Width * s.Zoom,
-                    s.PanY + s.Bitmap.Height * s.Zoom);
+                    s.PanX + s.ImageWidth * s.Zoom,
+                    s.PanY + s.ImageHeight * s.Zoom);
 
                 // Texture image — point sampling when zoomed ≥ 1× for pixel-art fidelity
                 using var imgPaint = new SKPaint();
                 imgPaint.FilterQuality = s.Zoom >= 1f ? SKFilterQuality.None : SKFilterQuality.Low;
-                canvas.DrawBitmap(s.Bitmap, dest, imgPaint);
+                canvas.DrawImage(s.Image, dest, imgPaint);
 
                 // Outline around whole texture
                 using var outlinePaint = new SKPaint
@@ -204,6 +207,9 @@ public class WireframeControl : Control
     // ── Fields ────────────────────────────────────────────────────────────────
 
     private SKBitmap? _bitmap;
+    // Immutable GPU-uploadable copy of _bitmap, built on the UI thread and
+    // safe to draw from the Avalonia render thread.
+    private SKImage? _image;
     private string? _loadedTexturePath;
     private InspectableImage? _inspectableImage;
 
@@ -705,6 +711,8 @@ public class WireframeControl : Control
             _cameraByTexture[_loadedTexturePath] = (_panX, _panY, _zoom);
 
         _loadedTexturePath = norm;
+        _image?.Dispose();
+        _image = null;
         _bitmap?.Dispose();
         _bitmap = null;
         _inspectableImage = null;
@@ -712,6 +720,10 @@ public class WireframeControl : Control
         if (norm != null && File.Exists(norm))
         {
             _bitmap = SKBitmap.Decode(norm);
+            // Upload pixels into an immutable SKImage on the UI thread so the
+            // render thread never touches the SKBitmap directly. Without this,
+            // SKCanvas.DrawBitmap on the render thread crashes with AV.
+            _image = SKImage.FromBitmap(_bitmap);
 
             if (_isMagicWandMode)
                 _inspectableImage = new InspectableImage(_bitmap);
@@ -993,7 +1005,9 @@ public class WireframeControl : Control
     {
         var snap = new RenderSnapshot
         {
-            Bitmap       = _bitmap,
+            Image        = _image,
+            ImageWidth   = _bitmap?.Width ?? 0,
+            ImageHeight  = _bitmap?.Height ?? 0,
             PanX         = _panX,
             PanY         = _panY,
             Zoom         = _zoom,
