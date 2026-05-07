@@ -690,11 +690,9 @@ public class WireframeControl : Control
     {
         // Normalise path for comparison
         string? norm = string.IsNullOrEmpty(filePath) ? null : new FilePath(filePath).Standardized;
-        Console.WriteLine($"[Wireframe] LoadTexture: filePath={filePath ?? "(null)"}, norm={norm ?? "(null)"}, _loadedTexturePath={_loadedTexturePath ?? "(null)"}, fileExists={norm != null && File.Exists(norm)}");
 
         if (_loadedTexturePath == norm)
         {
-            Console.WriteLine("[Wireframe] LoadTexture: same texture – refreshing frames only");
             // Texture hasn't changed, but the selected frame may have, so update frame rects.
             RefreshFramesInternal();
             return;
@@ -740,7 +738,6 @@ public class WireframeControl : Control
     public void RefreshAll()
     {
         var path = DetermineTexturePath();
-        Console.WriteLine($"[Wireframe] RefreshAll: DetermineTexturePath={path ?? "(null)"}");
         LoadTexture(path);
     }
 
@@ -768,9 +765,67 @@ public class WireframeControl : Control
     {
         _showGrid = show;
         _gridSize = cellSize;
-        // RefreshFramesInternal re-snaps displayed bounds (and UV data) to the new
-        // grid settings so existing frames immediately align to grid lines.
+        // Snap and write UV back when grid is enabled so existing frames immediately
+        // align to grid lines.  This is the only place that mutates frame UV data;
+        // passive RefreshFramesInternal calls (e.g. from SelectionChanged) do not.
+        ApplyGridSnap();
         RefreshFramesInternal();
+    }
+
+    /// <summary>
+    /// Snaps the UV coordinates of every currently-visible frame to the active
+    /// grid and writes them back to the <see cref="AnimationFrameSave"/> objects.
+    /// Called only from <see cref="SetGrid"/> so that passive refreshes triggered
+    /// by selection changes cannot silently corrupt animation data.
+    /// </summary>
+    private void ApplyGridSnap()
+    {
+        if (!_showGrid || _gridSize <= 0 || _bitmap is null) return;
+
+        var selectedFrame  = SelectedState.Self.SelectedFrame;
+        var selectedChain  = SelectedState.Self.SelectedChain;
+        var selectedChains = SelectedState.Self.SelectedChains;
+
+        string? achxFolder = string.IsNullOrEmpty(ProjectManager.Self.FileName)
+            ? null
+            : FlatRedBall.IO.FileManager.GetDirectory(ProjectManager.Self.FileName);
+
+        IEnumerable<AnimationFrameSave> framesToSnap;
+        if (selectedFrame != null)
+            framesToSnap = new[] { selectedFrame };
+        else if (selectedChains?.Count > 0)
+            framesToSnap = selectedChains.SelectMany(c => c.Frames);
+        else if (selectedChain?.Frames != null)
+            framesToSnap = selectedChain.Frames;
+        else
+            return;
+
+        float w = _bitmap.Width;
+        float h = _bitmap.Height;
+        static float Snap(float v, int g) => MathF.Round(v / g) * g;
+
+        foreach (var frame in framesToSnap)
+        {
+            if (string.IsNullOrEmpty(frame.TextureName)) continue;
+
+            if (achxFolder != null && _loadedTexturePath != null)
+            {
+                var fp = new FilePath(achxFolder + frame.TextureName);
+                if (!fp.Equals(new FilePath(_loadedTexturePath))) continue;
+            }
+
+            float pixL = Snap(frame.LeftCoordinate   * w, _gridSize);
+            float pixT = Snap(frame.TopCoordinate    * h, _gridSize);
+            float pixR = Snap(frame.RightCoordinate  * w, _gridSize);
+            float pixB = Snap(frame.BottomCoordinate * h, _gridSize);
+            if (pixR <= pixL) pixR = pixL + _gridSize;
+            if (pixB <= pixT) pixB = pixT + _gridSize;
+
+            frame.LeftCoordinate   = pixL / w;
+            frame.RightCoordinate  = pixR / w;
+            frame.TopCoordinate    = pixT / h;
+            frame.BottomCoordinate = pixB / h;
+        }
     }
 
     /// <summary>
@@ -1520,8 +1575,9 @@ public class WireframeControl : Control
 
             if (_showGrid && _gridSize > 0)
             {
-                // Snap all 4 edges to the nearest grid line so the boundary box
-                // always sits on grid line intersections when grid mode is active.
+                // Snap the display coordinates to grid line intersections.
+                // UV write-back is intentionally omitted here; it is the sole
+                // responsibility of ApplyGridSnap (called from SetGrid).
                 static float Snap(float v, int g) => MathF.Round(v / g) * g;
                 pixL = Snap(pixL, _gridSize);
                 pixT = Snap(pixT, _gridSize);
@@ -1529,11 +1585,6 @@ public class WireframeControl : Control
                 pixB = Snap(pixB, _gridSize);
                 if (pixR <= pixL) pixR = pixL + _gridSize;
                 if (pixB <= pixT) pixB = pixT + _gridSize;
-                // Write snapped UV back so data matches what is displayed.
-                frame.LeftCoordinate   = pixL / w;
-                frame.RightCoordinate  = pixR / w;
-                frame.TopCoordinate    = pixT / h;
-                frame.BottomCoordinate = pixB / h;
             }
 
             _frameRects.Add(new FrameRect
@@ -1582,8 +1633,6 @@ public class WireframeControl : Control
     {
         string? textureName = SelectedState.Self.SelectedFrame?.TextureName
                            ?? SelectedState.Self.SelectedChain?.Frames?.FirstOrDefault()?.TextureName;
-
-        Console.WriteLine($"[Wireframe] DetermineTexturePath: SelectedFrame={SelectedState.Self.SelectedFrame?.TextureName ?? "(null)"}, textureName={textureName ?? "(null)"}, FileName={ProjectManager.Self.FileName ?? "(null)"}");
 
         if (string.IsNullOrEmpty(textureName))
             return null;

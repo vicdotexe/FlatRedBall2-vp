@@ -93,21 +93,35 @@ public static class TreeBuilder
     /// <see cref="SelectedState"/> property.
     /// Returns <c>true</c> when the node's <see cref="TreeNodeVm.Data"/> matched
     /// a known type.
+    /// <para>
+    /// Only applies the selection when the data object is reachable from
+    /// <see cref="ProjectManager.Self"/>'s current chain list, preventing
+    /// stale tree nodes (e.g. from lingering UI callbacks after a test resets
+    /// the project) from overwriting live selection state.
+    /// </para>
     /// </summary>
     public static bool RouteNodeSelection(TreeNodeVm vm)
     {
+        var acls = ProjectManager.Self.AnimationChainListSave;
+
         switch (vm.Data)
         {
             case AnimationChainSave chain:
+                if (acls is null || !acls.AnimationChains.Contains(chain))
+                    return true; // stale — recognised type, but don't corrupt state
                 // Re-assign even if chain is the same object when a frame is selected,
                 // so that SelectedChain setter clears SelectedFrame and fires SelectionChanged.
                 if (SelectedState.Self.SelectedChain != chain || SelectedState.Self.SelectedFrame != null)
                     SelectedState.Self.SelectedChain = chain;
                 return true;
             case AnimationFrameSave frame:
+            {
+                if (acls is null || !acls.AnimationChains.Any(c => c.Frames.Contains(frame)))
+                    return true; // stale — recognised type, but don't corrupt state
                 if (SelectedState.Self.SelectedFrame != frame)
                     SelectedState.Self.SelectedFrame = frame;
                 return true;
+            }
             case AxisAlignedRectangleSave rect:
                 if (SelectedState.Self.SelectedRectangle != rect)
                     SelectedState.Self.SelectedRectangle = rect;

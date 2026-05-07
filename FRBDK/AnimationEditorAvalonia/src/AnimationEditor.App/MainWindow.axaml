@@ -32,76 +32,6 @@
             </MenuItem>
         </Menu>
 
-        <!-- ── Wireframe toolbar ── -->
-        <Border DockPanel.Dock="Top"
-                BorderBrush="#333"
-                BorderThickness="0,0,0,1"
-                Background="#1e1e1e"
-                Padding="4,3">
-            <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <!-- Texture label + combo hidden for now — multi-texture support is planned for a future milestone.
-                     Do not remove; set IsVisible="True" and re-enable when the multi-texture feature is implemented. -->
-                <TextBlock Text="Texture:" VerticalAlignment="Center" Margin="0,0,4,0" Foreground="LightGray" IsVisible="False" />
-                <ComboBox x:Name="TextureCombo"
-                          MinWidth="220"
-                          MaxWidth="400"
-                          Margin="0,0,12,0"
-                          PlaceholderText="(none)"
-                          IsVisible="False" />
-
-                <ToggleButton x:Name="MagicWandToggle"
-                              Content="✦ Magic Wand"
-                              Margin="0,0,6,0"
-                              ToolTip.Tip="Click = set frame; Ctrl+Click = add new frame" />
-
-                <CheckBox x:Name="SnapToGridCheck"
-                          Content="Grid"
-                          VerticalAlignment="Center"
-                          Margin="0,0,4,0" />
-
-                <TextBox x:Name="GridSizeInput"
-                         Width="40"
-                         Text="16"
-                         VerticalAlignment="Center"
-                         Margin="0,0,2,0"
-                         IsEnabled="{Binding #SnapToGridCheck.IsChecked}"
-                         KeyDown="OnGridSizeInputKeyDown" />
-                <Button x:Name="GridSizePlusBtn"
-                        Classes="compact"
-                        Content="+"
-                        Width="28" Height="28"
-                        Padding="0"
-                        HorizontalContentAlignment="Center"
-                        VerticalContentAlignment="Center"
-                        Margin="0,0,1,0"
-                        VerticalAlignment="Center"
-                        IsEnabled="{Binding #SnapToGridCheck.IsChecked}" />
-                <Button x:Name="GridSizeMinusBtn"
-                        Classes="compact"
-                        Content="-"
-                        Width="28" Height="28"
-                        Padding="0"
-                        HorizontalContentAlignment="Center"
-                        VerticalContentAlignment="Center"
-                        Margin="0,0,12,0"
-                        VerticalAlignment="Center"
-                        IsEnabled="{Binding #SnapToGridCheck.IsChecked}" />
-
-                <TextBlock Text="Zoom:" VerticalAlignment="Center" Margin="0,0,4,0" Foreground="LightGray" />
-                <ComboBox x:Name="ZoomCombo"
-                          Width="90"
-                          SelectedIndex="3">
-                    <ComboBoxItem Content="10%" />
-                    <ComboBoxItem Content="25%" />
-                    <ComboBoxItem Content="50%" />
-                    <ComboBoxItem Content="100%" />
-                    <ComboBoxItem Content="200%" />
-                    <ComboBoxItem Content="400%" />
-                    <ComboBoxItem Content="800%" />
-                </ComboBox>
-            </WrapPanel>
-        </Border>
-
         <!-- ── Main content: TreeView | Property Panel | [Wireframe / Preview] ── -->
         <Grid ColumnDefinitions="220,4,240,4,*">
 
@@ -173,26 +103,96 @@
                           Background="#444"
                           HorizontalAlignment="Stretch" />
 
-            <!-- ── Right: Wireframe (top) + Preview (bottom) ── -->
-            <Grid Grid.Column="4" RowDefinitions="*,4,250">
+            <!-- ── Right: Wireframe toolbar + Wireframe + Preview ── -->
+            <Grid Grid.Column="4" RowDefinitions="Auto,*,4,250">
+
+                <!-- ── Wireframe toolbar ── -->
+                <Border Grid.Row="0"
+                        BorderBrush="#333"
+                        BorderThickness="0,0,0,1"
+                        Background="#1e1e1e"
+                        Padding="4,3">
+                    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Texture label + combo hidden for now — multi-texture support is planned for a future milestone.
+                             Do not remove; set IsVisible="True" and re-enable when the multi-texture feature is implemented. -->
+                        <TextBlock Text="Texture:" VerticalAlignment="Center" Margin="0,0,4,0" Foreground="LightGray" IsVisible="False" />
+                        <ComboBox x:Name="TextureCombo"
+                                  MinWidth="220"
+                                  MaxWidth="400"
+                                  Margin="0,0,12,0"
+                                  PlaceholderText="(none)"
+                                  IsVisible="False" />
+
+                        <ToggleButton x:Name="MagicWandToggle"
+                                      Content="✦ Magic Wand"
+                                      Margin="0,0,6,0"
+                                      ToolTip.Tip="Click = set frame; Ctrl+Click = add new frame" />
+
+                        <CheckBox x:Name="SnapToGridCheck"
+                                  Content="Grid"
+                                  VerticalAlignment="Center"
+                                  Margin="0,0,4,0" />
+
+                        <TextBox x:Name="GridSizeInput"
+                                 Width="40"
+                                 Text="16"
+                                 VerticalAlignment="Center"
+                                 Margin="0,0,2,0"
+                                 IsEnabled="{Binding #SnapToGridCheck.IsChecked}"
+                                 KeyDown="OnGridSizeInputKeyDown" />
+                        <Button x:Name="GridSizePlusBtn"
+                                Classes="compact"
+                                Content="+"
+                                Width="28" Height="28"
+                                Padding="0"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Margin="0,0,1,0"
+                                VerticalAlignment="Center"
+                                IsEnabled="{Binding #SnapToGridCheck.IsChecked}" />
+                        <Button x:Name="GridSizeMinusBtn"
+                                Classes="compact"
+                                Content="-"
+                                Width="28" Height="28"
+                                Padding="0"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Margin="0,0,12,0"
+                                VerticalAlignment="Center"
+                                IsEnabled="{Binding #SnapToGridCheck.IsChecked}" />
+
+                        <TextBlock Text="Zoom:" VerticalAlignment="Center" Margin="0,0,4,0" Foreground="LightGray" />
+                        <ComboBox x:Name="ZoomCombo"
+                                  Width="90"
+                                  SelectedIndex="3">
+                            <ComboBoxItem Content="10%" />
+                            <ComboBoxItem Content="25%" />
+                            <ComboBoxItem Content="50%" />
+                            <ComboBoxItem Content="100%" />
+                            <ComboBoxItem Content="200%" />
+                            <ComboBoxItem Content="400%" />
+                            <ComboBoxItem Content="800%" />
+                        </ComboBox>
+                    </WrapPanel>
+                </Border>
 
                 <!-- Wireframe panel fills top, with scrollbars -->
                 <ScrollViewer x:Name="WireframeScrollViewer"
-                              Grid.Row="0"
+                              Grid.Row="1"
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Auto">
                     <controls:WireframeControl x:Name="WireframeCtrl" />
                 </ScrollViewer>
 
                 <!-- Horizontal splitter between wireframe and preview -->
-                <GridSplitter Grid.Row="1"
+                <GridSplitter Grid.Row="2"
                               ResizeDirection="Rows"
                               Background="#444"
                               HorizontalAlignment="Stretch" />
 
                 <!-- ── Preview block: toolbar + animated canvas ── -->
-                <!-- GridSplitter at Row 1 resizes Row 0 (wireframe) and Row 2 (this block). -->
-                <Grid Grid.Row="2" RowDefinitions="Auto,*" MinHeight="80">
+                <!-- GridSplitter at Row 2 resizes Row 1 (wireframe) and Row 3 (this block). -->
+                <Grid Grid.Row="3" RowDefinitions="Auto,*" MinHeight="80">
 
                     <!-- ── Preview toolbar ── -->
                     <Border Grid.Row="0"

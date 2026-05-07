@@ -13,40 +13,40 @@ public class AppCommandsChainTests
     // ── AddAnimationChain ────────────────────────────────────────────────────
 
     [Fact]
-    public void AddAnimationChain_AddsChainToAcls()
+    public async Task AddAnimationChain_AddsChainToAcls()
     {
         var acls = TestHelpers.SetupFreshAcls();
 
-        AppCommands.Self.AddAnimationChain();
+        await AppCommands.Self.AddAnimationChain();
 
         Assert.Single(acls.AnimationChains);
     }
 
     [Fact]
-    public void AddAnimationChain_UsesUniqueNamesWhenCalledMultipleTimes()
+    public async Task AddAnimationChain_UsesUniqueNamesWhenCalledMultipleTimes()
     {
         var acls = TestHelpers.SetupFreshAcls();
 
-        AppCommands.Self.AddAnimationChain();
-        AppCommands.Self.AddAnimationChain();
-        AppCommands.Self.AddAnimationChain();
+        await AppCommands.Self.AddAnimationChain();
+        await AppCommands.Self.AddAnimationChain();
+        await AppCommands.Self.AddAnimationChain();
 
         var names = acls.AnimationChains.Select(c => c.Name).ToList();
         Assert.Equal(3, names.Distinct().Count());
     }
 
     [Fact]
-    public void AddAnimationChain_SetsSelectedChain()
+    public async Task AddAnimationChain_SetsSelectedChain()
     {
         TestHelpers.SetupFreshAcls();
 
-        AppCommands.Self.AddAnimationChain();
+        await AppCommands.Self.AddAnimationChain();
 
         Assert.NotNull(SelectedState.Self.SelectedChain);
     }
 
     [Fact]
-    public void AddAnimationChain_FiresAnimationChainsChanged()
+    public async Task AddAnimationChain_FiresAnimationChainsChanged()
     {
         TestHelpers.SetupFreshAcls();
         bool fired = false;
@@ -54,7 +54,7 @@ public class AppCommandsChainTests
         ApplicationEvents.Self.AnimationChainsChanged += Handler;
         try
         {
-            AppCommands.Self.AddAnimationChain();
+            await AppCommands.Self.AddAnimationChain();
             Assert.True(fired, "AnimationChainsChanged was not raised.");
         }
         finally
@@ -64,13 +64,35 @@ public class AppCommandsChainTests
     }
 
     [Fact]
-    public void AddAnimationChain_WhenAclsIsNull_DoesNotThrow()
+    public async Task AddAnimationChain_WhenAclsIsNull_DoesNotThrow()
     {
         TestHelpers.SetupFreshAcls();
         ProjectManager.Self.AnimationChainListSave = null;
 
         // Should silently do nothing
-        AppCommands.Self.AddAnimationChain();
+        await AppCommands.Self.AddAnimationChain();
+    }
+
+    [Fact]
+    public async Task AddAnimationChain_UsesNameFromPrompt()
+    {
+        var acls = TestHelpers.SetupFreshAcls();
+        AppCommands.Self.PromptStringAsync = (_, _, _) => Task.FromResult<string?>("WalkRight");
+
+        await AppCommands.Self.AddAnimationChain();
+
+        Assert.Equal("WalkRight", acls.AnimationChains[0].Name);
+    }
+
+    [Fact]
+    public async Task AddAnimationChain_WhenCancelled_DoesNotAdd()
+    {
+        var acls = TestHelpers.SetupFreshAcls();
+        AppCommands.Self.PromptStringAsync = (_, _, _) => Task.FromResult<string?>(null);
+
+        await AppCommands.Self.AddAnimationChain();
+
+        Assert.Empty(acls.AnimationChains);
     }
 
     // ── MoveChain ────────────────────────────────────────────────────────────

@@ -231,10 +231,13 @@ public class PreviewControl : Control
             return File.Exists(frame.TextureName) ? frame.TextureName : null;
 
         // Relative path: requires a saved ACHX to derive the base folder.
-        if (string.IsNullOrEmpty(ProjectManager.Self.FileName)) return null;
+        if (string.IsNullOrEmpty(ProjectManager.Self.FileName))
+            return null;
         string achxFolder = FlatRedBall.IO.FileManager.GetDirectory(ProjectManager.Self.FileName);
         string full = new FilePath(achxFolder + frame.TextureName).FullPath;
-        return File.Exists(full) ? full : null;
+        if (!File.Exists(full))
+            return null;
+        return full;
     }
 
     // ── Avalonia rendering ────────────────────────────────────────────────────

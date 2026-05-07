@@ -82,6 +82,7 @@ public partial class MainWindow : Window
     {
         AppCommands.Self.DoOnUiThread = action => Dispatcher.UIThread.InvokeAsync(action);
         AppCommands.Self.ConfirmAsync = ShowConfirmDialogAsync;
+        AppCommands.Self.PromptStringAsync = ShowStringInputDialogAsync;
 
         // File dialog service
         AppCommands.Self.FileDialogService = new Services.AvaloniaFileDialogService(this);
@@ -547,7 +548,7 @@ public partial class MainWindow : Window
         {
             if (ProjectManager.Self.AnimationChainListSave is null)
                 ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
-            AppCommands.Self.AddAnimationChain();
+            _ = AppCommands.Self.AddAnimationChain();
         };
 
         // Expand/Collapse toolbar buttons
@@ -874,7 +875,7 @@ public partial class MainWindow : Window
             AddMenuItem("Flip Vertically",    () => AppCommands.Self.FlipChainVertically(chain));
             AddMenuItem("Invert Frame Order", () => AppCommands.Self.InvertFrameOrder(chain));
             AddSeparator();
-            AddMenuItem("Add AnimationChain", () => AppCommands.Self.AddAnimationChain());
+            AddMenuItem("Add AnimationChain", () => _ = AppCommands.Self.AddAnimationChain());
             AddMenuItem("Add Frame",          () => AppCommands.Self.AddFrame(chain));
             AddMenuItem("Add Multiple Frames…", () => _ = AskAddMultipleFramesAsync(chain));
             AddSeparator();
@@ -897,7 +898,7 @@ public partial class MainWindow : Window
             {
                 if (ProjectManager.Self.AnimationChainListSave is null)
                     ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
-                AppCommands.Self.AddAnimationChain();
+                _ = AppCommands.Self.AddAnimationChain();
             });
         }
 
@@ -1299,7 +1300,7 @@ public partial class MainWindow : Window
         PixelFrameEditor.SetWidth(frame,  (int)PropPixelW.Value.Value, bmpW);
         PixelFrameEditor.SetHeight(frame, (int)PropPixelH.Value.Value, bmpH);
         ApplicationEvents.Self.RaiseAnimationChainsChanged();
-        AppCommands.Self.RefreshWireframe();
+        WireframeCtrl.RefreshFrames();
     }
 
     private void ApplyFrameTcCoords()
@@ -1312,7 +1313,7 @@ public partial class MainWindow : Window
         if (PropTcTop.Value.HasValue)    frame.TopCoordinate    = (float)PropTcTop.Value.Value;
         if (PropTcBottom.Value.HasValue) frame.BottomCoordinate = (float)PropTcBottom.Value.Value;
         ApplicationEvents.Self.RaiseAnimationChainsChanged();
-        AppCommands.Self.RefreshWireframe();
+        WireframeCtrl.RefreshFrames();
     }
 
     private void UpdateCellPxDisplays()
@@ -1369,7 +1370,7 @@ public partial class MainWindow : Window
         frame.TopCoordinate    = top;
         frame.BottomCoordinate = bot;
         ApplicationEvents.Self.RaiseAnimationChainsChanged();
-        AppCommands.Self.RefreshWireframe();
+        WireframeCtrl.RefreshFrames();
     }
 
     private void ApplyRectProps()

@@ -32,6 +32,14 @@ namespace AnimationEditor.Core.CommandsAndState
             (message, title) => Task.FromResult(true);
 
         /// <summary>
+        /// Show a text-input dialog and return the typed value, or <c>null</c> if the user
+        /// cancelled. Parameters: title, prompt, initial value.
+        /// Wired by the app layer to an Avalonia text-input dialog.
+        /// </summary>
+        public Func<string, string, string, Task<string?>> PromptStringAsync { get; set; } =
+            (title, prompt, initial) => Task.FromResult<string?>(initial);
+
+        /// <summary>
         /// Request a full tree-view refresh. Raised instead of calling TreeViewManager directly.
         /// </summary>
         public event Action RefreshTreeViewRequested;
@@ -283,15 +291,21 @@ namespace AnimationEditor.Core.CommandsAndState
 
         // ── Chain / Frame operations ──────────────────────────────────────────
 
-        public void AddAnimationChain()
+        public async Task AddAnimationChain()
         {
             var acls = ProjectManager.Self.AnimationChainListSave;
             if (acls is null) return;
 
-            var newName = StringFunctions.MakeStringUnique(
-                "NewAnimation",
-                acls.AnimationChains.Select(c => c.Name).ToList());
-            var chain = new AnimationChainSave { Name = newName };
+            var existingNames = acls.AnimationChains.Select(c => c.Name).ToList();
+            var defaultName = StringFunctions.MakeStringUnique("NewAnimation", existingNames);
+
+            var name = await PromptStringAsync("Add Animation", "Animation name:", defaultName);
+            if (name is null) return;
+            name = name.Trim();
+            if (string.IsNullOrEmpty(name)) return;
+
+            name = StringFunctions.MakeStringUnique(name, acls.AnimationChains.Select(c => c.Name).ToList());
+            var chain = new AnimationChainSave { Name = name };
             acls.AnimationChains.Add(chain);
 
             RefreshTreeViewRequested?.Invoke();

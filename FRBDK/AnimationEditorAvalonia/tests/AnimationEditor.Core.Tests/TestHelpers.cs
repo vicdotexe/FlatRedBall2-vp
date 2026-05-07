@@ -31,6 +31,9 @@ internal static class TestHelpers
         // Default: always confirm dialogs; can be overridden per-test
         AppCommands.Self.ConfirmAsync = (msg, title) => Task.FromResult(true);
 
+        // Default: accept the pre-filled name; can be overridden per-test
+        AppCommands.Self.PromptStringAsync = (title, prompt, initial) => Task.FromResult<string?>(initial);
+
         // Run UI-thread dispatches inline so tests don't need a dispatcher
         AppCommands.Self.DoOnUiThread = action => action();
 
