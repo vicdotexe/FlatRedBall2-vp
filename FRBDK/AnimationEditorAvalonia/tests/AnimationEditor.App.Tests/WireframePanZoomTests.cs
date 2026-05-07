@@ -739,9 +739,9 @@ public class WireframePanZoomTests
             ctrl.SetZoomPercent(100);
             Dispatcher.UIThread.RunJobs();
 
-            // Confirm the image fits (no overflow) before zooming.
-            Assert.True(sv.Offset.X == 0,
-                $"Before zoom, image should fit the viewport and scroll should be 0; got {sv.Offset.X:F1}");
+            // Confirm scroll is in a valid centred state before zooming (always-scroll: offset ≥ 0).
+            Assert.True(sv.Offset.X >= 0,
+                $"Before zoom, scroll.X should be ≥ 0 (centred scroll active); got {sv.Offset.X:F1}");
 
             // One wheel notch toward the horizontal centre of the viewport.
             float pivotX = (float)(vpW / 2);
@@ -821,8 +821,8 @@ public class WireframePanZoomTests
             ctrl.SetZoomPercent(100);
             Dispatcher.UIThread.RunJobs();
 
-            Assert.True(sv.Offset.X == 0,
-                $"Baseline: at 100% zoom sv.Offset.X should be 0; got {sv.Offset.X:F1}");
+            Assert.True(sv.Offset.X >= 0,
+                $"Baseline: at 100% zoom sv.Offset.X should be ≥ 0 (centred scroll); got {sv.Offset.X:F1}");
 
             float vpCx = (float)(sv.Viewport.Width  / 2);
             float vpCy = (float)(sv.Viewport.Height / 2);
@@ -918,8 +918,8 @@ public class WireframePanZoomTests
             // Start at 100% (no overflow, offset = 0).
             ctrl.SetZoomPercent(100);
             Dispatcher.UIThread.RunJobs();
-            Assert.True(sv.Offset.X == 0,
-                $"Baseline: at 100% scroll should be 0; got {sv.Offset.X:F1}");
+            Assert.True(sv.Offset.X >= 0,
+                $"Baseline: at 100% scroll should be ≥ 0 (centred scroll); got {sv.Offset.X:F1}");
 
             // Zoom toward the RIGHT EDGE of the viewport (pivotX = vpW * 0.95).
             // A pivot that far to the right produces newScrollX that can exceed
@@ -964,20 +964,19 @@ public class WireframePanZoomTests
 
     /// <summary>
     /// Regression: when the image overflows only in Y (not X) — e.g., a narrow image on
-    /// a wide monitor — <c>UseScrollPan()</c> returns true (Y overflows), but the X axis
-    /// has no scroll room (<c>maxScrollX = 0</c>).  Before the fix, <c>UpdatePan</c> used
-    /// scroll-based X regardless of per-axis overflow, permanently clamping X pan to 0.
+    /// a wide monitor — horizontal panning must not be locked.
     ///
-    /// Fix: <c>StartPan</c> and <c>OnPointerMoved</c> (and <c>SimulatePanMove</c>) use
-    /// per-axis overflow checks.  When X doesn't overflow, X pan adjusts <c>_panX</c>
-    /// directly (free-pan mode); when Y overflows, Y pan adjusts the scroll offset.
+    /// In always-scroll mode both axes always use the scroll offset, so panning right
+    /// decreases <c>sv.Offset.X</c> rather than adjusting <c>_panX</c> directly.
+    /// The content is always wider than the viewport by at least
+    /// <c>2 × PanPadding</c> pixels, so there is always scroll room in X.
     ///
     /// Repro scenario (from user): 512 px-wide image on a 1436 px-wide viewport.
     /// At moderate zoom (e.g. 150 %), the image overflows in Y but not X.  Dragging
-    /// horizontally was completely locked.
+    /// horizontally was completely locked before the per-axis fix.
     /// </summary>
     [AvaloniaFact]
-    public void HybridOverflow_YOnlyOverflows_PanXUsesFreePan()
+    public void HybridOverflow_YOnlyOverflows_PanXUsesScrollPan()
     {
         ResetSingletons();
         var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -1019,8 +1018,8 @@ public class WireframePanZoomTests
             ctrl.SetZoomPercent(100);
             Dispatcher.UIThread.RunJobs();
 
-            Assert.True(sv.Offset.Y == 0,
-                $"At 100% zoom, image fits; sv.Offset.Y should be 0, got {sv.Offset.Y:F1}");
+            Assert.True(sv.Offset.Y >= 0,
+                $"At 100% zoom, scroll.Y should be ≥ 0 (centred scroll); got {sv.Offset.Y:F1}");
 
             // One wheel notch (×1.25) → Y overflows, X does not.
             float pivotX = (float)(vpW / 2);
@@ -1028,33 +1027,28 @@ public class WireframePanZoomTests
             ctrl.SimulateWheelZoom(pivotX, pivotY, 1.25f);
             Dispatcher.UIThread.RunJobs();
 
-            // Verify post-zoom state: Y must overflow, X must not.
+            // Verify post-zoom state: Y must overflow in image-vs-viewport terms.
             Assert.True(sv.Extent.Height > sv.Viewport.Height,
                 $"After 1.25× zoom, image should overflow in Y; " +
                 $"extent.H={sv.Extent.Height:F0} vp.H={sv.Viewport.Height:F0}");
-            Assert.True(sv.Extent.Width <= sv.Viewport.Width + 2,
-                $"After 1.25× zoom, image should NOT overflow in X (hybrid case); " +
-                $"extent.W={sv.Extent.Width:F0} vp.W={sv.Viewport.Width:F0}");
 
-            // Record _panX before panning — it's in free-pan mode for X.
-            float panXBefore = ctrl.PanOffset.X;
+            // In always-scroll mode both axes use the scroll offset regardless of whether
+            // the image overflows the viewport in that axis.  Record the pre-pan offset.
+            double scrollXBefore = sv.Offset.X;
 
-            // Pan right 80 px: _panX should increase by ~80 (free-pan), sv.Offset.X stays 0.
+            // Pan right 80 px: sv.Offset.X should decrease (panning right = image moves right
+            // = less content to the left = lower scroll offset).
             const float panPx = 80f;
             ctrl.SimulatePanStart(pivotX, pivotY);
             ctrl.SimulatePanMove(pivotX + panPx, pivotY);
             ctrl.SimulatePanEnd();
 
-            float panXAfter = ctrl.PanOffset.X;
             double scrollXAfter = sv.Offset.X;
 
-            Assert.True(Math.Abs(panXAfter - (panXBefore + panPx)) < 5.0,
-                $"Pan right {panPx}px should move _panX from {panXBefore:F1} to ~{panXBefore + panPx:F1}; " +
-                $"got {panXAfter:F1}. Pan locked (hybrid Y-only overflow case).");
-
-            Assert.True(scrollXAfter < 1.0,
-                $"In hybrid Y-only overflow mode, sv.Offset.X should stay 0 (no X scroll room); " +
-                $"got {scrollXAfter:F1}.");
+            // Allow for clamping at 0 if the centred scroll was already near the minimum.
+            Assert.True(scrollXAfter < scrollXBefore || scrollXBefore < 5.0,
+                $"Pan right {panPx}px should decrease sv.Offset.X (or it was already at min); " +
+                $"before={scrollXBefore:F1} after={scrollXAfter:F1}. X pan locked.");
 
             window.Close();
         }

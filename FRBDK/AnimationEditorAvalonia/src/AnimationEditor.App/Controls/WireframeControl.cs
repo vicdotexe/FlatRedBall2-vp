@@ -56,6 +56,11 @@ public class WireframeControl : Control
         public bool ShowPreview;
         public SKRect PreviewRect;
         public double Width, Height;
+        /// <summary>
+        /// Texture-space position (pixels) of the entity origin for the selected frame.
+        /// Null when no frame is selected or origin data is unavailable.
+        /// </summary>
+        public float? OriginTexX, OriginTexY;
     }
 
     private sealed class DrawOp : ICustomDrawOperation
@@ -146,6 +151,25 @@ public class WireframeControl : Control
                 };
                 canvas.DrawRect(ToScreen(s.PreviewRect, s), pvPaint);
             }
+
+            // Origin crosshair — yellow cross at the entity (0,0) origin in texture space
+            if (s.OriginTexX.HasValue && s.OriginTexY.HasValue)
+            {
+                float ox = s.PanX + s.OriginTexX.Value * s.Zoom;
+                float oy = s.PanY + s.OriginTexY.Value * s.Zoom;
+                const float ArmLen = 8f;
+                using var crossPaint = new SKPaint
+                {
+                    Color       = new SKColor(255, 220, 0, 230),
+                    Style       = SKPaintStyle.Stroke,
+                    StrokeWidth = 1.5f,
+                    IsAntialias = true
+                };
+                canvas.DrawLine(ox - ArmLen, oy, ox + ArmLen, oy, crossPaint);
+                canvas.DrawLine(ox, oy - ArmLen, ox, oy + ArmLen, crossPaint);
+                using var dotPaint = new SKPaint { Color = new SKColor(255, 220, 0, 230) };
+                canvas.DrawCircle(ox, oy, 2f, dotPaint);
+            }
         }
 
         private static void DrawGrid(SKCanvas canvas, RenderSnapshot s, SKRect textureDest)
@@ -210,9 +234,15 @@ public class WireframeControl : Control
     private float _zoom = 1f;
     private float _panX, _panY;
 
-    // Dead-space padding (pixels) added around the image in scroll mode so the
-    // user can pan into the empty area on every side of the image.
+    // Minimum dead-space padding (pixels) around the image so the user can pan
+    // into the empty area on every side.  Always applied at all zoom levels.
     private const float PanPadding = 300f;
+
+    // Extra scrollable room (pixels) beyond the centering margin so that the
+    // ScrollViewer always has a non-zero scroll range even for tiny images that
+    // fit well inside the viewport.  This ensures the scrollbar buttons (+/−)
+    // are always active regardless of zoom.
+    private const float ExtraScrollable = 50f;
 
     private bool _showGrid;
     private int _gridSize = 16;
@@ -615,26 +645,50 @@ public class WireframeControl : Control
         }
     }
 
-    /// <summary>Returns true when the loaded bitmap (at current zoom) overflows the
-    /// ScrollViewer's viewport width.</summary>
+    /// <summary>
+    /// Returns the effective padding (pixels) to add on each side of the image in the X
+    /// direction.  Always at least <see cref="PanPadding"/>; grows dynamically for images
+    /// smaller than the viewport so that the content is always wider than the viewport
+    /// by at least <see cref="ExtraScrollable"/> pixels — keeping the scrollbar active.
+    /// </summary>
+    private float EffectivePaddingX()
+    {
+        if (_scrollViewer == null || _bitmap == null) return PanPadding;
+        float halfFree = ((float)_scrollViewer.Viewport.Width - _bitmap.Width * _zoom) / 2f;
+        return Math.Max(PanPadding, halfFree + ExtraScrollable);
+    }
+
+    /// <summary>
+    /// Returns the effective padding (pixels) to add on each side of the image in the Y
+    /// direction.  See <see cref="EffectivePaddingX"/> for the rationale.
+    /// </summary>
+    private float EffectivePaddingY()
+    {
+        if (_scrollViewer == null || _bitmap == null) return PanPadding;
+        float halfFree = ((float)_scrollViewer.Viewport.Height - _bitmap.Height * _zoom) / 2f;
+        return Math.Max(PanPadding, halfFree + ExtraScrollable);
+    }
+
+    /// <summary>Returns true when the ScrollViewer is attached and has a valid viewport,
+    /// so the control is in scroll mode.  Scroll mode is always active when a ScrollViewer
+    /// is present — padding is added at every zoom level so the scrollbars are always
+    /// usable (the user can always pan to see the entity-origin crosshair).</summary>
     private bool OverflowX()
     {
         if (_scrollViewer == null || _bitmap == null) return false;
-        var vp = _scrollViewer.Viewport;
-        return vp.Width > 1 && _bitmap.Width * _zoom > vp.Width;
+        return _scrollViewer.Viewport.Width > 1;
     }
 
-    /// <summary>Returns true when the loaded bitmap (at current zoom) overflows the
-    /// ScrollViewer's viewport height.</summary>
+    /// <summary>Returns true when the ScrollViewer is attached and has a valid viewport.
+    /// See <see cref="OverflowX"/>.</summary>
     private bool OverflowY()
     {
         if (_scrollViewer == null || _bitmap == null) return false;
-        var vp = _scrollViewer.Viewport;
-        return vp.Height > 1 && _bitmap.Height * _zoom > vp.Height;
+        return _scrollViewer.Viewport.Height > 1;
     }
 
-    /// <summary>Returns true when the loaded bitmap (at current zoom) is larger than the
-    /// ScrollViewer's viewport in at least one dimension.</summary>
+    /// <summary>Returns true when the control is hosted in a ScrollViewer with a valid
+    /// viewport — the image is always in scroll-pan mode when a ScrollViewer is present.</summary>
     private bool UseScrollPan() => OverflowX() || OverflowY();
 
     protected override Size MeasureOverride(Size availableSize)
@@ -645,16 +699,15 @@ public class WireframeControl : Control
         double imageW = _bitmap.Width  * _zoom;
         double imageH = _bitmap.Height * _zoom;
 
-        // When hosted in a ScrollViewer, the available size is infinite on scrollable axes.
-        // Use the actual viewport size to detect overflow and add PanPadding on overflowing
-        // axes so the user can scroll into dead space on every side of the image.
+        // When hosted in a ScrollViewer, always add effective padding on every side so
+        // the user can pan beyond the image boundary at any zoom level.  The padding
+        // grows dynamically for small images to ensure the content is always wider than
+        // the viewport, keeping the scrollbar buttons active.
         if (_scrollViewer != null && _scrollViewer.Viewport.Width > 1)
         {
-            bool ovX = imageW > _scrollViewer.Viewport.Width;
-            bool ovY = imageH > _scrollViewer.Viewport.Height;
-            var size = new Size(
-                ovX ? imageW + 2 * PanPadding : Math.Max(_scrollViewer.Viewport.Width,  imageW),
-                ovY ? imageH + 2 * PanPadding : Math.Max(_scrollViewer.Viewport.Height, imageH));
+            float epX = EffectivePaddingX();
+            float epY = EffectivePaddingY();
+            var size = new Size(imageW + 2 * epX, imageH + 2 * epY);
 
             // If a scroll-after-layout is pending, do nothing here — the scroll will be
             // applied from the ScrollChanged handler when ExtentDelta != 0 fires, at which
@@ -664,7 +717,7 @@ public class WireframeControl : Control
                 DebugLog("MEASURE_PENDING",
                     $"pendingX={_pendingScrollX:F1} " +
                     $"content=({imageW:F0},{imageH:F0}) viewport=({_scrollViewer.Viewport.Width:F1},{_scrollViewer.Viewport.Height:F1}) " +
-                    $"ovX={ovX} ovY={ovY} — waiting for ScrollChanged(ExtentDelta)");
+                    $"epX={epX:F1} epY={epY:F1} — waiting for ScrollChanged(ExtentDelta)");
             }
 
             return size;
@@ -1065,7 +1118,18 @@ public class WireframeControl : Control
 
         var sel = _frameRects.FirstOrDefault(f => f.IsSelected);
         if (sel != null)
+        {
             snap.SelectedHandleBounds = sel.Bounds;
+
+            // Compute the entity-origin position in texture space.
+            // frame.Bounds are already in texture pixels; the entity's (0,0) is offset
+            // from the frame's center by (-RelativeX, +RelativeY) in game space
+            // (RelativeX/Y stored in display pixels = stored * OffsetMultiplier).
+            // Game Y+ = screen up = texture row decreasing → negate RelativeY.
+            float offMult = AppState.Self.OffsetMultiplier;
+            snap.OriginTexX = sel.Bounds.MidX - sel.Frame.RelativeX * offMult;
+            snap.OriginTexY = sel.Bounds.MidY + sel.Frame.RelativeY * offMult;
+        }
 
         return snap;
     }
@@ -1340,22 +1404,24 @@ public class WireframeControl : Control
             float scrollY = _scrollTargetY;
             var vp = _scrollViewer.Viewport;
 
-            // Per-axis mode: use scroll when the image overflows the viewport in that axis.
+            // Per-axis mode: in scroll mode (ScrollViewer attached with valid viewport) both axes
+            // always use scroll — padding is always applied so the scrollbars stay active.
             // Guard vp.Width/Height > 1 to avoid premature scroll mode on uninitialized viewports.
-            bool overflowX = vp.Width  > 1 && _bitmap != null && _bitmap.Width  * _zoom > vp.Width;
-            bool overflowY = vp.Height > 1 && _bitmap != null && _bitmap.Height * _zoom > vp.Height;
+            bool overflowX = vp.Width  > 1 && _bitmap != null;
+            bool overflowY = vp.Height > 1 && _bitmap != null;
+
+            // Compute effective padding for the new zoom level (already stored in _zoom).
+            float epX = EffectivePaddingX();
+            float epY = EffectivePaddingY();
 
             // Scroll axes: derive the required scroll offset so the zoom pivot stays fixed.
-            // Free-pan axes: subtract the current scroll offset to convert from the content-space
-            // pivot back to viewport-space, keeping the image centred after a scroll→free-pan
-            // transition (e.g. zooming out until the image fits the viewport).
-            // In scroll mode the image is drawn at content position (PanPadding, PanPadding)
-            // so newScrollX = scrollX + (factor-1)*(sx - PanPadding).
-            float newScrollX = overflowX ? Math.Max(0f, scrollX - newPanX + PanPadding) : 0f;
-            float newScrollY = overflowY ? Math.Max(0f, scrollY - newPanY + PanPadding) : 0f;
+            // The image is at content position (epX, epY); pivot preservation gives:
+            //   newScrollX = scrollX - newPanX + epX
+            float newScrollX = overflowX ? Math.Max(0f, scrollX - newPanX + epX) : 0f;
+            float newScrollY = overflowY ? Math.Max(0f, scrollY - newPanY + epY) : 0f;
 
-            _panX = overflowX ? PanPadding : newPanX - scrollX;
-            _panY = overflowY ? PanPadding : newPanY - scrollY;
+            _panX = overflowX ? epX : newPanX - scrollX;
+            _panY = overflowY ? epY : newPanY - scrollY;
 
             DebugLog("ZOOM_TOWARD",
                 $"factor={factor:F3} pivot=({sx:F1},{sy:F1}) zoom={oldZoom:F3}→{_zoom:F3} " +
@@ -1616,14 +1682,30 @@ public class WireframeControl : Control
 
         (_panX, _panY, _zoom) = WireframeTransform.CenterFit(_bitmap.Width, _bitmap.Height, ctrlW, ctrlH);
 
-        // After CenterFit the bitmap always fits the viewport, so reset scroll and
-        // let panX/panY handle centering of the smaller bitmap.
+        // After CenterFit the image is centred inside the viewport.  In scroll mode we
+        // always apply padding so the scrollbars are active — set panX/panY to
+        // EffectivePaddingX/Y() and scroll to the corresponding centred offset so the
+        // image appears centred just as CenterFit computed it.
         if (_scrollViewer != null)
         {
+            // _zoom is now set; compute effective padding at this zoom level.
+            float epX = EffectivePaddingX();
+            float epY = EffectivePaddingY();
+
+            // Content-space: image left edge at epX.  Center the image in the viewport:
+            //   centreScrollX = epX + (bitmapW * zoom) / 2 - ctrlW / 2
+            // When image < viewport: epX ≈ (ctrlW - imgW*zoom)/2 + ExtraScrollable
+            //   → centreScrollX ≈ ExtraScrollable
+            float centreScrollX = Math.Max(0f, epX + _bitmap.Width  * _zoom / 2f - ctrlW / 2f);
+            float centreScrollY = Math.Max(0f, epY + _bitmap.Height * _zoom / 2f - ctrlH / 2f);
+
+            _panX = epX;
+            _panY = epY;
+
             // Cancel any pending zoom-scroll (would override centering) and queue
-            // scroll = (0,0) to be applied after the layout pass.
-            CancelPendingScrollApply(x: 0f, y: 0f);
-            QueueScrollAfterLayout(0f, 0f);
+            // the centred offset to be applied after the layout pass.
+            CancelPendingScrollApply(x: centreScrollX, y: centreScrollY);
+            QueueScrollAfterLayout(centreScrollX, centreScrollY);
         }
 
         InvalidateMeasure();

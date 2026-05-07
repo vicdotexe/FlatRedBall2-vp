@@ -364,8 +364,9 @@ public class VisualRenderTests
             using var bm = ctrl.RenderToBitmap(128, 128);
 
             // CenterFit(64,64,128,128): zoom=1.7, pan≈(9.6,9.6).
-            // Frame covers screen (9.6,9.6)→(118.4,118.4).  Centre pixel (64,64) is well inside.
-            var px = bm.GetPixel(64, 64);
+            // Frame covers screen (9.6,9.6)→(118.4,118.4).  Pixel (30,30) is well inside
+            // the frame while being away from the origin crosshair (centred at screen ~(64,64)).
+            var px = bm.GetPixel(30, 30);
 
             // Blue fill on white makes B stay at 255 while R drops to ~224.
             Assert.True(px.Blue > px.Red,

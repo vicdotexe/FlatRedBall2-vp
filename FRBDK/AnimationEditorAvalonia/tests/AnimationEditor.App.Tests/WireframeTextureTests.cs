@@ -114,7 +114,9 @@ public class WireframeTextureTests
             ctrl.SetCamera(0f, 0f, 1f);
 
             using var bmRed = ctrl.RenderToBitmap(64, 64);
-            var redPx = bmRed.GetPixel(16, 16);
+            // Pixel (6,6): inside frame, safely outside the top-left resize handle (0±5px)
+            // and the origin crosshair centred at (16,16) ± 8px arm.
+            var redPx = bmRed.GetPixel(6, 6);
             Assert.True(redPx.Red > 150,
                 $"Initial texture should be red; R={redPx.Red}");
 
@@ -124,7 +126,7 @@ public class WireframeTextureTests
             ctrl.SetCamera(0f, 0f, 1f);
 
             using var bmBlue = ctrl.RenderToBitmap(64, 64);
-            var bluePx = bmBlue.GetPixel(16, 16);
+            var bluePx = bmBlue.GetPixel(6, 6);
             Assert.True(bluePx.Blue > 150,
                 $"After texture change to blue, render should be blue; B={bluePx.Blue}");
             Assert.True(bluePx.Blue > bluePx.Red + 50,
@@ -182,19 +184,20 @@ public class WireframeTextureTests
 
             var ctrl = new WireframeControl();
 
-            // Select red frame
+            // Select red frame — pixel (6,6): inside 32×32 frame, outside the top-left
+            // resize handle (0±5px) and the origin crosshair centred at (16,16) ± 8px arm.
             SelectedState.Self.SelectedFrame = frameRed;
             ctrl.RefreshAll();
             ctrl.SetCamera(0f, 0f, 1f);
             using var bmRed = ctrl.RenderToBitmap(64, 64);
-            var redPx = bmRed.GetPixel(16, 16);
+            var redPx = bmRed.GetPixel(6, 6);
 
             // Select green frame
             SelectedState.Self.SelectedFrame = frameGreen;
             ctrl.RefreshAll();
             ctrl.SetCamera(0f, 0f, 1f);
             using var bmGreen = ctrl.RenderToBitmap(64, 64);
-            var greenPx = bmGreen.GetPixel(16, 16);
+            var greenPx = bmGreen.GetPixel(6, 6);
 
             Assert.True(redPx.Red > 150,
                 $"First frame (red): R={redPx.Red}");
