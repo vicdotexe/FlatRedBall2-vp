@@ -1054,4 +1054,70 @@ public class WireframePanZoomTests
         }
         finally { Directory.Delete(dir, true); }
     }
+
+    // ── Camera-by-texture restore: PanX must not be 0 after switching back ────
+
+    /// <summary>
+    /// Regression guard for the camera-restore bug: when the user navigates
+    /// away from texture A (causing it to be saved in _cameraByTexture) and
+    /// then returns to it, PanX must equal EffectivePaddingX — NOT 0.
+    ///
+    /// If PanX is 0, the image is drawn at content-space origin, and all the
+    /// dynamic padding (EffectivePaddingX) is placed to the RIGHT of the image
+    /// instead of to the left.  The user cannot scroll left to see the space
+    /// before the image's left edge.
+    /// </summary>
+    [AvaloniaFact]
+    public void SwitchTextureAndBack_PanXEqualsEffectivePadding_NotZero()
+    {
+        ResetSingletons();
+        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var texA = WriteSolidPng(dir, "a.png", size: 32);
+            var texB = WriteSolidPng(dir, "b.png", size: 64);
+
+            var window = new MainWindow();
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            var ctrl = FindCtrl<WireframeControl>(window, "WireframeCtrl");
+            var sv   = FindCtrl<ScrollViewer>(window, "WireframeScrollViewer");
+
+            // Load texture A — fresh load, CenterTexture runs.
+            ctrl.LoadTexture(texA);
+            Dispatcher.UIThread.RunJobs();
+
+            var (panXA1, _, _) = ctrl.CameraState;
+            Assert.True(panXA1 > 0,
+                $"Precondition: PanX after first load of A must be > 0; got {panXA1:F1}");
+
+            // Navigate to B — this saves A's camera in _cameraByTexture.
+            ctrl.LoadTexture(texB);
+            Dispatcher.UIThread.RunJobs();
+
+            // Navigate back to A — should restore via _cameraByTexture.
+            // The critical invariant: PanX must still be > 0 (= EffectivePaddingX).
+            // If PanX == 0 the user cannot scroll left to see the area before the image.
+            ctrl.LoadTexture(texA);
+            Dispatcher.UIThread.RunJobs();
+
+            var (panXA2, panYA2, _) = ctrl.CameraState;
+            Assert.True(panXA2 > 0,
+                $"After switching back to A via _cameraByTexture restore, " +
+                $"PanX must be > 0 (EffectivePaddingX); got {panXA2:F1}. " +
+                $"A PanX=0 means the image is at content origin with no left-scroll space.");
+            Assert.True(panYA2 > 0,
+                $"PanY must also be > 0 after restore; got {panYA2:F1}");
+
+            // The scrollbar should be active: sv.Extent.Width > sv.Viewport.Width.
+            Assert.True(sv.Extent.Width > sv.Viewport.Width,
+                $"After restore, scrollbar should be active " +
+                $"(extent={sv.Extent.Width:F0} > vp={sv.Viewport.Width:F0})");
+
+            window.Close();
+        }
+        finally { Directory.Delete(dir, true); }
+    }
 }

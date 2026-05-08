@@ -365,8 +365,9 @@ public class WireframeControl : Control
     private bool _showPreview;
     private SKRect _previewRect;
 
-    // Per-texture saved camera position (texture path → panX, panY, zoom)
-    private readonly Dictionary<string, (float px, float py, float z)> _cameraByTexture = new();
+    // Per-texture saved camera (texture path → panX, panY, zoom, scrollTargetX, scrollTargetY).
+    // In scroll-pan mode px/py are always epX/epY at save time; sx/sy are the scroll offsets.
+    private readonly Dictionary<string, (float px, float py, float z, float sx, float sy)> _cameraByTexture = new();
 
     // ── Public properties ─────────────────────────────────────────────────────
 
@@ -753,7 +754,7 @@ public class WireframeControl : Control
 
         // Save camera for the texture we're leaving
         if (_loadedTexturePath != null)
-            _cameraByTexture[_loadedTexturePath] = (_panX, _panY, _zoom);
+            _cameraByTexture[_loadedTexturePath] = (_panX, _panY, _zoom, _scrollTargetX, _scrollTargetY);
 
         _loadedTexturePath = norm;
         _bitmap?.Dispose();
@@ -769,8 +770,24 @@ public class WireframeControl : Control
 
             if (_cameraByTexture.TryGetValue(norm, out var cam))
             {
-                (_panX, _panY, _zoom) = (cam.px, cam.py, cam.z);
-                InvalidateMeasure();
+                _zoom = cam.z;
+                if (_scrollViewer != null)
+                {
+                    // In scroll-pan mode panX/Y must always equal EffectivePaddingX/Y.
+                    // CenterTexture() sets panX = epX and queues a centred scroll; we then
+                    // override that pending scroll with the saved target if one exists.
+                    CenterTexture();
+                    if (cam.sx != 0f || cam.sy != 0f)
+                    {
+                        CancelPendingScrollApply(x: cam.sx, y: cam.sy);
+                        QueueScrollAfterLayout(cam.sx, cam.sy);
+                    }
+                }
+                else
+                {
+                    (_panX, _panY) = (cam.px, cam.py);
+                    InvalidateMeasure();
+                }
             }
             else
             {
