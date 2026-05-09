@@ -1506,9 +1506,9 @@ public class WireframeControl : Control
 
         var nb = DragHandleApplier.Apply(_draggingHandle, dx, dy, startBounds);
 
-        // Snap moved edges to the grid when the grid is enabled
-        if (_showGrid && _gridSize > 0)
-            nb = SnapBoundsToGrid(nb, _draggingHandle, _gridSize);
+        // Always snap to integer pixel; upgrade to grid-size snap when the grid is on.
+        int snapSize = (_showGrid && _gridSize > 0) ? _gridSize : 1;
+        nb = DragHandleApplier.SnapEdges(nb, _draggingHandle, snapSize);
 
         _draggingRect.Bounds = new SKRect(nb.Left, nb.Top, nb.Right, nb.Bottom);
 
@@ -1523,35 +1523,6 @@ public class WireframeControl : Control
         // Live update for the property panel (no save / tree refresh yet)
         FrameLiveUpdated?.Invoke(_draggingRect.Frame);
         InvalidateVisual();
-    }
-
-    /// <summary>
-    /// Snaps only the edges that <paramref name="handle"/> controls to the grid,
-    /// leaving unaffected edges unchanged.
-    /// </summary>
-    private static BoundsRect SnapBoundsToGrid(BoundsRect nb, HandleKind handle, int gridSize)
-    {
-        float Snap(float v) => MathF.Round(v / gridSize) * gridSize;
-
-        float l = nb.Left, t = nb.Top, r = nb.Right, b = nb.Bottom;
-        switch (handle)
-        {
-            case HandleKind.Move:
-                // Preserve size; snap top-left corner
-                float snappedL = Snap(l);
-                float snappedT = Snap(t);
-                return new BoundsRect(snappedL, snappedT,
-                                      snappedL + (r - l), snappedT + (b - t));
-            case HandleKind.TopLeft:   return new BoundsRect(Snap(l), Snap(t), r, b);
-            case HandleKind.TopCenter: return new BoundsRect(l, Snap(t), r, b);
-            case HandleKind.TopRight:  return new BoundsRect(l, Snap(t), Snap(r), b);
-            case HandleKind.MidLeft:   return new BoundsRect(Snap(l), t, r, b);
-            case HandleKind.MidRight:  return new BoundsRect(l, t, Snap(r), b);
-            case HandleKind.BotLeft:   return new BoundsRect(Snap(l), t, r, Snap(b));
-            case HandleKind.BotCenter: return new BoundsRect(l, t, r, Snap(b));
-            case HandleKind.BotRight:  return new BoundsRect(l, t, Snap(r), Snap(b));
-            default:                   return nb;
-        }
     }
 
     private void UpdatePreview(Point pos)

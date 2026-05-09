@@ -55,6 +55,40 @@ public static class DragHandleApplier
     }
 
     /// <summary>
+    /// Snaps only the edges that <paramref name="handle"/> controls to the nearest
+    /// multiple of <paramref name="snapSize"/>, leaving unaffected edges unchanged.
+    /// Pass <paramref name="snapSize"/> = 1 to snap to integer pixels.
+    /// When <paramref name="snapSize"/> is ≤ 0 the bounds are returned unchanged.
+    /// </summary>
+    /// <remarks>
+    /// For <see cref="HandleKind.Move"/> the top-left corner is snapped and the
+    /// original width/height is preserved so the frame does not drift in size.
+    /// </remarks>
+    public static BoundsRect SnapEdges(BoundsRect bounds, HandleKind handle, int snapSize)
+    {
+        if (snapSize <= 0) return bounds;
+
+        float Snap(float v) => MathF.Round(v / snapSize) * snapSize;
+
+        float l = bounds.Left, t = bounds.Top, r = bounds.Right, b = bounds.Bottom;
+        return handle switch
+        {
+            HandleKind.Move =>
+                // Preserve size; snap top-left corner only.
+                new BoundsRect(Snap(l), Snap(t), Snap(l) + (r - l), Snap(t) + (b - t)),
+            HandleKind.TopLeft   => new BoundsRect(Snap(l), Snap(t), r, b),
+            HandleKind.TopCenter => new BoundsRect(l, Snap(t), r, b),
+            HandleKind.TopRight  => new BoundsRect(l, Snap(t), Snap(r), b),
+            HandleKind.MidLeft   => new BoundsRect(Snap(l), t, r, b),
+            HandleKind.MidRight  => new BoundsRect(l, t, Snap(r), b),
+            HandleKind.BotLeft   => new BoundsRect(Snap(l), t, r, Snap(b)),
+            HandleKind.BotCenter => new BoundsRect(l, t, r, Snap(b)),
+            HandleKind.BotRight  => new BoundsRect(l, t, Snap(r), Snap(b)),
+            _                    => bounds,
+        };
+    }
+
+    /// <summary>
     /// Converts texture-pixel bounds to UV coordinates (0…1 relative to bitmap dimensions).
     /// Returns (left, top, right, bottom) UV tuple.
     /// </summary>

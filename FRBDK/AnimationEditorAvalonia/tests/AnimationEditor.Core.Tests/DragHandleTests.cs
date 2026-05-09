@@ -272,6 +272,65 @@ public class DragHandleApplierTests
         Assert.Equal(Rect20x20, result);
     }
 
+    // ── SnapEdges – pixel snap (snapSize = 1) ────────────────────────────────
+
+    [Fact]
+    public void SnapEdges_Move_SnapsTopLeftToNearestPixelAndPreservesSize()
+    {
+        // Left=20.7, Top=30.3, width=60, height=70
+        // → snapL=21, snapT=30, R=21+60=81, B=30+70=100
+        var input = new BoundsRect(20.7f, 30.3f, 80.7f, 100.3f);
+        var result = DragHandleApplier.SnapEdges(input, HandleKind.Move, 1);
+        Assert.Equal(21f,  result.Left);
+        Assert.Equal(30f,  result.Top);
+        Assert.Equal(81f,  result.Right);
+        Assert.Equal(100f, result.Bottom);
+    }
+
+    [Fact]
+    public void SnapEdges_MidRight_SnapsRightEdgeOnly()
+    {
+        var input = new BoundsRect(20f, 30f, 80.7f, 100f);
+        var result = DragHandleApplier.SnapEdges(input, HandleKind.MidRight, 1);
+        Assert.Equal(20f,  result.Left);    // unchanged
+        Assert.Equal(30f,  result.Top);     // unchanged
+        Assert.Equal(81f,  result.Right);   // round(80.7) = 81
+        Assert.Equal(100f, result.Bottom);  // unchanged
+    }
+
+    [Fact]
+    public void SnapEdges_TopCenter_SnapsTopEdgeOnly()
+    {
+        var input = new BoundsRect(20f, 30.6f, 80f, 100f);
+        var result = DragHandleApplier.SnapEdges(input, HandleKind.TopCenter, 1);
+        Assert.Equal(20f,  result.Left);
+        Assert.Equal(31f,  result.Top);    // round(30.6) = 31
+        Assert.Equal(80f,  result.Right);
+        Assert.Equal(100f, result.Bottom);
+    }
+
+    [Fact]
+    public void SnapEdges_GridSize16_SnapsToGridMultiple()
+    {
+        // TopLeft handle: only Left and Top get snapped
+        // round(20.7/16)*16 = round(1.29)*16 = 16
+        // round(30.3/16)*16 = round(1.89)*16 = 32
+        var input = new BoundsRect(20.7f, 30.3f, 80.7f, 100.3f);
+        var result = DragHandleApplier.SnapEdges(input, HandleKind.TopLeft, 16);
+        Assert.Equal(16f,    result.Left);
+        Assert.Equal(32f,    result.Top);
+        Assert.Equal(80.7f,  result.Right);   // unchanged
+        Assert.Equal(100.3f, result.Bottom);  // unchanged
+    }
+
+    [Fact]
+    public void SnapEdges_SnapSizeZeroOrNegative_ReturnsUnchanged()
+    {
+        var input = new BoundsRect(20.7f, 30.3f, 80.7f, 100.3f);
+        Assert.Equal(input, DragHandleApplier.SnapEdges(input, HandleKind.Move, 0));
+        Assert.Equal(input, DragHandleApplier.SnapEdges(input, HandleKind.Move, -1));
+    }
+
     // ── Move handle boundary clamping bug ─────────────────────────────────────
     //
     // BUG: when a Move drag carries the entire frame past the right or left
