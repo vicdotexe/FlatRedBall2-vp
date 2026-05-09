@@ -60,11 +60,12 @@ public class WireframeHandlesAndBorderTests
     // ── Wireframe resize handles ──────────────────────────────────────────────
 
     /// <summary>
-    /// When a frame is selected the top-left handle box (centred at screen (0,0)
-    /// for a full-texture frame at camera(0,0,1)) fills pixels near (2,2) white.
+    /// When a frame is selected the top-left handle box sits OUTSIDE the frame bounds (issue #114).
+    /// Frame at UV 0.125→0.875 on a 64×64 texture → screen rect (8,8,56,56) at camera(0,0,1).
+    /// TopLeft handle centre = (8−5, 8−5) = (3, 3); pixel (3,3) should be white.
     /// </summary>
     [AvaloniaFact]
-    public void WireframeHandles_SelectedFrame_WhiteHandlePixel_AtTopLeftCornerInterior()
+    public void WireframeHandles_SelectedFrame_TopLeftHandleIsOutsideFrame()
     {
         ResetSingletons();
         var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -73,40 +74,47 @@ public class WireframeHandlesAndBorderTests
         {
             var png = WriteSolidPng(dir, SKColors.Black);
 
-            // Full-texture frame (UV 0→1)
+            // Inner frame: UV 0.125→0.875 (8px margin on 64×64 texture)
             var frame = new AnimationFrameSave
             {
                 TextureName = png, FrameLength = 0.1f,
-                LeftCoordinate = 0f, TopCoordinate = 0f, RightCoordinate = 1f, BottomCoordinate = 1f,
+                LeftCoordinate = 0.125f, TopCoordinate = 0.125f,
+                RightCoordinate = 0.875f, BottomCoordinate = 0.875f,
                 ShapeCollectionSave = new ShapeCollectionSave()
             };
             var chain = new AnimationChainSave { Name = "Test" };
             chain.Frames.Add(frame);
             ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
-            SelectedState.Self.SelectedFrame = frame;   // ← frame is SELECTED
+            SelectedState.Self.SelectedFrame = frame;
 
             var ctrl = new WireframeControl();
             ctrl.LoadTexture(png);
             ctrl.RefreshFrames();
-            ctrl.SetCamera(0, 0, 1);  // texture fills (0,0,64,64); TL handle centred at (0,0)
+            ctrl.SetCamera(0, 0, 1);  // screen rect = (8,8,56,56); TL handle at (3,3)
 
             using var bm = ctrl.RenderToBitmap(64, 64);
 
-            // Handle box at TL: SKRect(-5,-5,5,5) → interior at (2,2) is white fill
-            var px = bm.GetPixel(2, 2);
+            // TopLeft handle: centre (3,3), box (-2,-2,8,8) → pixel (3,3) is white fill
+            var px = bm.GetPixel(3, 3);
             Assert.True(px.Red > 200 && px.Green > 200 && px.Blue > 200,
-                $"Top-left handle interior (2,2) should be white; R={px.Red} G={px.Green} B={px.Blue}");
+                $"Top-left handle (3,3) should be white (outside frame); R={px.Red} G={px.Green} B={px.Blue}");
+
+            // Frame interior corner at (9,9) should be black texture (no handle overlap)
+            var interior = bm.GetPixel(9, 9);
+            Assert.True(interior.Red < 100 && interior.Green < 100 && interior.Blue < 100,
+                $"Frame interior (9,9) should be black texture, not handle; R={interior.Red} G={interior.Green} B={interior.Blue}");
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
 
     /// <summary>
-    /// The middle-left handle is centred at screen (0, 32) for a full-texture
-    /// frame at camera(0,0,1) on a 64×64 canvas.  Pixel (2, 32) should be white.
+    /// The middle-left handle sits outside the frame bounds (issue #114).
+    /// Frame at UV 0.125→0.875 on 64×64 → screen rect (8,8,56,56).
+    /// MidLeft handle centre = (8−5, 32) = (3, 32); pixel (3,32) should be white.
     /// </summary>
     [AvaloniaFact]
-    public void WireframeHandles_SelectedFrame_WhiteHandlePixel_AtMiddleLeftInterior()
+    public void WireframeHandles_SelectedFrame_MidLeftHandleIsOutsideFrame()
     {
         ResetSingletons();
         var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
@@ -118,7 +126,8 @@ public class WireframeHandlesAndBorderTests
             var frame = new AnimationFrameSave
             {
                 TextureName = png, FrameLength = 0.1f,
-                LeftCoordinate = 0f, TopCoordinate = 0f, RightCoordinate = 1f, BottomCoordinate = 1f,
+                LeftCoordinate = 0.125f, TopCoordinate = 0.125f,
+                RightCoordinate = 0.875f, BottomCoordinate = 0.875f,
                 ShapeCollectionSave = new ShapeCollectionSave()
             };
             var chain = new AnimationChainSave { Name = "Test" };
@@ -134,10 +143,10 @@ public class WireframeHandlesAndBorderTests
 
             using var bm = ctrl.RenderToBitmap(64, 64);
 
-            // ML handle centred at (0,32): box (-5,27,5,37) → pixel (2,32) white
-            var px = bm.GetPixel(2, 32);
+            // MidLeft handle: centre (3, 32), box (-2,27,8,37) → pixel (3,32) is white fill
+            var px = bm.GetPixel(3, 32);
             Assert.True(px.Red > 200 && px.Green > 200 && px.Blue > 200,
-                $"Middle-left handle interior (2,32) should be white; R={px.Red} G={px.Green} B={px.Blue}");
+                $"Mid-left handle (3,32) should be white (outside frame); R={px.Red} G={px.Green} B={px.Blue}");
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
@@ -186,6 +195,7 @@ public class WireframeHandlesAndBorderTests
     /// <summary>
     /// Selecting a frame and then deselecting it (setting SelectedFrame = null)
     /// should make the handles disappear on the next render.
+    /// Uses UV 0.125→0.875 so the TopLeft handle lands at (3,3) within a 64×64 canvas.
     /// </summary>
     [AvaloniaFact]
     public void WireframeHandles_SelectThenDeselect_HandleDisappears()
@@ -197,10 +207,12 @@ public class WireframeHandlesAndBorderTests
         {
             var png = WriteSolidPng(dir, SKColors.Black);
 
+            // Inner frame: handles land inside the 64×64 canvas (TL handle at (3,3))
             var frame = new AnimationFrameSave
             {
                 TextureName = png, FrameLength = 0.1f,
-                LeftCoordinate = 0f, TopCoordinate = 0f, RightCoordinate = 1f, BottomCoordinate = 1f,
+                LeftCoordinate = 0.125f, TopCoordinate = 0.125f,
+                RightCoordinate = 0.875f, BottomCoordinate = 0.875f,
                 ShapeCollectionSave = new ShapeCollectionSave()
             };
             var chain = new AnimationChainSave { Name = "Test" };
@@ -212,11 +224,11 @@ public class WireframeHandlesAndBorderTests
             ctrl.LoadTexture(png);
             ctrl.SetCamera(0, 0, 1);
 
-            // Select frame → handles visible
+            // Select frame → TopLeft handle visible at (3,3)
             SelectedState.Self.SelectedFrame = frame;
             ctrl.RefreshFrames();
             using var bmSelected = ctrl.RenderToBitmap(64, 64);
-            var pxSelected = bmSelected.GetPixel(2, 2);
+            var pxSelected = bmSelected.GetPixel(3, 3);
             Assert.True(pxSelected.Red > 200,
                 $"Handle should be visible when frame selected; R={pxSelected.Red}");
 
@@ -224,7 +236,7 @@ public class WireframeHandlesAndBorderTests
             SelectedState.Self.SelectedFrame = null;
             ctrl.RefreshFrames();
             using var bmDeselected = ctrl.RenderToBitmap(64, 64);
-            var pxDeselected = bmDeselected.GetPixel(2, 2);
+            var pxDeselected = bmDeselected.GetPixel(3, 3);
             Assert.True(pxDeselected.Red < 100,
                 $"Handle should vanish when frame deselected; R={pxDeselected.Red}");
         }

@@ -193,9 +193,10 @@ public class WireframeControl : Control
                 canvas.DrawLine(textureDest.Left, y, textureDest.Right, y, paint);
         }
 
+        private const float Hs = 5f;  // Handle half-size: handles are drawn this far outside the frame edge
+
         private static void DrawHandles(SKCanvas canvas, SKRect sr)
         {
-            const float Hs = 5f;
             using var fill = new SKPaint { Color = SKColors.White, Style = SKPaintStyle.Fill };
             using var stroke = new SKPaint { Color = SKColors.DodgerBlue, Style = SKPaintStyle.Stroke, StrokeWidth = 1f };
 
@@ -210,14 +211,14 @@ public class WireframeControl : Control
         private static IEnumerable<SKPoint> HandlePoints(SKRect r)
         {
             float cx = r.MidX, cy = r.MidY;
-            yield return new SKPoint(r.Left, r.Top);
-            yield return new SKPoint(cx, r.Top);
-            yield return new SKPoint(r.Right, r.Top);
-            yield return new SKPoint(r.Left, cy);
-            yield return new SKPoint(r.Right, cy);
-            yield return new SKPoint(r.Left, r.Bottom);
-            yield return new SKPoint(cx, r.Bottom);
-            yield return new SKPoint(r.Right, r.Bottom);
+            yield return new SKPoint(r.Left  - Hs, r.Top    - Hs);  // TopLeft
+            yield return new SKPoint(cx,           r.Top    - Hs);  // TopCenter
+            yield return new SKPoint(r.Right + Hs, r.Top    - Hs);  // TopRight
+            yield return new SKPoint(r.Left  - Hs, cy);             // MidLeft
+            yield return new SKPoint(r.Right + Hs, cy);             // MidRight
+            yield return new SKPoint(r.Left  - Hs, r.Bottom + Hs);  // BotLeft
+            yield return new SKPoint(cx,           r.Bottom + Hs);  // BotCenter
+            yield return new SKPoint(r.Right + Hs, r.Bottom + Hs);  // BotRight
         }
 
         private static SKRect ToScreen(SKRect r, RenderSnapshot s)
@@ -1562,7 +1563,8 @@ public class WireframeControl : Control
 
         var kind = DragHandleHitTester.GetHandleAt(
             (float)pos.X, (float)pos.Y,
-            sr.Left, sr.Top, sr.Right, sr.Bottom);
+            sr.Left, sr.Top, sr.Right, sr.Bottom,
+            handleOffset: 5f);  // matches Hs: handles drawn outside the frame by this amount
 
         return kind == HandleKind.None ? (null, HandleKind.None) : (sel, kind);
     }

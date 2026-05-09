@@ -101,6 +101,49 @@ public class DragHandleHitTesterTests
         // all handles coincide at (50,50); TopLeft is checked first
         Assert.NotEqual(HandleKind.None, result);
     }
+
+    // ── Handle offset (issue #114: handles sit outside the frame) ─────────────
+
+    [Fact]
+    public void GetHandleAt_WithHandleOffset_TopLeftHandleIsOutsideFrameBounds()
+    {
+        // With handleOffset=5, TopLeft moves from (10,10) to (5,5).
+        // Clicking at (3,3) is outside the frame AND within hitRadius(7) of (5,5).
+        var result = DragHandleHitTester.GetHandleAt(3f, 3f, 10f, 10f, 110f, 110f, handleOffset: 5f);
+        Assert.Equal(HandleKind.TopLeft, result);
+    }
+
+    [Fact]
+    public void GetHandleAt_WithHandleOffset_BotRightHandleIsOutsideFrameBounds()
+    {
+        // With handleOffset=5, BotRight moves from (110,110) to (115,115).
+        var result = DragHandleHitTester.GetHandleAt(115f, 115f, 10f, 10f, 110f, 110f, handleOffset: 5f);
+        Assert.Equal(HandleKind.BotRight, result);
+    }
+
+    [Fact]
+    public void GetHandleAt_WithHandleOffset_TopCenterHandleIsAboveFrame()
+    {
+        // With handleOffset=5, TopCenter moves from (60,10) to (60,5).
+        var result = DragHandleHitTester.GetHandleAt(60f, 3f, 10f, 10f, 110f, 110f, handleOffset: 5f);
+        Assert.Equal(HandleKind.TopCenter, result);
+    }
+
+    [Fact]
+    public void GetHandleAt_WithHandleOffset_MidLeftHandleIsLeftOfFrame()
+    {
+        // With handleOffset=5, MidLeft moves from (10,60) to (5,60).
+        var result = DragHandleHitTester.GetHandleAt(3f, 60f, 10f, 10f, 110f, 110f, handleOffset: 5f);
+        Assert.Equal(HandleKind.MidLeft, result);
+    }
+
+    [Fact]
+    public void GetHandleAt_WithHandleOffset_FrameInteriorIsStillMove()
+    {
+        // With handleOffset=5, clicking inside the frame body still gives Move.
+        var result = DragHandleHitTester.GetHandleAt(60f, 60f, 10f, 10f, 110f, 110f, handleOffset: 5f);
+        Assert.Equal(HandleKind.Move, result);
+    }
 }
 
 [Collection("SequentialSingletons")]
