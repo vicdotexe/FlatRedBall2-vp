@@ -57,7 +57,7 @@ public class PreviewZoomComboSyncTests
     }
 
     [AvaloniaFact]
-    public void PreviewZoomCombo_SyncsToNearestPreset_AfterWheelZoomOnPreview()
+    public void PreviewZoomCombo_DisplaysExactPercent_AfterWheelZoomOnPreview()
     {
         ResetSingletons();
 
@@ -66,15 +66,40 @@ public class PreviewZoomComboSyncTests
         Dispatcher.UIThread.RunJobs();
 
         var preview = FindCtrl<PreviewControl>(window, "PreviewCtrl");
-        var combo   = FindCtrl<ComboBox>(window, "PreviewZoomCombo");
+        var combo   = FindCtrl<AutoCompleteBox>(window, "PreviewZoomCombo");
 
-        // Default selected index is 3 (100%). Two zoom-in notches → 1.5625× → 156 % ≈ nearest preset 200 %.
-        preview.SimulateWheelZoom(100, 100, zoomIn: true);
+        // One wheel-in notch from 100 % lands at 125 % — explicitly NOT in the
+        // preset list { 10, 25, 50, 100, 200, 400 }. The combo must display
+        // the live value, not snap to "100%".
         preview.SimulateWheelZoom(100, 100, zoomIn: true);
         Dispatcher.UIThread.RunJobs();
 
-        // Combo presets are { 10, 25, 50, 100, 200, 400 }; nearest to 156 is 200 (index 4).
-        Assert.Equal(4, combo.SelectedIndex);
+        Assert.Equal("125%", combo.Text);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void ZoomCombo_DisplaysExactPercent_AfterWheelZoomOnWireframe()
+    {
+        ResetSingletons();
+
+        var window = new MainWindow();
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var wireframe = FindCtrl<WireframeControl>(window, "WireframeCtrl");
+        var combo     = FindCtrl<AutoCompleteBox>(window, "ZoomCombo");
+
+        wireframe.SetZoomPercent(100);
+        Dispatcher.UIThread.RunJobs();
+
+        // 100 % × 1.25 = 125 % — same point: should be displayed verbatim,
+        // not snapped to "100%" or "200%".
+        wireframe.SimulateWheelZoom(50, 50, factor: 1.25f);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal("125%", combo.Text);
 
         window.Close();
     }
