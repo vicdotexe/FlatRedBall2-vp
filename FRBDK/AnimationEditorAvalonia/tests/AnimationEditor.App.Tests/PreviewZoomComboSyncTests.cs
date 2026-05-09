@@ -176,4 +176,58 @@ public class PreviewZoomComboSyncTests
 
         window.Close();
     }
+
+    /// <summary>
+    /// Issue #110 — WireframeControl must fire ZoomChanged when the user
+    /// mouse-wheels over it, so the ZoomCombo in MainWindow can sync its text.
+    /// Mirrors <see cref="PreviewControl_FiresZoomChanged_OnWheelZoom"/>.
+    /// </summary>
+    [AvaloniaFact]
+    public void WireframeControl_FiresZoomChanged_OnWheelZoom()
+    {
+        var ctrl = new WireframeControl();
+        ctrl.Measure(new Size(400, 300));
+        ctrl.Arrange(new Rect(0, 0, 400, 300));
+
+        float? lastPct = null;
+        ctrl.ZoomChanged += pct => lastPct = pct;
+
+        // factor 1.25 = one wheel-in notch; 1.0 × 1.25 = 1.25 → 125 %
+        ctrl.SimulateWheelZoom(50, 50, factor: 1.25f);
+
+        Assert.NotNull(lastPct);
+        Assert.Equal(125f, lastPct!.Value, precision: 2);
+    }
+
+    /// <summary>
+    /// Issue #110 — the ZoomMinusBtn on the wireframe must step down to the
+    /// largest preset strictly less than the current zoom.
+    /// Mirrors <see cref="PreviewZoomMinusBtn_StepsToPreviousPresetBelow_FromBetweenPresets"/>.
+    /// </summary>
+    [AvaloniaFact]
+    public void ZoomMinusBtn_StepsToPreviousPresetBelow_FromBetweenPresets()
+    {
+        ResetSingletons();
+        var window = new MainWindow();
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var wireframe = FindCtrl<WireframeControl>(window, "WireframeCtrl");
+        var combo     = FindCtrl<AutoCompleteBox>(window, "ZoomCombo");
+        var minusBtn  = FindCtrl<Button>(window, "ZoomMinusBtn");
+
+        // Land at 125 % (between presets 100 and 200).
+        wireframe.SetZoomPercent(100);
+        Dispatcher.UIThread.RunJobs();
+        wireframe.SimulateWheelZoom(50, 50, factor: 1.25f);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("125%", combo.Text);
+
+        minusBtn.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Dispatcher.UIThread.RunJobs();
+
+        // Previous preset strictly less than 125 is 100.
+        Assert.Equal("100%", combo.Text);
+        window.Close();
+    }
 }
