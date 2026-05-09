@@ -113,7 +113,7 @@ public class DragHandleApplierTests
     [Fact]
     public void Apply_Move_ShiftsAllFourEdges()
     {
-        var result = DragHandleApplier.Apply(HandleKind.Move, 10f, 5f, Rect20x20, 200f, 200f);
+        var result = DragHandleApplier.Apply(HandleKind.Move, 10f, 5f, Rect20x20);
         Assert.Equal(30f, result.Left);
         Assert.Equal(25f, result.Top);
         Assert.Equal(90f, result.Right);
@@ -123,7 +123,7 @@ public class DragHandleApplierTests
     [Fact]
     public void Apply_TopLeft_MovesTopAndLeftEdges()
     {
-        var result = DragHandleApplier.Apply(HandleKind.TopLeft, 5f, 5f, Rect20x20, 200f, 200f);
+        var result = DragHandleApplier.Apply(HandleKind.TopLeft, 5f, 5f, Rect20x20);
         Assert.Equal(25f, result.Left);
         Assert.Equal(25f, result.Top);
         Assert.Equal(80f, result.Right);  // unchanged
@@ -133,7 +133,7 @@ public class DragHandleApplierTests
     [Fact]
     public void Apply_TopCenter_MovesTopEdgeOnly()
     {
-        var result = DragHandleApplier.Apply(HandleKind.TopCenter, 99f, 5f, Rect20x20, 200f, 200f);
+        var result = DragHandleApplier.Apply(HandleKind.TopCenter, 99f, 5f, Rect20x20);
         Assert.Equal(20f, result.Left);   // unchanged
         Assert.Equal(25f, result.Top);
         Assert.Equal(80f, result.Right);  // unchanged
@@ -143,7 +143,7 @@ public class DragHandleApplierTests
     [Fact]
     public void Apply_MidRight_MovesRightEdgeOnly()
     {
-        var result = DragHandleApplier.Apply(HandleKind.MidRight, 10f, 99f, Rect20x20, 200f, 200f);
+        var result = DragHandleApplier.Apply(HandleKind.MidRight, 10f, 99f, Rect20x20);
         Assert.Equal(20f, result.Left);
         Assert.Equal(20f, result.Top);
         Assert.Equal(90f, result.Right);
@@ -153,42 +153,85 @@ public class DragHandleApplierTests
     [Fact]
     public void Apply_BotCenter_MovesBottomEdgeOnly()
     {
-        var result = DragHandleApplier.Apply(HandleKind.BotCenter, 99f, 10f, Rect20x20, 200f, 200f);
+        var result = DragHandleApplier.Apply(HandleKind.BotCenter, 99f, 10f, Rect20x20);
         Assert.Equal(90f, result.Bottom); // 80 + dy(10) = 90
         Assert.Equal(20f, result.Left);
         Assert.Equal(80f, result.Right);
         Assert.Equal(20f, result.Top);
     }
 
-    // ── Clamping ──────────────────────────────────────────────────────────────
+    // ── Outside-PNG-bounds dragging (issue #107) ──────────────────────────────
 
     [Fact]
-    public void Apply_ClampsToBitmapRight()
+    public void Apply_Move_AllowsNegativeLeft()
     {
-        // Move to the right by 200 — should be clamped at bitmapWidth=100
-        var result = DragHandleApplier.Apply(HandleKind.Move, 200f, 0f, Rect20x20, 100f, 100f);
-        Assert.True(result.Right <= 100f);
+        // Frame (20,20)→(80,80) dragged 30px left → Left should be -10, not clamped to 0.
+        var result = DragHandleApplier.Apply(HandleKind.Move, -30f, 0f, Rect20x20);
+        Assert.Equal(-10f, result.Left);
+        Assert.Equal(50f,  result.Right);  // width preserved
     }
 
     [Fact]
-    public void Apply_ClampsToBitmapBottom()
+    public void Apply_Move_AllowsFrameBeyondRightBoundary()
     {
-        var result = DragHandleApplier.Apply(HandleKind.Move, 0f, 200f, Rect20x20, 100f, 100f);
-        Assert.True(result.Bottom <= 100f);
+        // Frame (20,20)→(80,80) dragged 40px right → Right=120, not clamped to 100.
+        var result = DragHandleApplier.Apply(HandleKind.Move, 40f, 0f, Rect20x20);
+        Assert.Equal(60f,  result.Left);
+        Assert.Equal(120f, result.Right);
     }
 
     [Fact]
-    public void Apply_ClampsToZeroLeft()
+    public void Apply_Move_AllowsNegativeTop()
     {
-        var result = DragHandleApplier.Apply(HandleKind.Move, -200f, 0f, Rect20x20, 100f, 100f);
-        Assert.True(result.Left >= 0f);
+        // Frame (20,20)→(80,80) dragged 30px up → Top=-10, not clamped to 0.
+        var result = DragHandleApplier.Apply(HandleKind.Move, 0f, -30f, Rect20x20);
+        Assert.Equal(-10f, result.Top);
+        Assert.Equal(50f,  result.Bottom);
     }
+
+    [Fact]
+    public void Apply_MidLeft_AllowsNegativeLeft()
+    {
+        // Drag left edge 30px left from (20,20,80,80) → Left=-10.
+        var result = DragHandleApplier.Apply(HandleKind.MidLeft, -30f, 0f, Rect20x20);
+        Assert.Equal(-10f, result.Left);
+        Assert.Equal(80f,  result.Right);  // unchanged
+    }
+
+    [Fact]
+    public void Apply_MidRight_AllowsRightBeyondBitmapWidth()
+    {
+        // Drag right edge 30px right from (20,20,80,80) → Right=110.
+        var result = DragHandleApplier.Apply(HandleKind.MidRight, 30f, 0f, Rect20x20);
+        Assert.Equal(110f, result.Right);
+        Assert.Equal(20f,  result.Left);   // unchanged
+    }
+
+    [Fact]
+    public void Apply_TopCenter_AllowsNegativeTop()
+    {
+        // Drag top edge 30px up from (20,20,80,80) → Top=-10.
+        var result = DragHandleApplier.Apply(HandleKind.TopCenter, 0f, -30f, Rect20x20);
+        Assert.Equal(-10f, result.Top);
+        Assert.Equal(80f,  result.Bottom); // unchanged
+    }
+
+    [Fact]
+    public void Apply_BotCenter_AllowsBottomBeyondBitmapHeight()
+    {
+        // Drag bottom edge 30px down from (20,20,80,80) → Bottom=110.
+        var result = DragHandleApplier.Apply(HandleKind.BotCenter, 0f, 30f, Rect20x20);
+        Assert.Equal(110f, result.Bottom);
+        Assert.Equal(20f,  result.Top);    // unchanged
+    }
+
+    // ── Minimum-size enforcement ──────────────────────────────────────────────
 
     [Fact]
     public void Apply_EnforcesMinimumWidthOf1()
     {
         // Drag right edge far left to collapse width
-        var result = DragHandleApplier.Apply(HandleKind.MidRight, -200f, 0f, Rect20x20, 100f, 100f);
+        var result = DragHandleApplier.Apply(HandleKind.MidRight, -200f, 0f, Rect20x20);
         Assert.True(result.Right - result.Left >= 1f);
     }
 
@@ -196,7 +239,7 @@ public class DragHandleApplierTests
     public void Apply_EnforcesMinimumHeightOf1()
     {
         // Drag bottom edge far up to collapse height
-        var result = DragHandleApplier.Apply(HandleKind.BotCenter, 0f, -200f, Rect20x20, 100f, 100f);
+        var result = DragHandleApplier.Apply(HandleKind.BotCenter, 0f, -200f, Rect20x20);
         Assert.True(result.Bottom - result.Top >= 1f);
     }
 
@@ -225,7 +268,7 @@ public class DragHandleApplierTests
     [Fact]
     public void Apply_None_LeavesRectUnchanged()
     {
-        var result = DragHandleApplier.Apply(HandleKind.None, 50f, 50f, Rect20x20, 200f, 200f);
+        var result = DragHandleApplier.Apply(HandleKind.None, 50f, 50f, Rect20x20);
         Assert.Equal(Rect20x20, result);
     }
 
@@ -249,7 +292,7 @@ public class DragHandleApplierTests
         //      r = min(32, max(50,41)) = 32
         // Result: Left=40 > Right=32 → inverted rect.
         var result = DragHandleApplier.Apply(HandleKind.Move, 30f, 0f,
-            new BoundsRect(10f, 10f, 20f, 20f), 32f, 32f);
+            new BoundsRect(10f, 10f, 20f, 20f));
 
         Assert.True(result.Left <= result.Right,
             $"BUG: Rect is inverted after Move past right boundary. Left={result.Left}, Right={result.Right}");
@@ -264,7 +307,7 @@ public class DragHandleApplierTests
         //      r = min(32, max(-10,-19)) = min(32,-10) = -10
         // Result: Left=0 > Right=-10 → inverted rect.
         var result = DragHandleApplier.Apply(HandleKind.Move, -30f, 0f,
-            new BoundsRect(10f, 10f, 20f, 20f), 32f, 32f);
+            new BoundsRect(10f, 10f, 20f, 20f));
 
         Assert.True(result.Left <= result.Right,
             $"BUG: Rect is inverted after Move past left boundary. Left={result.Left}, Right={result.Right}");

@@ -17,14 +17,13 @@ public static class DragHandleApplier
     /// <summary>
     /// Returns the new texture-pixel bounds after dragging <paramref name="handle"/>
     /// by (<paramref name="dx"/>, <paramref name="dy"/>) from <paramref name="startBounds"/>.
-    /// The result is clamped to [0, bitmapWidth] × [0, bitmapHeight] with a minimum
-    /// dimension of 1 pixel on each axis.
+    /// The frame may extend freely outside the bitmap boundaries; only a minimum
+    /// dimension of 1 pixel on each axis is enforced (resize handles only).
     /// </summary>
     public static BoundsRect Apply(
         HandleKind handle,
         float dx, float dy,
-        BoundsRect startBounds,
-        float bitmapWidth, float bitmapHeight)
+        BoundsRect startBounds)
     {
         var b = startBounds;
 
@@ -42,21 +41,15 @@ public static class DragHandleApplier
             _                    => b,
         };
 
-        // Move slides the whole frame as a rigid body — preserve dimensions, slide to wall.
+        // Move slides the whole frame as a rigid body — dimensions already preserved.
         if (handle == HandleKind.Move)
-        {
-            float fw = nb.Right  - nb.Left;
-            float fh = nb.Bottom - nb.Top;
-            float cl = Math.Clamp(nb.Left, 0f, Math.Max(0f, bitmapWidth  - fw));
-            float ct = Math.Clamp(nb.Top,  0f, Math.Max(0f, bitmapHeight - fh));
-            return new(cl, ct, cl + fw, ct + fh);
-        }
+            return nb;
 
-        // Resize handles: clamp each edge independently, enforce minimum 1-pixel size.
-        float l  = Math.Max(0f,           Math.Min(nb.Left,   nb.Right  - 1f));
-        float t  = Math.Max(0f,           Math.Min(nb.Top,    nb.Bottom - 1f));
-        float r  = Math.Min(bitmapWidth,  Math.Max(nb.Right,  nb.Left   + 1f));
-        float bm = Math.Min(bitmapHeight, Math.Max(nb.Bottom, nb.Top    + 1f));
+        // Resize: enforce minimum 1-pixel size; frame may extend outside bitmap.
+        float l  = Math.Min(nb.Left,   nb.Right  - 1f);
+        float t  = Math.Min(nb.Top,    nb.Bottom - 1f);
+        float r  = Math.Max(nb.Right,  nb.Left   + 1f);
+        float bm = Math.Max(nb.Bottom, nb.Top    + 1f);
 
         return new(l, t, r, bm);
     }

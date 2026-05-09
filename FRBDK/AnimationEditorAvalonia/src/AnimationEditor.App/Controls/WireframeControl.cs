@@ -1504,8 +1504,7 @@ public class WireframeControl : Control
         var startBounds = new BoundsRect(_dragStartBounds.Left, _dragStartBounds.Top,
                                          _dragStartBounds.Right, _dragStartBounds.Bottom);
 
-        var nb = DragHandleApplier.Apply(_draggingHandle, dx, dy, startBounds,
-                                         _bitmap.Width, _bitmap.Height);
+        var nb = DragHandleApplier.Apply(_draggingHandle, dx, dy, startBounds);
 
         // Snap moved edges to the grid when the grid is enabled
         if (_showGrid && _gridSize > 0)

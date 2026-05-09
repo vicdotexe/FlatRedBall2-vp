@@ -380,13 +380,13 @@
                                         <TextBlock Text="X" VerticalAlignment="Center"
                                                    Foreground="LightGray" FontSize="11" />
                                         <NumericUpDown x:Name="PropPixelX" Grid.Column="1"
-                                                       Minimum="0" Maximum="16384" Increment="1" />
+                                                       Minimum="-16384" Maximum="16384" Increment="1" />
                                     </Grid>
                                     <Grid ColumnDefinitions="78,*">
                                         <TextBlock Text="Y" VerticalAlignment="Center"
                                                    Foreground="LightGray" FontSize="11" />
                                         <NumericUpDown x:Name="PropPixelY" Grid.Column="1"
-                                                       Minimum="0" Maximum="16384" Increment="1" />
+                                                       Minimum="-16384" Maximum="16384" Increment="1" />
                                     </Grid>
                                     <Grid ColumnDefinitions="78,*">
                                         <TextBlock Text="Width" VerticalAlignment="Center"
@@ -407,28 +407,28 @@
                                         <TextBlock Text="Left" VerticalAlignment="Center"
                                                    Foreground="LightGray" FontSize="11" />
                                         <NumericUpDown x:Name="PropTcLeft" Grid.Column="1"
-                                                       Minimum="0" Maximum="1"
+                                                       Minimum="-10" Maximum="10"
                                                        Increment="0.001" FormatString="0.0000" />
                                     </Grid>
                                     <Grid ColumnDefinitions="78,*">
                                         <TextBlock Text="Right" VerticalAlignment="Center"
                                                    Foreground="LightGray" FontSize="11" />
                                         <NumericUpDown x:Name="PropTcRight" Grid.Column="1"
-                                                       Minimum="0" Maximum="1"
+                                                       Minimum="-10" Maximum="10"
                                                        Increment="0.001" FormatString="0.0000" />
                                     </Grid>
                                     <Grid ColumnDefinitions="78,*">
                                         <TextBlock Text="Top" VerticalAlignment="Center"
                                                    Foreground="LightGray" FontSize="11" />
                                         <NumericUpDown x:Name="PropTcTop" Grid.Column="1"
-                                                       Minimum="0" Maximum="1"
+                                                       Minimum="-10" Maximum="10"
                                                        Increment="0.001" FormatString="0.0000" />
                                     </Grid>
                                     <Grid ColumnDefinitions="78,*">
                                         <TextBlock Text="Bottom" VerticalAlignment="Center"
                                                    Foreground="LightGray" FontSize="11" />
                                         <NumericUpDown x:Name="PropTcBottom" Grid.Column="1"
-                                                       Minimum="0" Maximum="1"
+                                                       Minimum="-10" Maximum="10"
                                                        Increment="0.001" FormatString="0.0000" />
                                     </Grid>
                                 </StackPanel>
