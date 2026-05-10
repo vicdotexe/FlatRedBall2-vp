@@ -1505,9 +1505,6 @@ public partial class MainWindow : Window
 
     private void WirePlaybackControls()
     {
-        StopBtn.Click  += (_, _) => PreviewCtrl.StopPlayback();
-        PlayBtn.Click  += (_, _) => PreviewCtrl.Play();
-        PauseBtn.Click += (_, _) => PreviewCtrl.Pause();
         SpeedInput.LostFocus += (_, _) => ApplySpeedFromInput();
         SpeedUpBtn.Click   += (_, _) =>
         {
