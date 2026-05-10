@@ -269,22 +269,7 @@
                                     Margin="0,0,0,0"
                                     VerticalAlignment="Center"
                                     ToolTip.Tip="Zoom out to previous preset" />
-                            <Separator Margin="8,0" />
-                            <Button x:Name="StopBtn" Content="⏹" Width="28" Height="24"
-                                    Padding="0"
-                                    HorizontalContentAlignment="Center"
-                                    VerticalContentAlignment="Center"
-                                    Margin="0,0,2,0" ToolTip.Tip="Stop / Reset" />
-                            <Button x:Name="PlayBtn" Content="▶" Width="28" Height="24"
-                                    Padding="0"
-                                    HorizontalContentAlignment="Center"
-                                    VerticalContentAlignment="Center"
-                                    Margin="0,0,2,0" ToolTip.Tip="Play" />
-                            <Button x:Name="PauseBtn" Content="⏸" Width="28" Height="24"
-                                    Padding="0"
-                                    HorizontalContentAlignment="Center"
-                                    VerticalContentAlignment="Center"
-                                    Margin="0,0,12,0" ToolTip.Tip="Pause" />
+
                             <TextBlock Text="Speed:" VerticalAlignment="Center"
                                        Margin="0,0,4,0" Foreground="LightGray" />
                             <TextBox x:Name="SpeedInput"
