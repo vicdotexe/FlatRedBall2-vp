@@ -145,6 +145,7 @@ public class PreviewControl : Control
                                         _showGuides, texPath, onionPath, width, height,
                                         AppState.Self.OffsetMultiplier,
                                         _hGuides.ToArray(), _vGuides.ToArray(),
+                                        _draggedGuideIdx, _draggingHGuide,
                                         BuildShapeInfos());
         var bitmap = new SKBitmap(width, height);
         using var canvas = new SKCanvas(bitmap);
@@ -338,6 +339,7 @@ public class PreviewControl : Control
                 texPath, onionPath, (float)w, (float)h,
                 AppState.Self.OffsetMultiplier,
                 _hGuides.ToArray(), _vGuides.ToArray(),
+                _draggedGuideIdx, _draggingHGuide,
                 BuildShapeInfos()),
             _bitmapCache));
     }
@@ -403,6 +405,35 @@ public class PreviewControl : Control
         _vGuides[idx] = SnapToPixel(ScreenToWorldX(screenX, controlWidth));
         InvalidateVisual();
     }
+
+    /// <summary>
+    /// Marks guide <paramref name="idx"/> as the active drag target so the
+    /// value label renders in <see cref="RenderToBitmap"/>. Use in headless
+    /// tests together with <see cref="SimulateAddHGuide"/> /
+    /// <see cref="SimulateAddVGuide"/> to verify label rendering.
+    /// </summary>
+    internal void SimulateBeginGuideDrag(bool isHorizontal, int idx)
+    {
+        _draggedGuideIdx = idx;
+        _draggingHGuide  = isHorizontal;
+        InvalidateVisual();
+    }
+
+    /// <summary>Clears the active drag state set by <see cref="SimulateBeginGuideDrag"/>.</summary>
+    internal void SimulateEndGuideDrag()
+    {
+        _draggedGuideIdx = -1;
+        InvalidateVisual();
+    }
+
+    /// <summary>
+    /// Formats the coordinate label shown next to a guide while it is being dragged.
+    /// Returns <c>"Y: N"</c> for horizontal guides and <c>"X: N"</c> for vertical ones.
+    /// </summary>
+    internal static string FormatGuideLabel(bool isHorizontal, float worldValue)
+        => isHorizontal
+            ? $"Y: {(int)MathF.Round(worldValue)}"
+            : $"X: {(int)MathF.Round(worldValue)}";
 
     /// <summary>
     /// Returns the cursor type to show when the pointer is at screen position
@@ -648,6 +679,8 @@ public class PreviewControl : Control
         float  OffsetMultiplier,
         float[] HGuides,
         float[] VGuides,
+        int    DraggedGuideIdx,
+        bool   DraggingHGuide,
         PreviewShapeInfo[] Shapes);
 
     // ── Shared SkiaSharp rendering (used by both live and off-screen paths) ───
@@ -746,6 +779,40 @@ public class PreviewControl : Control
                 else
                 {
                     canvas.DrawCircle(sx, sy, sh.Param1 * om, paint);
+                }
+            }
+        }
+
+        // Dragged guide value label — drawn last so it stays on top of shapes
+        if (s.DraggedGuideIdx >= 0)
+        {
+            using var dragLabelPaint = new SKPaint
+            {
+                Color       = new SKColor(0, 200, 255, 230),
+                TextSize    = 11f,
+                IsAntialias = true
+            };
+            const float lMargin = 4f;
+            const float lHeight = 13f; // approximate text height at TextSize=11
+
+            if (s.DraggingHGuide && s.DraggedGuideIdx < s.HGuides.Length)
+            {
+                float wy = s.HGuides[s.DraggedGuideIdx];
+                float sy = cy + wy * s.Zoom;
+                if (sy >= RulerSize && sy <= s.Height)
+                {
+                    float baseline = Math.Clamp(sy - 2f, RulerSize + lHeight, s.Height - lMargin);
+                    canvas.DrawText(FormatGuideLabel(true, wy), RulerSize + lMargin, baseline, dragLabelPaint);
+                }
+            }
+            else if (!s.DraggingHGuide && s.DraggedGuideIdx < s.VGuides.Length)
+            {
+                float wx = s.VGuides[s.DraggedGuideIdx];
+                float sx = cx + wx * s.Zoom;
+                if (sx >= RulerSize && sx <= s.Width)
+                {
+                    float lx = Math.Clamp(sx + lMargin, RulerSize + lMargin, s.Width - 50f);
+                    canvas.DrawText(FormatGuideLabel(false, wx), lx, RulerSize + lHeight, dragLabelPaint);
                 }
             }
         }
