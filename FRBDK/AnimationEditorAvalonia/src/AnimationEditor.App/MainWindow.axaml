@@ -72,9 +72,22 @@
                     <TreeView.ItemTemplate>
                         <TreeDataTemplate x:DataType="models:TreeNodeVm"
                                           ItemsSource="{Binding Children}">
-                            <TextBlock Text="{Binding Header}"
-                                       Foreground="LightGray"
-                                       Padding="2,1" />
+                            <Panel>
+                                <!-- Display mode -->
+                                <TextBlock Text="{Binding Header}"
+                                           Foreground="LightGray"
+                                           Padding="2,1"
+                                           IsVisible="{Binding !IsEditing}" />
+                                <!-- Inline-edit mode -->
+                                <TextBox x:Name="InlineRenameBox"
+                                         Text="{Binding EditingText, Mode=TwoWay}"
+                                         IsVisible="{Binding IsEditing}"
+                                         Background="#2a2a2a"
+                                         Foreground="LightGray"
+                                         BorderThickness="1"
+                                         Padding="1,0"
+                                         MinWidth="80" />
+                            </Panel>
                         </TreeDataTemplate>
                     </TreeView.ItemTemplate>
                 </TreeView>
