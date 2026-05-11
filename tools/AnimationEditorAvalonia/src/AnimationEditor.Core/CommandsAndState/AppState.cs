@@ -10,8 +10,6 @@ namespace AnimationEditor.Core.CommandsAndState
     /// </summary>
     public class AppState : IAppState
     {
-        public static AppState Self { get; set; }
-
         private readonly IApplicationEvents _events;
         private readonly ISelectedState _selectedState;
 
@@ -24,7 +22,7 @@ namespace AnimationEditor.Core.CommandsAndState
         /// The absolute path of the project (.gluj/.glux) that this .achx belongs to.
         /// When set, the tool won't prompt the user to copy files that are part of the project.
         /// </summary>
-        public string ProjectFolder { get; set; }
+        public string? ProjectFolder { get; set; }
 
         private UnitType _unitType;
         public UnitType UnitType
@@ -62,7 +60,7 @@ namespace AnimationEditor.Core.CommandsAndState
             set => _gridSize = value;
         }
 
-        public AnimationFrameSave CurrentFrame => _selectedState.SelectedFrame;
+        public AnimationFrameSave? CurrentFrame => _selectedState.SelectedFrame;
 
         // ── PL11: Sprite alignment ────────────────────────────────────────────
 

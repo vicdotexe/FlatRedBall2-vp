@@ -17,26 +17,27 @@ namespace AnimationEditor.Core.CommandsAndState
     /// </summary>
     public class AppCommands : IAppCommands
     {
-        public static AppCommands Self { get; set; }
-
         private readonly IProjectManager _pm;
         private readonly ISelectedState _selectedState;
         private readonly IApplicationEvents _events;
         private readonly IObjectFinder _objectFinder;
         private readonly IIoManager _ioManager;
+        private readonly IUndoManager _undoManager;
 
         public AppCommands(
             IProjectManager pm,
             ISelectedState selectedState,
             IApplicationEvents events,
             IIoManager ioManager,
-            IObjectFinder objectFinder)
+            IObjectFinder objectFinder,
+            IUndoManager undoManager)
         {
             _pm = pm;
             _selectedState = selectedState;
             _events = events;
             _ioManager = ioManager;
             _objectFinder = objectFinder;
+            _undoManager = undoManager;
         }
         // Delegates wired up by the Avalonia app layer ----------------------------
 
@@ -64,27 +65,27 @@ namespace AnimationEditor.Core.CommandsAndState
         /// <summary>
         /// Request a full tree-view refresh. Raised instead of calling TreeViewManager directly.
         /// </summary>
-        public event Action RefreshTreeViewRequested;
+        public event Action? RefreshTreeViewRequested;
 
         /// <summary>
         /// Request a single chain's tree node to refresh.
         /// </summary>
-        public event Action<AnimationChainSave> RefreshChainNodeRequested;
+        public event Action<AnimationChainSave>? RefreshChainNodeRequested;
 
         /// <summary>
         /// Request a single frame's tree node to refresh.
         /// </summary>
-        public event Action<AnimationFrameSave> RefreshFrameNodeRequested;
+        public event Action<AnimationFrameSave>? RefreshFrameNodeRequested;
 
         /// <summary>
         /// Request the preview/animation-frame display to refresh.
         /// </summary>
-        public event Action RefreshAnimationFrameDisplayRequested;
+        public event Action? RefreshAnimationFrameDisplayRequested;
 
         /// <summary>
         /// Request the wireframe to refresh.
         /// </summary>
-        public event Action RefreshWireframeRequested;
+        public event Action? RefreshWireframeRequested;
 
         /// <summary>
         /// File dialog abstraction. Wired to Avalonia's <c>StorageProvider</c> by the
@@ -104,7 +105,7 @@ namespace AnimationEditor.Core.CommandsAndState
         {
             var selectedTextureFilePath = string.Empty;
             _pm.LoadAnimationChain(fileName);
-            UndoManager.Self.Clear();
+            _undoManager.Clear();
             RefreshTreeViewRequested?.Invoke();
             _ioManager.LoadAndApplyCompanionFileFor(fileName);
             RefreshWireframeRequested?.Invoke();
@@ -126,7 +127,7 @@ namespace AnimationEditor.Core.CommandsAndState
         public void RefreshTreeView() =>
             RefreshTreeViewRequested?.Invoke();
 
-        public void SaveCurrentAnimationChainList(string fileName = null)
+        public void SaveCurrentAnimationChainList(string? fileName = null)
         {
             var target = fileName ?? _pm.FileName;
             if (!string.IsNullOrEmpty(target))
@@ -156,6 +157,7 @@ namespace AnimationEditor.Core.CommandsAndState
         public void DeleteAnimationChains(List<AnimationChainSave> animationChains)
         {
             var acls = _pm.AnimationChainListSave;
+            if (acls == null) return;
 
             // Capture original indices before removal for undo
             var entries = animationChains
@@ -172,7 +174,7 @@ namespace AnimationEditor.Core.CommandsAndState
             RefreshWireframeRequested?.Invoke();
 
             if (entries.Length > 0)
-                UndoManager.Self.Record(new DeleteChainsCommand(entries, acls, this, _events));
+                _undoManager.Record(new DeleteChainsCommand(entries, acls, this, _events));
         }
 
         public void AddAxisAlignedRectangle(AnimationFrameSave frame)
@@ -192,7 +194,7 @@ namespace AnimationEditor.Core.CommandsAndState
             RefreshFrameNodeRequested?.Invoke(frame);
             _selectedState.SelectedRectangle = rectangleSave;
             SaveCurrentAnimationChainList();
-            UndoManager.Self.Record(new AddAxisAlignedRectangleCommand(rectangleSave, frame, this, _events));
+            _undoManager.Record(new AddAxisAlignedRectangleCommand(rectangleSave, frame, this, _events));
         }
 
         public void AddCircle(AnimationFrameSave frame)
@@ -211,7 +213,7 @@ namespace AnimationEditor.Core.CommandsAndState
             RefreshFrameNodeRequested?.Invoke(frame);
             _selectedState.SelectedCircle = circleSave;
             SaveCurrentAnimationChainList();
-            UndoManager.Self.Record(new AddCircleCommand(circleSave, frame, this, _events));
+            _undoManager.Record(new AddCircleCommand(circleSave, frame, this, _events));
         }
 
         public void MatchRectangleToFrame(AxisAlignedRectangleSave rectangle, AnimationFrameSave animationFrame)
@@ -238,7 +240,7 @@ namespace AnimationEditor.Core.CommandsAndState
             RefreshFrameNodeRequested?.Invoke(owner);
             RefreshAnimationFrameDisplayRequested?.Invoke();
             _events.RaiseAnimationChainsChanged();
-            UndoManager.Self.Record(new DeleteCircleCommand(circle, owner, idx, this, _events));
+            _undoManager.Record(new DeleteCircleCommand(circle, owner, idx, this, _events));
         }
 
         public void DeleteAxisAlignedRectangle(AxisAlignedRectangleSave rectangle, AnimationFrameSave owner)
@@ -251,7 +253,7 @@ namespace AnimationEditor.Core.CommandsAndState
             RefreshFrameNodeRequested?.Invoke(owner);
             RefreshAnimationFrameDisplayRequested?.Invoke();
             _events.RaiseAnimationChainsChanged();
-            UndoManager.Self.Record(new DeleteAxisAlignedRectangleCommand(rectangle, owner, idx, this, _events));
+            _undoManager.Record(new DeleteAxisAlignedRectangleCommand(rectangle, owner, idx, this, _events));
         }
 
         public async Task AskToDeleteRectangles(List<AxisAlignedRectangleSave> rectangles)
@@ -315,10 +317,11 @@ namespace AnimationEditor.Core.CommandsAndState
                         chain.Frames.Remove(frame);
 
                     if (entries.Length > 0)
-                        UndoManager.Self.Record(new DeleteFramesCommand(entries, chain, this, _events));
+                        _undoManager.Record(new DeleteFramesCommand(entries, chain, this, _events));
+
+                    RefreshChainNodeRequested?.Invoke(chain);
                 }
 
-                RefreshChainNodeRequested?.Invoke(chain);
                 RefreshWireframeRequested?.Invoke();
                 _events.RaiseAnimationChainsChanged();
             }
@@ -359,7 +362,7 @@ namespace AnimationEditor.Core.CommandsAndState
             _selectedState.SelectedChain = chain;
             SaveCurrentAnimationChainList();
             _events.RaiseAnimationChainsChanged();
-            UndoManager.Self.Record(new AddChainCommand(chain, acls, insertedAtIndex, this, _events));
+            _undoManager.Record(new AddChainCommand(chain, acls, insertedAtIndex, this, _events));
         }
 
         /// <summary>
@@ -380,7 +383,7 @@ namespace AnimationEditor.Core.CommandsAndState
             RefreshChainNodeRequested?.Invoke(chain);
             SaveCurrentAnimationChainList();
             _events.RaiseAnimationChainsChanged();
-            UndoManager.Self.Record(new RenameChainCommand(chain, oldName, newName, this, _events));
+            _undoManager.Record(new RenameChainCommand(chain, oldName, newName, this, _events));
             return true;
         }
 
@@ -395,7 +398,7 @@ namespace AnimationEditor.Core.CommandsAndState
             RefreshFrameNodeRequested?.Invoke(frame);
             SaveCurrentAnimationChainList();
             _events.RaiseAnimationChainsChanged();
-            UndoManager.Self.Record(new SetFrameTextureNameCommand(frame, oldName, newTextureName, this, _events));
+            _undoManager.Record(new SetFrameTextureNameCommand(frame, oldName, newTextureName, this, _events));
         }
 
         public void AddFrame(AnimationChainSave chain, string? textureName = null)
@@ -416,7 +419,7 @@ namespace AnimationEditor.Core.CommandsAndState
             _selectedState.SelectedFrame = frame;
             SaveCurrentAnimationChainList();
             _events.RaiseAnimationChainsChanged();
-            UndoManager.Self.Record(new AddFrameCommand(frame, chain, insertedAtIndex, this, _events));
+            _undoManager.Record(new AddFrameCommand(frame, chain, insertedAtIndex, this, _events));
         }
 
         public void MoveChain(AnimationChainSave chain, int delta)
@@ -771,7 +774,7 @@ namespace AnimationEditor.Core.CommandsAndState
             _pm.OnDiskCoordinateType = FlatRedBall.Graphics.TextureCoordinateType.Pixel;
             _selectedState.SelectedChain = null;
             _selectedState.SelectedFrame = null;
-            UndoManager.Self.Clear();
+            _undoManager.Clear();
             RefreshTreeViewRequested?.Invoke();
             _events.RaiseAnimationChainsChanged();
         }
@@ -812,7 +815,7 @@ namespace AnimationEditor.Core.CommandsAndState
             _selectedState.SelectedFrame = frame;
             RefreshChainNodeRequested?.Invoke(chain);
             _events.RaiseAnimationChainsChanged();
-            UndoManager.Self.Record(new AddFrameCommand(frame, chain, chain.Frames.Count - 1, this, _events));
+            _undoManager.Record(new AddFrameCommand(frame, chain, chain.Frames.Count - 1, this, _events));
         }
 
         // ── Texture assignment (WF10b — write direction) ─────────────────────────
@@ -828,10 +831,10 @@ namespace AnimationEditor.Core.CommandsAndState
         {
             if (frame == null) return;
             string? oldName = frame.TextureName;
-            frame.TextureName = textureName;
+            frame.TextureName = textureName!;
             RefreshFrameNodeRequested?.Invoke(frame);
             _events.RaiseAnimationChainsChanged();
-            UndoManager.Self.Record(new SetFrameTextureNameCommand(frame, oldName, textureName, this, _events));
+            _undoManager.Record(new SetFrameTextureNameCommand(frame, oldName, textureName, this, _events));
         }
     }
 }
