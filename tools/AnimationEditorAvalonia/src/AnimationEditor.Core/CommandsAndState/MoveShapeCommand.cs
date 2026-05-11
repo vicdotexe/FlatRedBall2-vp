@@ -1,3 +1,4 @@
+using AnimationEditor.Core.CommandsAndState;
 using FlatRedBall.Content.AnimationChain;
 using FlatRedBall.Content.Math.Geometry;
 
@@ -13,37 +14,36 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
         private readonly object _shape;   // AxisAlignedRectangleSave | CircleSave
         private readonly float _oldX, _oldY;
         private readonly float _newX, _newY;
+        private readonly IAppCommands _commands;
+        private readonly IApplicationEvents _events;
 
         public MoveShapeCommand(
             AnimationFrameSave frame, object shape,
             float oldX, float oldY,
-            float newX, float newY)
+            float newX, float newY,
+            IAppCommands commands,
+            IApplicationEvents events)
         {
-            _frame = frame;
-            _shape = shape;
-            _oldX  = oldX;  _oldY  = oldY;
-            _newX  = newX;  _newY  = newY;
+            _frame    = frame;
+            _shape    = shape;
+            _oldX     = oldX;  _oldY  = oldY;
+            _newX     = newX;  _newY  = newY;
+            _commands = commands;
+            _events   = events;
         }
 
-        public void Undo()
-        {
-            Apply(_oldX, _oldY);
-        }
-
-        public void Redo()
-        {
-            Apply(_newX, _newY);
-        }
+        public void Undo() => Apply(_oldX, _oldY);
+        public void Redo() => Apply(_newX, _newY);
 
         private void Apply(float x, float y)
         {
             if (_shape is AxisAlignedRectangleSave r) { r.X = x; r.Y = y; }
             else if (_shape is CircleSave c)          { c.X = x; c.Y = y; }
 
-            AppCommands.Self.RefreshTreeNode(_frame);
-            AppCommands.Self.RefreshAnimationFrameDisplay();
-            ApplicationEvents.Self.RaiseAnimationChainsChanged();
-            AppCommands.Self.SaveCurrentAnimationChainList();
+            _commands.RefreshTreeNode(_frame);
+            _commands.RefreshAnimationFrameDisplay();
+            _events.RaiseAnimationChainsChanged();
+            _commands.SaveCurrentAnimationChainList();
         }
     }
 }
