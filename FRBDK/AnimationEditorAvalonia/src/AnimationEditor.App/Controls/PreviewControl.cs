@@ -577,6 +577,8 @@ public class PreviewControl : Control
     {
         HandleKind.TopCenter or HandleKind.BotCenter => StandardCursorType.SizeNorthSouth,
         HandleKind.MidLeft   or HandleKind.MidRight  => StandardCursorType.SizeWestEast,
+        HandleKind.TopLeft   or HandleKind.BotRight  => StandardCursorType.TopLeftCorner,
+        HandleKind.TopRight  or HandleKind.BotLeft   => StandardCursorType.TopRightCorner,
         _ => StandardCursorType.SizeAll,
     };
 
