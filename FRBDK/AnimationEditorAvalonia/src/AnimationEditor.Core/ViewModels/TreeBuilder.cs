@@ -98,8 +98,9 @@ public static class TreeBuilder
     /// nodes from overwriting live selection state.
     /// </para>
     /// </summary>
-    public static bool RouteNodeSelection(object data, ISelectedState selectedState, AnimationChainListSave acls)
+    public static bool RouteNodeSelection(object? data, ISelectedState selectedState, AnimationChainListSave? acls)
     {
+        if (data is null) return false;
         switch (data)
         {
             case AnimationChainSave chain:

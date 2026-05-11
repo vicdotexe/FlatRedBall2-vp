@@ -872,10 +872,10 @@ public class PreviewControl : Control
         // Dragged guide value label — drawn last so it stays on top of shapes
         if (s.DraggedGuideIdx >= 0)
         {
+            using var dragLabelFont = new SKFont { Size = 11f };
             using var dragLabelPaint = new SKPaint
             {
                 Color       = new SKColor(0, 200, 255, 230),
-                TextSize    = 11f,
                 IsAntialias = true
             };
             const float lMargin = 4f;
@@ -888,7 +888,7 @@ public class PreviewControl : Control
                 if (sy >= RulerSize && sy <= s.Height)
                 {
                     float baseline = Math.Clamp(sy - 2f, RulerSize + lHeight, s.Height - lMargin);
-                    canvas.DrawText(FormatGuideLabel(true, wy), RulerSize + lMargin, baseline, dragLabelPaint);
+                    canvas.DrawText(FormatGuideLabel(true, wy), RulerSize + lMargin, baseline, dragLabelFont, dragLabelPaint);
                 }
             }
             else if (!s.DraggingHGuide && s.DraggedGuideIdx < s.VGuides.Length)
@@ -898,7 +898,7 @@ public class PreviewControl : Control
                 if (sx >= RulerSize && sx <= s.Width)
                 {
                     float lx = Math.Clamp(sx + lMargin, RulerSize + lMargin, s.Width - 50f);
-                    canvas.DrawText(FormatGuideLabel(false, wx), lx, RulerSize + lHeight, dragLabelPaint);
+                    canvas.DrawText(FormatGuideLabel(false, wx), lx, RulerSize + lHeight, dragLabelFont, dragLabelPaint);
                 }
             }
         }
@@ -917,10 +917,10 @@ public class PreviewControl : Control
             StrokeWidth = 1f,
             IsAntialias = false
         };
+        using var labelFont = new SKFont { Size = 8f };
         using var labelPaint = new SKPaint
         {
             Color    = new SKColor(190, 190, 195),
-            TextSize = 8f,
             IsAntialias = true
         };
 
@@ -938,7 +938,7 @@ public class PreviewControl : Control
             float tickH = isMajor ? RulerSize * 0.55f : RulerSize * 0.30f;
             canvas.DrawLine(sx, RulerSize - tickH, sx, RulerSize, tickPaint);
             if (isMajor)
-                canvas.DrawText(((int)MathF.Round(wx)).ToString(), sx + 1f, RulerSize - tickH - 1f, labelPaint);
+                canvas.DrawText(((int)MathF.Round(wx)).ToString(), sx + 1f, RulerSize - tickH - 1f, labelFont, labelPaint);
         }
 
         // Left (vertical) ruler — ticks at world-Y positions
@@ -956,7 +956,7 @@ public class PreviewControl : Control
                 canvas.Save();
                 canvas.Translate(RulerSize - tickW - 1f, sy);
                 canvas.RotateDegrees(-90f);
-                canvas.DrawText(((int)MathF.Round(wy)).ToString(), 0f, 0f, labelPaint);
+                canvas.DrawText(((int)MathF.Round(wy)).ToString(), 0f, 0f, labelFont, labelPaint);
                 canvas.Restore();
             }
         }
@@ -1015,9 +1015,11 @@ public class PreviewControl : Control
 
         using var paint = new SKPaint
         {
-            FilterQuality = zoom >= 1 ? SKFilterQuality.None : SKFilterQuality.Low,
-            Color         = new SKColor(255, 255, 255, (byte)(255 * alpha))
+            Color = new SKColor(255, 255, 255, (byte)(255 * alpha))
         };
+        var sampling = zoom >= 1
+            ? new SKSamplingOptions(SKFilterMode.Nearest)
+            : new SKSamplingOptions(SKFilterMode.Linear);
 
         bool flip = FlipScaleCalculator.IsFlipped(frame.FlipHorizontal, frame.FlipVertical);
         if (flip)
@@ -1027,7 +1029,8 @@ public class PreviewControl : Control
             canvas.Scale(scaleX, scaleY, cx, cy);
         }
 
-        canvas.DrawBitmap(bm, src, dst, paint);
+        using var img = SKImage.FromBitmap(bm);
+        canvas.DrawImage(img, src, dst, sampling, paint);
 
         if (flip) canvas.Restore();
 

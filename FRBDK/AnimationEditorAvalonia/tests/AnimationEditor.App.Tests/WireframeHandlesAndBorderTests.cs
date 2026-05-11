@@ -85,7 +85,7 @@ public class WireframeHandlesAndBorderTests
             };
             var chain = new AnimationChainSave { Name = "Test" };
             chain.Frames.Add(frame);
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
             SelectedState.Self.SelectedFrame = frame;
 
@@ -133,7 +133,7 @@ public class WireframeHandlesAndBorderTests
             };
             var chain = new AnimationChainSave { Name = "Test" };
             chain.Frames.Add(frame);
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
             SelectedState.Self.SelectedFrame = frame;
 
@@ -174,7 +174,7 @@ public class WireframeHandlesAndBorderTests
             };
             var chain = new AnimationChainSave { Name = "Test" };
             chain.Frames.Add(frame);
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
             SelectedState.Self.SelectedFrame = null;   // ← NO frame selected
 
@@ -218,7 +218,7 @@ public class WireframeHandlesAndBorderTests
             };
             var chain = new AnimationChainSave { Name = "Test" };
             chain.Frames.Add(frame);
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
 
             var ctrl = new WireframeControl();
@@ -357,7 +357,7 @@ public class WireframeHandlesAndBorderTests
             };
             var chain = new AnimationChainSave { Name = "Test" };
             chain.Frames.Add(frame);
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
             SelectedState.Self.SelectedFrame = frame;
 
@@ -414,7 +414,7 @@ public class WireframeHandlesAndBorderTests
             };
             var chain = new AnimationChainSave { Name = "Test" };
             chain.Frames.Add(frame);
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
             SelectedState.Self.SelectedFrame = frame;
 
@@ -467,7 +467,7 @@ public class WireframeHandlesAndBorderTests
             };
             var chain = new AnimationChainSave { Name = "Test" };
             chain.Frames.Add(frame);
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
             SelectedState.Self.SelectedFrame = null;
 

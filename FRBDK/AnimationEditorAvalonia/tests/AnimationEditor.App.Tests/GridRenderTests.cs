@@ -425,7 +425,7 @@ public class GridRenderTests
         };
         chain.Frames.Add(frame);
         ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
-        ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+        ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
         ProjectManager.Self.FileName = System.IO.Path.Combine(dir, "test.achx");
 
         SelectedState.Self.SelectedChain = chain;
@@ -483,7 +483,7 @@ public class GridRenderTests
         };
         chain.Frames.Add(frame);
         ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
-        ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+        ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
         ProjectManager.Self.FileName = System.IO.Path.Combine(dir, "test.achx");
 
         SelectedState.Self.SelectedChain = chain;
@@ -533,7 +533,7 @@ public class GridRenderTests
         };
         chain.Frames.Add(frame);
         ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
-        ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+        ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
         ProjectManager.Self.FileName = System.IO.Path.Combine(dir, "test.achx");
 
         SelectedState.Self.SelectedChain = chain;

@@ -178,7 +178,7 @@ public class VisualRenderTests
                 ShapeCollectionSave = new ShapeCollectionSave()
             });
 
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
 
             var ctrl = new WireframeControl();
@@ -216,7 +216,7 @@ public class VisualRenderTests
             var chain = new AnimationChainSave { Name = "Run" };
             chain.Frames.Add(frame);
 
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
 
             var ctrl = new WireframeControl();
@@ -353,7 +353,7 @@ public class VisualRenderTests
             var chain = new AnimationChainSave { Name = "Test" };
             chain.Frames.Add(frame);
 
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
             SelectedState.Self.SelectedFrame = frame;   // IsSelected=true → fill alpha=45
 
@@ -416,7 +416,7 @@ public class VisualRenderTests
             chain.Frames.Add(frame0);
             chain.Frames.Add(frame1);
 
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
 
             var ctrl = new WireframeControl();
@@ -437,7 +437,7 @@ public class VisualRenderTests
             SelectedState.Self.SelectedFrame = frame0;
             ctrl.RefreshFrames();
             var selectedRects = ctrl.GetFrameRects();
-            Assert.Equal(1, selectedRects.Count);
+            Assert.Single(selectedRects);
             Assert.True(selectedRects[0].IsSelected, "the selected frame should report IsSelected=true");
             // Bounds should match frame0's UV rect on the 64×64 texture (left half).
             Assert.Equal(0f,  selectedRects[0].Bounds.Left);
@@ -476,7 +476,7 @@ public class VisualRenderTests
             var chain = new AnimationChainSave { Name = "Half" };
             chain.Frames.Add(frame);
 
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
             SelectedState.Self.SelectedFrame = frame;  // selected → fill alpha=45
 
@@ -563,7 +563,7 @@ public class VisualRenderTests
             var chain = new AnimationChainSave { Name = "Test" };
             chain.Frames.Add(frame);
 
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
             SelectedState.Self.SelectedFrame = frame;   // pin to this frame
 
@@ -614,7 +614,7 @@ public class VisualRenderTests
             };
             var chain = new AnimationChainSave { Name = "Test" };
             chain.Frames.Add(frame);
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
             SelectedState.Self.SelectedFrame = frame;
 
@@ -668,7 +668,7 @@ public class VisualRenderTests
             };
             var chain = new AnimationChainSave { Name = "Test" };
             chain.Frames.Add(frame);
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
             SelectedState.Self.SelectedFrame = frame;
 
@@ -737,7 +737,7 @@ public class VisualRenderTests
             var chain = new AnimationChainSave { Name = "Test" };
             chain.Frames.Add(frame0);
             chain.Frames.Add(frame1);
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
             SelectedState.Self.SelectedFrame = frame1;  // frame0 becomes the onion
 
@@ -797,7 +797,7 @@ public class VisualRenderTests
             var chain = new AnimationChainSave { Name = "Test" };
             chain.Frames.Add(frame0);
             chain.Frames.Add(frame1);
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
             // SelectedFrame stays null → playback controller drives frame selection
 
@@ -1079,7 +1079,7 @@ public class VisualRenderTests
                         ShapeCollectionSave = new ShapeCollectionSave()
                     });
 
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
 
             var ctrl = new WireframeControl();
@@ -1121,7 +1121,7 @@ public class VisualRenderTests
                         ShapeCollectionSave = new ShapeCollectionSave()
                     });
 
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
 
             var ctrl = new WireframeControl();

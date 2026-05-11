@@ -106,7 +106,7 @@ public class WireframeTextureTests
             };
             var chain = new AnimationChainSave { Name = "Test" };
             chain.Frames.Add(frame);
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
             SelectedState.Self.SelectedFrame = frame;
 
@@ -180,7 +180,7 @@ public class WireframeTextureTests
             var chain = new AnimationChainSave { Name = "Test" };
             chain.Frames.Add(frameRed);
             chain.Frames.Add(frameGreen);
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
 
             var ctrl = new WireframeControl();
@@ -257,7 +257,7 @@ public class WireframeTextureTests
             var chain = new AnimationChainSave { Name = "Walk" };
             chain.Frames.Add(frame1);
             chain.Frames.Add(frame2);
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
 
             var ctrl = new WireframeControl();
 

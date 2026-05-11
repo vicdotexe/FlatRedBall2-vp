@@ -92,7 +92,7 @@ public class TutorialMainWindowIntegrationTests
             ProjectManager.Self.FileName = achx;
 
             var chain = new AnimationChainSave { Name = "Idle" };
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
 
             var wireframe = GetWireframe(window);
@@ -149,7 +149,7 @@ public class TutorialMainWindowIntegrationTests
             ProjectManager.Self.FileName = achx;
 
             var chain = new AnimationChainSave { Name = "Run" };
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
 
             var wireframe = GetWireframe(window);
@@ -202,7 +202,7 @@ public class TutorialMainWindowIntegrationTests
             // Deliberately do NOT set ProjectManager.Self.FileName
 
             var chain = new AnimationChainSave { Name = "Idle" };
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
             SelectedState.Self.SelectedChain = chain;
 
             var wireframe = GetWireframe(window);
@@ -266,7 +266,7 @@ public class TutorialMainWindowIntegrationTests
             };
             var chain = new AnimationChainSave { Name = "Idle" };
             chain.Frames.Add(frame);
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
 
             // Load texture BEFORE selecting the frame so BitmapSize is non-zero
             // when RefreshPropertyPanel runs and populates PropPixelX.
@@ -330,7 +330,7 @@ public class TutorialMainWindowIntegrationTests
                 ShapeCollectionSave = new ShapeCollectionSave(),
             };
             chain.Frames.Add(frame);
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
 
             ProjectManager.Self.FileName = achx;
             AppCommands.Self.SaveCurrentAnimationChainList(achx);
@@ -379,7 +379,7 @@ public class TutorialMainWindowIntegrationTests
             };
             var chain = new AnimationChainSave { Name = "Idle" };
             chain.Frames.Add(frame);
-            ProjectManager.Self.AnimationChainListSave.AnimationChains.Add(chain);
+            ProjectManager.Self.AnimationChainListSave!.AnimationChains.Add(chain);
 
             // Select chain → preview should start playing
             SelectedState.Self.SelectedChain = chain;

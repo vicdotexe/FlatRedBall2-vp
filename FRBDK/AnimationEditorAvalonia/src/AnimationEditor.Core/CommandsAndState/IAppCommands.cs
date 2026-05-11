@@ -34,7 +34,7 @@ namespace AnimationEditor.Core.CommandsAndState
         void RefreshAnimationFrameDisplay();
         void RefreshWireframe();
         void RefreshTreeView();
-        void SaveCurrentAnimationChainList(string fileName = null);
+        void SaveCurrentAnimationChainList(string? fileName = null);
         Task SaveCurrentAnimationChainListAsync();
         void DeleteAnimationChains(List<AnimationChainSave> animationChains);
         void AddAxisAlignedRectangle(AnimationFrameSave frame);

@@ -13,11 +13,11 @@ namespace AnimationEditor.Core
 {
     public class ProjectManager : IProjectManager
     {
-        public static ProjectManager Self { get; set; }
+        public static ProjectManager Self { get; set; } = null!;
 
         static TileMapInformationList mTileMapInformationList = new TileMapInformationList();
 
-        public AnimationChainListSave AnimationChainListSave { get; set; }
+        public AnimationChainListSave? AnimationChainListSave { get; set; }
 
         public TileMapInformationList TileMapInformationList
         {
@@ -27,7 +27,7 @@ namespace AnimationEditor.Core
 
         public FilePath[] ReferencedPngs { get; private set; } = new FilePath[0];
 
-        public string FileName { get; set; }
+        public string? FileName { get; set; }
 
         /// <summary>
         /// The coordinate format the .achx should be written with. Set from the loaded
@@ -205,7 +205,7 @@ namespace AnimationEditor.Core
 
             var files = new HashSet<FilePath>();
 
-            void AddRfs(XElement referencedFiles)
+            void AddRfs(XElement? referencedFiles)
             {
                 if (referencedFiles != null)
                 {
@@ -224,7 +224,7 @@ namespace AnimationEditor.Core
                 }
             }
 
-            XElement xElement = null;
+            XElement? xElement = null;
             try
             {
                 xElement = XElement.Load(projectFile.FullPath);
