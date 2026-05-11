@@ -118,7 +118,9 @@ public static class TreeBuilder
             {
                 if (acls is null || !acls.AnimationChains.Any(c => c.Frames.Contains(frame)))
                     return true; // stale — recognised type, but don't corrupt state
-                if (SelectedState.Self.SelectedFrame != frame)
+                // Re-assign even when the same frame is already selected if a shape is
+                // selected, so that SelectedFrame.set clears SelectedCircle/SelectedRectangle.
+                if (SelectedState.Self.SelectedFrame != frame || SelectedState.Self.SelectedShape != null)
                     SelectedState.Self.SelectedFrame = frame;
                 return true;
             }
