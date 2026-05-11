@@ -21,6 +21,24 @@ internal static class TestHelpers
     /// </summary>
     public static AnimationChainListSave SetupFreshAcls()
     {
+        // Create fresh service instances and wire up Self bridges.
+        var pm            = new ProjectManager();
+        var events        = new ApplicationEvents();
+        var selectedState = new SelectedState(pm);
+        var appState      = new AppState(events, selectedState);
+        var ioManager     = new IoManager(appState);
+        var objectFinder  = new ObjectFinder(pm);
+        var appCommands   = new AppCommands(pm, selectedState, events, ioManager, objectFinder);
+
+        ProjectManager.Self    = pm;
+        ApplicationEvents.Self = events;
+        SelectedState.Self     = selectedState;
+        AppState.Self          = appState;
+        IoManager.Self         = ioManager;
+        ObjectFinder.Self      = objectFinder;
+        AppCommands.Self       = appCommands;
+        UndoManager.Self       = new UndoManager();
+
         var acls = new AnimationChainListSave();
         ProjectManager.Self.AnimationChainListSave = acls;
         ProjectManager.Self.FileName = null;

@@ -11,8 +11,10 @@ using FilePath = FlatRedBall.IO.FilePath;
 
 namespace AnimationEditor.Core
 {
-    public class ProjectManager : Singleton<ProjectManager>
+    public class ProjectManager : IProjectManager
     {
+        public static ProjectManager Self { get; set; }
+
         static TileMapInformationList mTileMapInformationList = new TileMapInformationList();
 
         public AnimationChainListSave? AnimationChainListSave { get; set; }
@@ -36,7 +38,7 @@ namespace AnimationEditor.Core
         /// </summary>
         public TextureCoordinateType OnDiskCoordinateType { get; set; } = TextureCoordinateType.Pixel;
 
-        internal void LoadAnimationChain(FilePath fileName)
+        public void LoadAnimationChain(FilePath fileName)
         {
             if (fileName.Exists())
             {

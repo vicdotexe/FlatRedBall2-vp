@@ -35,6 +35,7 @@ public class HeadlessTreeViewTests
         // Reset data state so each test starts clean.
         // Note: we deliberately do NOT override DoOnUiThread — the window sets it
         // to InvokeAsync which is correct when running on the Avalonia UI thread.
+        TestHelpers.ResetServices();
         ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
         ProjectManager.Self.FileName = null;
         SelectedState.Self.SelectedChain = null;

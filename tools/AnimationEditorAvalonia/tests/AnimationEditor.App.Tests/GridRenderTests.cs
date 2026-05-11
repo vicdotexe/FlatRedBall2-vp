@@ -29,6 +29,7 @@ public class GridRenderTests
 
     private static void ResetSingletons()
     {
+        TestHelpers.ResetServices();
         ProjectManager.Self.AnimationChainListSave = new FlatRedBall.Content.AnimationChain.AnimationChainListSave();
         ProjectManager.Self.FileName = null;
         SelectedState.Self.SelectedChain = null;
@@ -431,6 +432,7 @@ public class GridRenderTests
         SelectedState.Self.SelectedFrame = frame;
 
         var ctrl = new WireframeControl();
+        ctrl.InitializeServices(SelectedState.Self, AppState.Self, AppCommands.Self, ApplicationEvents.Self, ProjectManager.Self);
         ctrl.LoadTexture(png);
         ctrl.SetCamera(0, 0, 1);
 

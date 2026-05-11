@@ -460,6 +460,36 @@ public class WireframeControl : Control
     /// </summary>
     public event Action<int, int, int, int>? FrameCreatedFromRegion;
 
+    // ── Injected services ─────────────────────────────────────────────────────
+
+    private ISelectedState? _selectedState;
+    private IAppState? _appState;
+    private IAppCommands? _appCommands;
+    private IApplicationEvents? _events;
+    private IProjectManager? _projectManager;
+
+    /// <summary>
+    /// Called from MainWindow after DI container wires all services.
+    /// Moves subscriptions out of the constructor so services are available.
+    /// </summary>
+    public void InitializeServices(
+        ISelectedState selectedState,
+        IAppState appState,
+        IAppCommands appCommands,
+        IApplicationEvents events,
+        IProjectManager projectManager)
+    {
+        _selectedState   = selectedState;
+        _appState        = appState;
+        _appCommands     = appCommands;
+        _events          = events;
+        _projectManager  = projectManager;
+
+        _selectedState.SelectionChanged     += () => Dispatcher.UIThread.InvokeAsync(RefreshAll);
+        _appCommands.RefreshWireframeRequested += () => Dispatcher.UIThread.InvokeAsync(RefreshAll);
+        _events.AchxLoaded                  += _ => Dispatcher.UIThread.InvokeAsync(RefreshAll);
+    }
+
     // ── Constructor ───────────────────────────────────────────────────────────
 
     public WireframeControl()
@@ -467,10 +497,7 @@ public class WireframeControl : Control
         ClipToBounds = true;
         Focusable = true;
 
-        // Wire into Core event system
-        SelectedState.Self.SelectionChanged += () => Dispatcher.UIThread.InvokeAsync(RefreshAll);
-        AppCommands.Self.RefreshWireframeRequested += () => Dispatcher.UIThread.InvokeAsync(RefreshAll);
-        ApplicationEvents.Self.AchxLoaded += _ => Dispatcher.UIThread.InvokeAsync(RefreshAll);
+        // Subscriptions are deferred to InitializeServices (called from MainWindow)
 
         // Safety-net: LayoutUpdated fires after the FULL layout pass, at which point
         // sv.Extent is guaranteed to reflect the new (larger) content size.  If the
@@ -898,13 +925,13 @@ public class WireframeControl : Control
     {
         if (!_showGrid || _gridSize <= 0 || _bitmap is null) return;
 
-        var selectedFrame  = SelectedState.Self.SelectedFrame;
-        var selectedChain  = SelectedState.Self.SelectedChain;
-        var selectedChains = SelectedState.Self.SelectedChains;
+        var selectedFrame  = _selectedState?.SelectedFrame;
+        var selectedChain  = _selectedState?.SelectedChain;
+        var selectedChains = _selectedState?.SelectedChains;
 
-        string? achxFolder = string.IsNullOrEmpty(ProjectManager.Self.FileName)
+        string? achxFolder = string.IsNullOrEmpty(_projectManager?.FileName)
             ? null
-            : FlatRedBall.IO.FileManager.GetDirectory(ProjectManager.Self.FileName);
+            : FlatRedBall.IO.FileManager.GetDirectory(_projectManager!.FileName);
 
         IEnumerable<AnimationFrameSave> framesToSnap;
         if (selectedFrame != null)
@@ -1022,7 +1049,8 @@ public class WireframeControl : Control
             sel.Frame,
             _dragBeforeL, _dragBeforeT, _dragBeforeR, _dragBeforeB,
             sel.Frame.LeftCoordinate, sel.Frame.TopCoordinate,
-            sel.Frame.RightCoordinate, sel.Frame.BottomCoordinate));
+            sel.Frame.RightCoordinate, sel.Frame.BottomCoordinate,
+            _appCommands!, _events!));
         _draggingRect   = null;
         _draggingHandle = HandleKind.None;
     }
@@ -1042,7 +1070,7 @@ public class WireframeControl : Control
         float startScreenX, float startScreenY,
         float endScreenX,   float endScreenY)
     {
-        var chain = SelectedState.Self.SelectedChain;
+        var chain = _selectedState?.SelectedChain;
         if (chain is null || _bitmap is null || _frameRects.Count == 0) return;
 
         _draggingChain = true;
@@ -1270,11 +1298,11 @@ public class WireframeControl : Control
             // from the frame's center by (-RelativeX, +RelativeY) in game space
             // (RelativeX/Y stored in display pixels = stored * OffsetMultiplier).
             // Game Y+ = screen up = texture row decreasing → negate RelativeY.
-            float offMult = AppState.Self.OffsetMultiplier;
+            float offMult = _appState?.OffsetMultiplier ?? 1f;
             snap.OriginTexX = sel.Bounds.MidX - sel.Frame.RelativeX * offMult;
             snap.OriginTexY = sel.Bounds.MidY + sel.Frame.RelativeY * offMult;
         }
-        else if (SelectedState.Self.SelectedChain != null && _frameRects.Count > 0)
+        else if (_selectedState?.SelectedChain != null && _frameRects.Count > 0)
         {
             snap.SelectedHandleBounds = ComputeChainBoundingRect();
         }
@@ -1534,7 +1562,8 @@ public class WireframeControl : Control
                 _draggingRect.Frame,
                 _dragBeforeL, _dragBeforeT, _dragBeforeR, _dragBeforeB,
                 _draggingRect.Frame.LeftCoordinate, _draggingRect.Frame.TopCoordinate,
-                _draggingRect.Frame.RightCoordinate, _draggingRect.Frame.BottomCoordinate));
+                _draggingRect.Frame.RightCoordinate, _draggingRect.Frame.BottomCoordinate,
+                _appCommands!, _events!));
             _draggingRect = null;
             _draggingHandle = HandleKind.None;
             e.Pointer.Capture(null);
@@ -1802,7 +1831,7 @@ public class WireframeControl : Control
 
         // Chain selected (no individual frame): test against the composite bounding rect.
         // All hits are treated as Move since resizing the group is not supported.
-        if (SelectedState.Self.SelectedChain != null && _frameRects.Count > 0)
+        if (_selectedState?.SelectedChain != null && _frameRects.Count > 0)
         {
             var chainRect = ComputeChainBoundingRect();
             var sr = ToScreen(chainRect);

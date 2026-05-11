@@ -28,7 +28,8 @@ public class FrameRegionUndoTests
         frame.RightCoordinate  = aR;
         frame.BottomCoordinate = aB;
 
-        var cmd = new FrameRegionChangedCommand(frame, bL, bT, bR, bB, aL, aT, aR, aB);
+        var cmd = new FrameRegionChangedCommand(frame, bL, bT, bR, bB, aL, aT, aR, aB,
+            AppCommands.Self, ApplicationEvents.Self);
         UndoManager.Self.Record(cmd);
 
         UndoManager.Self.Undo();
@@ -55,7 +56,8 @@ public class FrameRegionUndoTests
         float bL = 0f, bT = 0f, bR = 0.5f, bB = 0.5f;
         float aL = 0.25f, aT = 0.25f, aR = 0.75f, aB = 0.75f;
 
-        var cmd = new FrameRegionChangedCommand(frame, bL, bT, bR, bB, aL, aT, aR, aB);
+        var cmd = new FrameRegionChangedCommand(frame, bL, bT, bR, bB, aL, aT, aR, aB,
+            AppCommands.Self, ApplicationEvents.Self);
 
         // Simulate: command was recorded after UV was updated to "after" values
         frame.LeftCoordinate   = aL;

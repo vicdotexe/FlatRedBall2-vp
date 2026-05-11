@@ -3,11 +3,19 @@ using FlatRedBall.Content.Math.Geometry;
 
 namespace AnimationEditor.Core
 {
-    public class ObjectFinder : Singleton<ObjectFinder>
+    public class ObjectFinder : IObjectFinder
     {
-        public AnimationFrameSave? GetAnimationFrameContaining(AxisAlignedRectangleSave rectangle)
+        public static ObjectFinder Self { get; set; }
+
+        private readonly IProjectManager _pm;
+
+        public ObjectFinder(IProjectManager pm)
         {
-            foreach (var chain in ProjectManager.Self.AnimationChainListSave?.AnimationChains ?? [])
+            _pm = pm;
+        }
+        public AnimationFrameSave GetAnimationFrameContaining(AxisAlignedRectangleSave rectangle)
+        {
+            foreach (var chain in _pm.AnimationChainListSave.AnimationChains)
             {
                 foreach (var frame in chain.Frames)
                 {
@@ -18,9 +26,9 @@ namespace AnimationEditor.Core
             return null;
         }
 
-        public AnimationFrameSave? GetAnimationFrameContaining(CircleSave circle)
+        public AnimationFrameSave GetAnimationFrameContaining(CircleSave circle)
         {
-            foreach (var chain in ProjectManager.Self.AnimationChainListSave?.AnimationChains ?? [])
+            foreach (var chain in _pm.AnimationChainListSave.AnimationChains)
             {
                 foreach (var frame in chain.Frames)
                 {
@@ -31,9 +39,9 @@ namespace AnimationEditor.Core
             return null;
         }
 
-        public AnimationChainSave? GetAnimationChainContaining(AnimationFrameSave frame)
+        public AnimationChainSave GetAnimationChainContaining(AnimationFrameSave frame)
         {
-            foreach (var chain in ProjectManager.Self.AnimationChainListSave?.AnimationChains ?? [])
+            foreach (var chain in _pm.AnimationChainListSave.AnimationChains)
             {
                 foreach (var possibleFrame in chain.Frames)
                 {

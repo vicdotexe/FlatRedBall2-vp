@@ -39,6 +39,7 @@ public class ChainSwitchTests
 {
     private static void ResetSingletons()
     {
+        TestHelpers.ResetServices();
         ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
         ProjectManager.Self.FileName = null;
         SelectedState.Self.SelectedChain = null;
@@ -170,6 +171,7 @@ public class ChainSwitchTests
 
             // Create control FIRST so its SelectionChanged subscription is active
             var ctrl = new PreviewControl();
+            ctrl.InitializeServices(SelectedState.Self, AppState.Self, AppCommands.Self, ApplicationEvents.Self, ProjectManager.Self);
             ctrl.PauseAutoPlayback();
 
             // Now set chain A — fires SelectionChanged, which the control handles via InvokeAsync

@@ -9,26 +9,34 @@ namespace AnimationEditor.Core
 {
     public class SelectionSnapshot
     {
-        public AnimationChainSave? AnimationChainSave;
-        public AnimationFrameSave? AnimationFrameSave;
+        public AnimationChainSave AnimationChainSave;
+        public AnimationFrameSave AnimationFrameSave;
     }
 
-    public class SelectedState : Singleton<SelectedState>
+    public class SelectedState : ISelectedState
     {
-        private AnimationChainSave? _selectedChain;
-        private AnimationFrameSave? _selectedFrame;
-        private AxisAlignedRectangleSave? _selectedRectangle;
-        private CircleSave? _selectedCircle;
+        public static SelectedState Self { get; set; }
+
+        private readonly IProjectManager _pm;
+
+        public SelectedState(IProjectManager pm)
+        {
+            _pm = pm;
+        }
+        private AnimationChainSave _selectedChain;
+        private AnimationFrameSave _selectedFrame;
+        private AxisAlignedRectangleSave _selectedRectangle;
+        private CircleSave _selectedCircle;
         private List<object> _selectedNodes = new List<object>();
 
         private SelectionSnapshot mSnapshot = new SelectionSnapshot();
 
-        public event Action? SelectionChanged;
+        public event Action SelectionChanged;
 
-        public AnimationChainListSave? AnimationChainListSave =>
-            ProjectManager.Self.AnimationChainListSave;
+        public AnimationChainListSave AnimationChainListSave =>
+            _pm.AnimationChainListSave;
 
-        public AnimationChainSave? SelectedChain
+        public AnimationChainSave SelectedChain
         {
             get => _selectedChain;
             set
@@ -41,7 +49,7 @@ namespace AnimationEditor.Core
             }
         }
 
-        public AnimationFrameSave? SelectedFrame
+        public AnimationFrameSave SelectedFrame
         {
             get => _selectedFrame;
             set
@@ -58,7 +66,7 @@ namespace AnimationEditor.Core
             }
         }
 
-        public AxisAlignedRectangleSave? SelectedRectangle
+        public AxisAlignedRectangleSave SelectedRectangle
         {
             get => _selectedRectangle;
             set
@@ -69,7 +77,7 @@ namespace AnimationEditor.Core
             }
         }
 
-        public CircleSave? SelectedCircle
+        public CircleSave SelectedCircle
         {
             get => _selectedCircle;
             set
@@ -80,7 +88,7 @@ namespace AnimationEditor.Core
             }
         }
 
-        public object? SelectedShape => (object?)_selectedRectangle ?? _selectedCircle;
+        public object SelectedShape => (object)_selectedRectangle ?? _selectedCircle;
 
         public List<AnimationChainSave> SelectedChains { get; set; } = new List<AnimationChainSave>();
 
@@ -115,7 +123,7 @@ namespace AnimationEditor.Core
             }
         }
 
-        public string? SelectedTextureName
+        public string SelectedTextureName
         {
             get
             {
@@ -127,7 +135,7 @@ namespace AnimationEditor.Core
             }
         }
 
-        public TileMapInformation? SelectedTileMapInformation
+        public TileMapInformation SelectedTileMapInformation
         {
             get
             {
@@ -135,7 +143,7 @@ namespace AnimationEditor.Core
                     ?? (_selectedChain?.Frames.Count > 0 ? _selectedChain.Frames[0].TextureName : null);
 
                 if (!string.IsNullOrEmpty(fileName))
-                    return ProjectManager.Self.TileMapInformationList.GetTileMapInformation(fileName);
+                    return _pm.TileMapInformationList.GetTileMapInformation(fileName);
 
                 return null;
             }
@@ -147,7 +155,7 @@ namespace AnimationEditor.Core
             set => mSnapshot = value;
         }
 
-        private AnimationChainSave? FindChainForFrame(AnimationFrameSave frame)
+        private AnimationChainSave FindChainForFrame(AnimationFrameSave frame)
         {
             if (AnimationChainListSave == null) return null;
             foreach (var chain in AnimationChainListSave.AnimationChains)

@@ -20,6 +20,7 @@ public class WireframeChainDragTests
 {
     private static void ResetSingletons()
     {
+        TestHelpers.ResetServices();
         ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
         ProjectManager.Self.FileName               = null;
         SelectedState.Self.SelectedChain           = null;
@@ -83,6 +84,7 @@ public class WireframeChainDragTests
         SelectedState.Self.SelectedChain = chain;
 
         var ctrl = new WireframeControl();
+        ctrl.InitializeServices(SelectedState.Self, AppState.Self, AppCommands.Self, ApplicationEvents.Self, ProjectManager.Self);
         ctrl.LoadTexture(png);
         ctrl.SetCamera(0f, 0f, 1f);
         ctrl.RefreshFrames();

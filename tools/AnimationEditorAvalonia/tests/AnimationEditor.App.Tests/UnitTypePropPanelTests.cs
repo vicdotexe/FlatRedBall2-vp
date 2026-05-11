@@ -48,6 +48,7 @@ public class UnitTypePropPanelTests
         acls.AnimationChains.Add(chain);
 
         // Reset all singletons before creating the window.
+        TestHelpers.ResetServices();
         ProjectManager.Self.AnimationChainListSave = acls;
         ProjectManager.Self.FileName = null;
         SelectedState.Self.SelectedChain = null;

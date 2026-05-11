@@ -14,6 +14,7 @@ namespace AnimationEditor.Core
                 }
                 return mSelf;
             }
+            set => mSelf = value;
         }
     }
 }

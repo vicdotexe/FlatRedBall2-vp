@@ -37,6 +37,7 @@ public class WireframeHandlesAndBorderTests
 {
     private static void ResetSingletons()
     {
+        TestHelpers.ResetServices();
         ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
         ProjectManager.Self.FileName = null;
         SelectedState.Self.SelectedChain = null;

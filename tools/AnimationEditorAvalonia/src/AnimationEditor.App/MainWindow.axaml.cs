@@ -33,19 +33,57 @@ namespace AnimationEditor.App;
 
 public partial class MainWindow : Window
 {
+    private readonly IProjectManager _projectManager;
+    private readonly ISelectedState _selectedState;
+    private readonly IAppCommands _appCommands;
+    private readonly IAppState _appState;
+    private readonly IApplicationEvents _events;
+    private readonly IIoManager _ioManager;
+    private readonly IObjectFinder _objectFinder;
+
     private AppSettingsModel _appSettings = new();
     private bool _suppressPropRefresh;
     private bool _suppressTextureComboChanged;
     private bool _suppressZoomComboChanged;
     private bool _suppressPreviewZoomComboChanged;
-    private bool _suppressUnitSync;
 
     private FilePath SettingsFilePath =>
         (FilePath)(Path.GetDirectoryName(
             System.Reflection.Assembly.GetExecutingAssembly().Location) + "\\AESettings.json");
 
-    public MainWindow()
+    /// <summary>
+    /// Parameterless constructor for headless tests.
+    /// Requires all static Self bridges to be set before calling
+    /// (use <c>TestHelpers.ResetServices()</c> in tests).
+    /// </summary>
+    public MainWindow() : this(
+        ProjectManager.Self,
+        SelectedState.Self,
+        AppCommands.Self,
+        AppState.Self,
+        ApplicationEvents.Self,
+        IoManager.Self,
+        ObjectFinder.Self)
     {
+    }
+
+    public MainWindow(
+        IProjectManager projectManager,
+        ISelectedState selectedState,
+        IAppCommands appCommands,
+        IAppState appState,
+        IApplicationEvents events,
+        IIoManager ioManager,
+        IObjectFinder objectFinder)
+    {
+        _projectManager = projectManager;
+        _selectedState = selectedState;
+        _appCommands = appCommands;
+        _appState = appState;
+        _events = events;
+        _ioManager = ioManager;
+        _objectFinder = objectFinder;
+
         InitializeComponent();
         WireframeCtrl.AttachScrollViewer(WireframeScrollViewer);
 
@@ -60,58 +98,39 @@ public partial class MainWindow : Window
         WirePlaybackControls();
         WireKeyboard();
 
+        WireframeCtrl.InitializeServices(_selectedState, _appState, _appCommands, _events, _projectManager);
+        PreviewCtrl.InitializeServices(_selectedState, _appState, _appCommands, _events, _projectManager);
+
         Opened += OnOpened;
     }
 
     // ── Startup ───────────────────────────────────────────────────────────────
 
-    private async void OnOpened(object? sender, EventArgs e)
+    private void OnOpened(object? sender, EventArgs e)
     {
         var args = Environment.GetCommandLineArgs();
         if (args.Length >= 2 && File.Exists(args[1]))
         {
             LoadAnimationFile(args[1]);
-            Dispatcher.UIThread.InvokeAsync(RefreshStatusBar);
-            return;
-        }
-
-        if (IoManager.Self.RecoveryFileExists())
-        {
-            var restore = await ShowConfirmDialogAsync(
-                "Unsaved work was found from a previous session.\nWould you like to restore it?",
-                "Restore Unsaved Work");
-            if (restore)
-            {
-                AppCommands.Self.LoadAnimationChain(IoManager.Self.RecoveryFilePath);
-                ProjectManager.Self.FileName = null;
-            }
-            else
-            {
-                IoManager.Self.DeleteRecoveryFile();
-                ProjectManager.Self.AnimationChainListSave =
-                    new FlatRedBall.Content.AnimationChain.AnimationChainListSave();
-            }
         }
         else
         {
-            ProjectManager.Self.AnimationChainListSave =
+            _projectManager.AnimationChainListSave =
                 new FlatRedBall.Content.AnimationChain.AnimationChainListSave();
         }
-
-        Dispatcher.UIThread.InvokeAsync(RefreshStatusBar);
     }
 
     // ── AppCommands wiring ────────────────────────────────────────────────────
 
     private void WireAppCommands()
     {
-        AppCommands.Self.DoOnUiThread = action => Dispatcher.UIThread.InvokeAsync(action);
-        AppCommands.Self.ConfirmAsync = ShowConfirmDialogAsync;
-        AppCommands.Self.PromptStringAsync = ShowStringInputDialogAsync;
+        _appCommands.DoOnUiThread = action => Dispatcher.UIThread.InvokeAsync(action);
+        _appCommands.ConfirmAsync = ShowConfirmDialogAsync;
+        _appCommands.PromptStringAsync = ShowStringInputDialogAsync;
 
         // File dialog service
-        AppCommands.Self.FileDialogService = new Services.AvaloniaFileDialogService(this);
-        AppCommands.Self.SaveAsCompleted  += path =>
+        _appCommands.FileDialogService = new Services.AvaloniaFileDialogService(this);
+        _appCommands.SaveAsCompleted  += path =>
         {
             _appSettings.AddFile(new FilePath(path));
             SaveSettingsFile();
@@ -120,15 +139,15 @@ public partial class MainWindow : Window
         };
 
         // Tree events — fully wired (WireTreeView connects these after tree is constructed)
-        AppCommands.Self.RefreshTreeViewRequested           += () => Dispatcher.UIThread.InvokeAsync(RefreshTreeView);
-        AppCommands.Self.RefreshChainNodeRequested          += c  => Dispatcher.UIThread.InvokeAsync(() => RefreshChainNode(c));
-        AppCommands.Self.RefreshFrameNodeRequested          += f  => Dispatcher.UIThread.InvokeAsync(() => RefreshFrameNode(f));
-        AppCommands.Self.RefreshAnimationFrameDisplayRequested += () => { };
+        _appCommands.RefreshTreeViewRequested           += () => Dispatcher.UIThread.InvokeAsync(RefreshTreeView);
+        _appCommands.RefreshChainNodeRequested          += c  => Dispatcher.UIThread.InvokeAsync(() => RefreshChainNode(c));
+        _appCommands.RefreshFrameNodeRequested          += f  => Dispatcher.UIThread.InvokeAsync(() => RefreshFrameNode(f));
+        _appCommands.RefreshAnimationFrameDisplayRequested += () => { };
         // RefreshWireframeRequested is handled by WireframeControl directly
 
-        ApplicationEvents.Self.AchxLoaded               += HandleAchxLoaded;
-        ApplicationEvents.Self.AnimationChainsChanged    += HandleAnimationChainsChanged;
-        SelectedState.Self.SelectionChanged              += HandleSelectionChanged;
+        _events.AchxLoaded               += HandleAchxLoaded;
+        _events.AnimationChainsChanged    += HandleAnimationChainsChanged;
+        _selectedState.SelectionChanged   += HandleSelectionChanged;
     }
 
     // ── Wireframe toolbar wiring ──────────────────────────────────────────────
@@ -147,15 +166,13 @@ public partial class MainWindow : Window
         ZoomCombo.SelectionChanged += OnZoomComboSelectionChanged;
         ZoomPlusBtn.Click  += (_, _) => StepZoomPreset(WireframeCtrl.Zoom * 100f, _zoomPresets, +1, p => WireframeCtrl.SetZoomPercent(p));
         ZoomMinusBtn.Click += (_, _) => StepZoomPreset(WireframeCtrl.Zoom * 100f, _zoomPresets, -1, p => WireframeCtrl.SetZoomPercent(p));
-        UnitPixelBtn.Click       += OnUnitPixelBtnClick;
-        UnitTextureBtn.Click     += OnUnitTextureBtnClick;
-        UnitSpriteSheetBtn.Click += OnUnitSpriteSheetBtnClick;
+        UnitTypeCombo.SelectionChanged += OnUnitTypeComboChanged;
 
         // Apply initial grid state
         WireframeCtrl.SetGrid(false, 16);
 
-        // Sync unit toggle buttons to current AppState
-        SyncUnitButtons(AppState.Self.UnitType);
+        // Sync UnitTypeCombo to current AppState
+        UnitTypeCombo.SelectedIndex = (int)_appState.UnitType;
     }
 
     private void OnTextureComboChanged(object? sender, SelectionChangedEventArgs e)
@@ -165,14 +182,14 @@ public partial class MainWindow : Window
 
         WireframeCtrl.LoadTexture(absolutePath);
 
-        var frame = SelectedState.Self.SelectedFrame;
+        var frame = _selectedState.SelectedFrame;
         if (frame == null) return;
 
-        string achxFolder = string.IsNullOrEmpty(ProjectManager.Self.FileName)
+        string achxFolder = string.IsNullOrEmpty(_projectManager.FileName)
             ? string.Empty
-            : FlatRedBall.IO.FileManager.GetDirectory(ProjectManager.Self.FileName);
+            : FlatRedBall.IO.FileManager.GetDirectory(_projectManager.FileName);
         string storePath = TexturePathHelper.ComputeStorePath(absolutePath, achxFolder);
-        AppCommands.Self.SetFrameTextureName(frame, storePath);
+        _appCommands.SetFrameTextureName(frame, storePath);
         RefreshPropertyPanel();
     }
 
@@ -291,37 +308,13 @@ public partial class MainWindow : Window
         return int.TryParse(trimmed, out pct);
     }
 
-    private void SyncUnitButtons(UnitType unitType)
+    private void OnUnitTypeComboChanged(object? sender, SelectionChangedEventArgs e)
     {
-        _suppressUnitSync = true;
-        UnitPixelBtn.IsChecked       = unitType == UnitType.Pixel;
-        UnitTextureBtn.IsChecked     = unitType == UnitType.TextureCoordinate;
-        UnitSpriteSheetBtn.IsChecked = unitType == UnitType.SpriteSheet;
-        _suppressUnitSync = false;
-    }
-
-    private void OnUnitPixelBtnClick(object? sender, RoutedEventArgs e)
-    {
-        if (_suppressUnitSync) return;
-        AppState.Self.UnitType = UnitType.Pixel;
-        SyncUnitButtons(UnitType.Pixel);
-        Dispatcher.UIThread.InvokeAsync(RefreshPropertyPanel);
-    }
-
-    private void OnUnitTextureBtnClick(object? sender, RoutedEventArgs e)
-    {
-        if (_suppressUnitSync) return;
-        AppState.Self.UnitType = UnitType.TextureCoordinate;
-        SyncUnitButtons(UnitType.TextureCoordinate);
-        Dispatcher.UIThread.InvokeAsync(RefreshPropertyPanel);
-    }
-
-    private void OnUnitSpriteSheetBtnClick(object? sender, RoutedEventArgs e)
-    {
-        if (_suppressUnitSync) return;
-        AppState.Self.UnitType = UnitType.SpriteSheet;
-        SyncUnitButtons(UnitType.SpriteSheet);
-        Dispatcher.UIThread.InvokeAsync(RefreshPropertyPanel);
+        if (UnitTypeCombo.SelectedIndex >= 0)
+        {
+            _appState.UnitType = (UnitType)UnitTypeCombo.SelectedIndex;
+            Dispatcher.UIThread.InvokeAsync(RefreshPropertyPanel);
+        }
     }
 
     // ── WireframeControl event wiring ─────────────────────────────────────────
@@ -337,25 +330,25 @@ public partial class MainWindow : Window
 
     private void OnChainRegionChanged(AnimationChainSave chain)
     {
-        ApplicationEvents.Self.RaiseAnimationChainsChanged();
+        _events.RaiseAnimationChainsChanged();
     }
 
     private void OnFrameLiveUpdated(AnimationFrameSave frame)
     {
         // Called on UI thread during drag — refresh property panel and preview without saving
         RefreshPropertyPanel();
-        AppCommands.Self.RefreshAnimationFrameDisplay();
+        _appCommands.RefreshAnimationFrameDisplay();
     }
 
     private void OnFrameRegionChanged(AnimationFrameSave frame)
     {
-        AppCommands.Self.RefreshTreeNode(frame);
-        ApplicationEvents.Self.RaiseAnimationChainsChanged();
+        _appCommands.RefreshTreeNode(frame);
+        _events.RaiseAnimationChainsChanged();
     }
 
     private void OnFrameCreatedFromRegion(int minX, int minY, int maxX, int maxY)
     {
-        var chain = SelectedState.Self.SelectedChain;
+        var chain = _selectedState.SelectedChain;
         if (chain is null) return;
 
         var texPath = WireframeCtrl.LoadedTexturePath;
@@ -367,10 +360,10 @@ public partial class MainWindow : Window
         // When an .achx project file is open, make the path relative to it.
         // When no file exists yet (unsaved project), keep the absolute path so
         // WireframeControl.DetermineTexturePath can still resolve it for display.
-        string relPath = !string.IsNullOrEmpty(ProjectManager.Self.FileName)
+        string relPath = !string.IsNullOrEmpty(_projectManager.FileName)
             ? FlatRedBall.IO.FileManager.MakeRelative(
                 texPath,
-                FlatRedBall.IO.FileManager.GetDirectory(ProjectManager.Self.FileName))
+                FlatRedBall.IO.FileManager.GetDirectory(_projectManager.FileName))
             : texPath;
 
         var frame = new AnimationFrameSave
@@ -385,32 +378,31 @@ public partial class MainWindow : Window
         };
 
         chain.Frames.Add(frame);
-        AppCommands.Self.RefreshTreeNode(chain);
-        SelectedState.Self.SelectedFrame = frame;
-        ApplicationEvents.Self.RaiseAnimationChainsChanged();
+        _appCommands.RefreshTreeNode(chain);
+        _selectedState.SelectedFrame = frame;
+        _events.RaiseAnimationChainsChanged();
     }
 
     // ── Core event handlers ───────────────────────────────────────────────────
 
     private void HandleAchxLoaded(string fileName)
     {
-        AppCommands.Self.LoadAnimationChain(fileName);   // triggers RefreshTreeViewRequested
-        IoManager.Self.DeleteRecoveryFile();
+        _appCommands.LoadAnimationChain(fileName);   // triggers RefreshTreeViewRequested
 
         _appSettings.AddFile(new FilePath(fileName));
         SaveSettingsFile();
         RefreshRecentFiles();
         UpdateTitle();
         RefreshTextureCombo();
-        Dispatcher.UIThread.InvokeAsync(RefreshStatusBar);
     }
 
     private void HandleAnimationChainsChanged()
     {
-        AppCommands.Self.SaveCurrentAnimationChainList();
-        if (!string.IsNullOrEmpty(ProjectManager.Self.FileName))
+        if (!string.IsNullOrEmpty(_projectManager.FileName))
+        {
+            _appCommands.SaveCurrentAnimationChainList();
             UpdateTitle();
-        Dispatcher.UIThread.InvokeAsync(RefreshStatusBar);
+        }
     }
 
     private void HandleSelectionChanged()
@@ -421,8 +413,6 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.InvokeAsync(SyncTreeSelection);
         // Refresh property inspector
         Dispatcher.UIThread.InvokeAsync(RefreshPropertyPanel);
-        // Refresh timeline strip
-        Dispatcher.UIThread.InvokeAsync(RefreshTimelineStrip);
     }
 
     // ── Texture combo helpers ─────────────────────────────────────────────────
@@ -435,10 +425,10 @@ public partial class MainWindow : Window
         {
             TextureCombo.Items.Clear();
 
-            var acls = ProjectManager.Self.AnimationChainListSave;
-            if (acls is null || string.IsNullOrEmpty(ProjectManager.Self.FileName)) return;
+            var acls = _projectManager.AnimationChainListSave;
+            if (acls is null || string.IsNullOrEmpty(_projectManager.FileName)) return;
 
-            string achxFolder = FlatRedBall.IO.FileManager.GetDirectory(ProjectManager.Self.FileName);
+            string achxFolder = FlatRedBall.IO.FileManager.GetDirectory(_projectManager.FileName);
 
             var paths = acls.AnimationChains
                 .SelectMany(c => c.Frames)
@@ -450,7 +440,7 @@ public partial class MainWindow : Window
                         : achxFolder + f.TextureName;
                     return new FilePath(abs).Standardized;
                 })
-                .Union(ProjectManager.Self.ReferencedPngs.Select(p => p.Standardized))
+                .Union(_projectManager.ReferencedPngs.Select(p => p.Standardized))
                 .Distinct()
                 .ToList();
 
@@ -474,11 +464,11 @@ public partial class MainWindow : Window
     {
         string? texPath = null;
 
-        var frame = SelectedState.Self.SelectedFrame;
+        var frame = _selectedState.SelectedFrame;
         if (frame != null && !string.IsNullOrEmpty(frame.TextureName) &&
-            !string.IsNullOrEmpty(ProjectManager.Self.FileName))
+            !string.IsNullOrEmpty(_projectManager.FileName))
         {
-            string achxFolder = FlatRedBall.IO.FileManager.GetDirectory(ProjectManager.Self.FileName);
+            string achxFolder = FlatRedBall.IO.FileManager.GetDirectory(_projectManager.FileName);
             var abs = System.IO.Path.IsPathRooted(frame.TextureName)
                 ? frame.TextureName
                 : achxFolder + frame.TextureName;
@@ -543,11 +533,10 @@ public partial class MainWindow : Window
 
     private void OnNewClick(object? sender, RoutedEventArgs e)
     {
-        IoManager.Self.DeleteRecoveryFile();
-        ProjectManager.Self.AnimationChainListSave =
+        _projectManager.AnimationChainListSave =
             new FlatRedBall.Content.AnimationChain.AnimationChainListSave();
-        ProjectManager.Self.FileName = null;
-        _ = AppCommands.Self.SaveCurrentAnimationChainListAsync();
+        _projectManager.FileName = null;
+        _ = _appCommands.SaveCurrentAnimationChainListAsync();
     }
 
     private void OnLoadClick(object? sender, RoutedEventArgs e) => _ = LoadAsync();
@@ -570,19 +559,19 @@ public partial class MainWindow : Window
 
     private void OnSaveClick(object? sender, RoutedEventArgs e)
     {
-        if (ProjectManager.Self.AnimationChainListSave is null) return;
+        if (_projectManager.AnimationChainListSave is null) return;
 
-        if (string.IsNullOrEmpty(ProjectManager.Self.FileName))
-            _ = AppCommands.Self.SaveCurrentAnimationChainListAsync();
+        if (string.IsNullOrEmpty(_projectManager.FileName))
+            _ = _appCommands.SaveCurrentAnimationChainListAsync();
         else
         {
-            AppCommands.Self.SaveCurrentAnimationChainList();
+            _appCommands.SaveCurrentAnimationChainList();
             UpdateTitle();
         }
     }
 
     private void OnSaveAsClick(object? sender, RoutedEventArgs e) =>
-        _ = AppCommands.Self.SaveCurrentAnimationChainListAsync();
+        _ = _appCommands.SaveCurrentAnimationChainListAsync();
 
     private void OnAboutClick(object? sender, RoutedEventArgs e)
     {
@@ -715,13 +704,10 @@ public partial class MainWindow : Window
         // "Add Chain" button under the tree
         AddChainBtn.Click += (_, _) =>
         {
-            if (ProjectManager.Self.AnimationChainListSave is null)
-                ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
-            AppCommands.Self.AddAnimationChain();
+            if (_projectManager.AnimationChainListSave is null)
+                _projectManager.AnimationChainListSave = new AnimationChainListSave();
+            _ = _appCommands.AddAnimationChain();
         };
-
-        AppCommands.Self.BeginInlineRenameRequested += chain =>
-            BeginInlineRenameSelected(chain);
 
         // Expand/Collapse toolbar buttons
         ExpandAllBtn.Click  += (_, _) => SetAllExpanded(true);
@@ -758,7 +744,7 @@ public partial class MainWindow : Window
         if (sender is not Button btn) return;
         if (btn.DataContext is not TreeNodeVm vm) return;
         if (vm.Data is not AnimationChainSave chain) return;
-        AppCommands.Self.AddFrame(chain);
+        _appCommands.AddFrame(chain);
         e.Handled = true;
     }
 
@@ -792,7 +778,7 @@ public partial class MainWindow : Window
     private void OnTreeDrop(object? sender, DragEventArgs e)
     {
         var firstFile = GetFirstDroppedFilePath(e);
-        Console.WriteLine($"[DragDrop] OnTreeDrop: firstFile={firstFile ?? "(null)"}, FileName={ProjectManager.Self.FileName ?? "(null)"}");
+        Console.WriteLine($"[DragDrop] OnTreeDrop: firstFile={firstFile ?? "(null)"}, FileName={_projectManager.FileName ?? "(null)"}");
 
         if (string.IsNullOrEmpty(firstFile))
         {
@@ -802,7 +788,7 @@ public partial class MainWindow : Window
 
         // If no ACHX is saved yet, allow the drop but use an absolute texture path.
         // Relative-path conversion requires a base directory; without one we fall back to absolute.
-        if (string.IsNullOrEmpty(ProjectManager.Self.FileName))
+        if (string.IsNullOrEmpty(_projectManager.FileName))
         {
             Console.WriteLine("[DragDrop] Warning: no ACHX file saved yet — texture path will be absolute");
         }
@@ -814,7 +800,7 @@ public partial class MainWindow : Window
 
         if (targetFrame is not null)
         {
-            targetChain = ObjectFinder.Self.GetAnimationChainContaining(targetFrame);
+            targetChain = _objectFinder.GetAnimationChainContaining(targetFrame);
         }
 
         Console.WriteLine($"[DragDrop] targetChain={targetChain?.Name ?? "(null)"}, targetFrame={targetFrame?.TextureName ?? "(null)"}, ctrl={e.KeyModifiers.HasFlag(KeyModifiers.Control)}");
@@ -823,7 +809,7 @@ public partial class MainWindow : Window
             targetChain,
             targetFrame,
             firstFile,
-            ProjectManager.Self.FileName,
+            _projectManager.FileName,
             e.KeyModifiers.HasFlag(KeyModifiers.Control));
 
         Console.WriteLine($"[DragDrop] Result={result}");
@@ -836,28 +822,28 @@ public partial class MainWindow : Window
 
         if (targetFrame is not null)
         {
-            AppCommands.Self.RefreshTreeNode(targetFrame);
-            SelectedState.Self.SelectedFrame = targetFrame;
+            _appCommands.RefreshTreeNode(targetFrame);
+            _selectedState.SelectedFrame = targetFrame;
         }
         else if (targetChain is not null)
         {
-            AppCommands.Self.RefreshTreeNode(targetChain);
+            _appCommands.RefreshTreeNode(targetChain);
 
             if (result == TextureDropResult.CreatedFrame)
             {
                 var createdFrame = targetChain.Frames.LastOrDefault();
                 if (createdFrame is not null)
-                    SelectedState.Self.SelectedFrame = createdFrame;
+                    _selectedState.SelectedFrame = createdFrame;
             }
             else
             {
-                SelectedState.Self.SelectedChain = targetChain;
+                _selectedState.SelectedChain = targetChain;
             }
         }
 
         RefreshTextureCombo();
-        AppCommands.Self.RefreshWireframe();
-        ApplicationEvents.Self.RaiseAnimationChainsChanged();
+        _appCommands.RefreshWireframe();
+        _events.RaiseAnimationChainsChanged();
         e.Handled = true;
     }
 
@@ -898,20 +884,20 @@ public partial class MainWindow : Window
         if (AnimTree.SelectedItem is not TreeNodeVm vm) return;
 
         // Sync multi-select into SelectedState
-        SelectedState.Self.SelectedNodes = AnimTree.SelectedItems
+        _selectedState.SelectedNodes = AnimTree.SelectedItems
             .OfType<TreeNodeVm>()
             .Select(n => n.Data)
             .OfType<object>()
             .ToList();
 
-        TreeBuilder.RouteNodeSelection(vm);
+        TreeBuilder.RouteNodeSelection(vm.Data, _selectedState, _projectManager.AnimationChainListSave);
     }
 
     // ── Tree refresh ──────────────────────────────────────────────────────────
 
     private void RefreshTreeView()
     {
-        var acls = ProjectManager.Self.AnimationChainListSave;
+        var acls = _projectManager.AnimationChainListSave;
 
         // Preserve expanded chain names before clearing
         var expanded = TreeBuilder.GetExpandedChainNames(_treeRoots).ToHashSet();
@@ -950,30 +936,28 @@ public partial class MainWindow : Window
 
     private void RefreshFrameNode(AnimationFrameSave frame)
     {
-        var chain    = AnimationEditor.Core.ObjectFinder.Self.GetAnimationChainContaining(frame);
+        var chain    = _objectFinder.GetAnimationChainContaining(frame);
         var chainNode = chain is null ? null : FindChainNode(chain);
         if (chainNode is null) return;
 
         var frameNode = chainNode.Children
             .FirstOrDefault(n => n.Data is AnimationFrameSave f && f == frame);
 
-        int frameIndex = chain is null ? 0 : chain.Frames.IndexOf(frame);
-
         if (frameNode is null)
         {
-            chainNode.Children.Add(TreeBuilder.BuildFrameNode(frame, frameIndex));
+            chainNode.Children.Add(TreeBuilder.BuildFrameNode(frame));
         }
         else
         {
-            frameNode.Header = TreeBuilder.BuildFrameHeader(frame, frameIndex);
+            frameNode.Header = TreeBuilder.BuildFrameHeader(frame);
             // Rebuild shape children via TreeBuilder
             frameNode.Children.Clear();
             if (frame.ShapeCollectionSave is not null)
             {
                 foreach (var r in frame.ShapeCollectionSave.AxisAlignedRectangleSaves)
-                    frameNode.Children.Add(new TreeNodeVm { Header = r.Name, Data = r, Kind = NodeKind.RectShape, IsRectNode = true });
+                    frameNode.Children.Add(new TreeNodeVm { Header = r.Name, Data = r });
                 foreach (var c in frame.ShapeCollectionSave.CircleSaves)
-                    frameNode.Children.Add(new TreeNodeVm { Header = c.Name, Data = c, Kind = NodeKind.CircleShape, IsCircleNode = true });
+                    frameNode.Children.Add(new TreeNodeVm { Header = c.Name, Data = c });
             }
         }
     }
@@ -985,10 +969,10 @@ public partial class MainWindow : Window
     {
         // Shapes are more specific than frames — prefer them so clicking a circle or
         // rect in the tree (or preview panel) keeps the shape node highlighted.
-        object? sel = (object?)SelectedState.Self.SelectedCircle
-                   ?? SelectedState.Self.SelectedRectangle
-                   ?? SelectedState.Self.SelectedFrame
-                   ?? (object?)SelectedState.Self.SelectedChain;
+        object? sel = (object?)_selectedState.SelectedCircle
+                   ?? _selectedState.SelectedRectangle
+                   ?? _selectedState.SelectedFrame
+                   ?? (object?)_selectedState.SelectedChain;
 
         var target = sel is not null ? TreeBuilder.FindNodeForData(_treeRoots, sel) : null;
 
@@ -1044,35 +1028,35 @@ public partial class MainWindow : Window
         {
             AddMenuItem("Match Frame Size", () =>
             {
-                var frame = SelectedState.Self.SelectedFrame;
+                var frame = _selectedState.SelectedFrame;
                 if (frame is not null)
                 {
-                    AppCommands.Self.MatchRectangleToFrame(rect, frame);
-                    AppCommands.Self.RefreshAnimationFrameDisplay();
-                    AppCommands.Self.SaveCurrentAnimationChainList();
+                    _appCommands.MatchRectangleToFrame(rect, frame);
+                    _appCommands.RefreshAnimationFrameDisplay();
+                    _appCommands.SaveCurrentAnimationChainList();
                 }
             });
             AddMenuItem("Delete Rectangle", () =>
-                _ = AppCommands.Self.AskToDeleteRectangles(new() { rect }));
+                _ = _appCommands.AskToDeleteRectangles(new() { rect }));
         }
         else if (vm?.Data is CircleSave circle)
         {
             AddMenuItem("Delete Circle", () =>
-                _ = AppCommands.Self.AskToDeleteCircles(new() { circle }));
+                _ = _appCommands.AskToDeleteCircles(new() { circle }));
         }
         else if (vm?.Data is AnimationFrameSave frame2)
         {
-            var chain2 = AnimationEditor.Core.ObjectFinder.Self.GetAnimationChainContaining(frame2);
+            var chain2 = _objectFinder.GetAnimationChainContaining(frame2);
             if (chain2 is not null)
             {
-                AddMenuItem("^^ Move To Top",    () => AppCommands.Self.MoveFrameToTop(frame2, chain2));
-                AddMenuItem("^  Move Up",         () => AppCommands.Self.MoveFrame(frame2, chain2, -1));
-                AddMenuItem("v  Move Down",        () => AppCommands.Self.MoveFrame(frame2, chain2, +1));
-                AddMenuItem("vv Move To Bottom",  () => AppCommands.Self.MoveFrameToBottom(frame2, chain2));
+                AddMenuItem("^^ Move To Top",    () => _appCommands.MoveFrameToTop(frame2, chain2));
+                AddMenuItem("^  Move Up",         () => _appCommands.MoveFrame(frame2, chain2, -1));
+                AddMenuItem("v  Move Down",        () => _appCommands.MoveFrame(frame2, chain2, +1));
+                AddMenuItem("vv Move To Bottom",  () => _appCommands.MoveFrameToBottom(frame2, chain2));
                 AddSeparator();
             }
-            AddMenuItem("Add AxisAlignedRectangle", () => AppCommands.Self.AddAxisAlignedRectangle(frame2));
-            AddMenuItem("Add Circle",               () => AppCommands.Self.AddCircle(frame2));
+            AddMenuItem("Add AxisAlignedRectangle", () => _appCommands.AddAxisAlignedRectangle(frame2));
+            AddMenuItem("Add Circle",               () => _appCommands.AddCircle(frame2));
             AddSeparator();
             AddMenuItem("Copy",  () => _ = HandleCopyAsync());
             AddMenuItem("Paste", () => _ = HandlePasteAsync());
@@ -1081,27 +1065,27 @@ public partial class MainWindow : Window
             AddMenuItem("View Texture in Explorer", () => ViewTextureInExplorer(frame2));
             AddSeparator();
             AddMenuItem("Delete Frame", () =>
-                _ = AppCommands.Self.AskToDeleteFrames(new() { frame2 }));
+                _ = _appCommands.AskToDeleteFrames(new() { frame2 }));
         }
         else if (vm?.Data is AnimationChainSave chain)
         {
-            AddMenuItem("^^ Move To Top",    () => AppCommands.Self.MoveChainToTop(chain));
-            AddMenuItem("^  Move Up",         () => AppCommands.Self.MoveChain(chain, -1));
-            AddMenuItem("v  Move Down",        () => AppCommands.Self.MoveChain(chain, +1));
-            AddMenuItem("vv Move To Bottom",  () => AppCommands.Self.MoveChainToBottom(chain));
+            AddMenuItem("^^ Move To Top",    () => _appCommands.MoveChainToTop(chain));
+            AddMenuItem("^  Move Up",         () => _appCommands.MoveChain(chain, -1));
+            AddMenuItem("v  Move Down",        () => _appCommands.MoveChain(chain, +1));
+            AddMenuItem("vv Move To Bottom",  () => _appCommands.MoveChainToBottom(chain));
             AddSeparator();
             AddMenuItem("Adjust Frame Time…", () => AskAdjustFrameTime(chain));
-            AddMenuItem("Flip Horizontally",  () => AppCommands.Self.FlipChainHorizontally(chain));
-            AddMenuItem("Flip Vertically",    () => AppCommands.Self.FlipChainVertically(chain));
-            AddMenuItem("Invert Frame Order", () => AppCommands.Self.InvertFrameOrder(chain));
+            AddMenuItem("Flip Horizontally",  () => _appCommands.FlipChainHorizontally(chain));
+            AddMenuItem("Flip Vertically",    () => _appCommands.FlipChainVertically(chain));
+            AddMenuItem("Invert Frame Order", () => _appCommands.InvertFrameOrder(chain));
             AddSeparator();
-            AddMenuItem("Add AnimationChain", () => AppCommands.Self.AddAnimationChain());
-            AddMenuItem("Add Frame",          () => AppCommands.Self.AddFrame(chain));
+            AddMenuItem("Add AnimationChain", () => _ = _appCommands.AddAnimationChain());
+            AddMenuItem("Add Frame",          () => _appCommands.AddFrame(chain));
             AddMenuItem("Add Multiple Frames…", () => _ = AskAddMultipleFramesAsync(chain));
             AddSeparator();
-            AddMenuItem("Duplicate (original)",         () => AppCommands.Self.DuplicateChain(chain));
-            AddMenuItem("Duplicate (flip horizontally)",() => AppCommands.Self.DuplicateChain(chain, flipH: true));
-            AddMenuItem("Duplicate (flip vertically)",  () => AppCommands.Self.DuplicateChain(chain, flipV: true));
+            AddMenuItem("Duplicate (original)",         () => _appCommands.DuplicateChain(chain));
+            AddMenuItem("Duplicate (flip horizontally)",() => _appCommands.DuplicateChain(chain, flipH: true));
+            AddMenuItem("Duplicate (flip vertically)",  () => _appCommands.DuplicateChain(chain, flipV: true));
             AddSeparator();
             AddMenuItem("Copy",  () => _ = HandleCopyAsync());
             AddMenuItem("Paste", () => _ = HandlePasteAsync());
@@ -1110,21 +1094,21 @@ public partial class MainWindow : Window
             AddMenuItem("Rename…",          () => BeginInlineRenameSelected(chain));
             AddSeparator();
             AddMenuItem("Delete AnimationChain",
-                () => _ = AppCommands.Self.AskToDeleteAnimationChains(new() { chain }));
+                () => _ = _appCommands.AskToDeleteAnimationChains(new() { chain }));
         }
         else
         {
             AddMenuItem("Add AnimationChain", () =>
             {
-                if (ProjectManager.Self.AnimationChainListSave is null)
-                    ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
-                AppCommands.Self.AddAnimationChain();
+                if (_projectManager.AnimationChainListSave is null)
+                    _projectManager.AnimationChainListSave = new AnimationChainListSave();
+                _ = _appCommands.AddAnimationChain();
             });
         }
 
         AddSeparator();
         AddMenuItem("Sort Animations Alphabetically",
-            () => AppCommands.Self.SortAnimationsAlphabetically());
+            () => _appCommands.SortAnimationsAlphabetically());
     }
 
     private void AddMenuItem(string header, Action onClick)
@@ -1216,9 +1200,9 @@ public partial class MainWindow : Window
             {
                 float newTotal = (float)durationInput.Value.Value;
                 if (radioProportional.IsChecked == true)
-                    AppCommands.Self.ScaleFrameTimesProportional(chain, newTotal);
+                    _appCommands.ScaleFrameTimesProportional(chain, newTotal);
                 else
-                    AppCommands.Self.ScaleFrameTimesSetAllSame(chain, newTotal);
+                    _appCommands.ScaleFrameTimesSetAllSame(chain, newTotal);
             }
             dialog.Close();
         };
@@ -1264,7 +1248,7 @@ public partial class MainWindow : Window
 
     private async Task BrowseForFrameTexture()
     {
-        var frame = SelectedState.Self.SelectedFrame;
+        var frame = _selectedState.SelectedFrame;
         if (frame is null) return;
 
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
@@ -1281,9 +1265,9 @@ public partial class MainWindow : Window
         var pickedPath = files?.FirstOrDefault()?.TryGetLocalPath();
         if (string.IsNullOrEmpty(pickedPath)) return;
 
-        string achxFolder = string.IsNullOrEmpty(ProjectManager.Self.FileName)
+        string achxFolder = string.IsNullOrEmpty(_projectManager.FileName)
             ? string.Empty
-            : (Path.GetDirectoryName(ProjectManager.Self.FileName) ?? string.Empty);
+            : (Path.GetDirectoryName(_projectManager.FileName) ?? string.Empty);
 
         // resolvedAbsPath tracks the actual file we will use (may change if user copies it)
         string resolvedAbsPath = pickedPath;
@@ -1291,8 +1275,8 @@ public partial class MainWindow : Window
         if (!string.IsNullOrEmpty(achxFolder))
         {
             bool isInAchxFolder    = IsPathUnder(pickedPath, achxFolder);
-            bool isInProjectFolder = !string.IsNullOrEmpty(AppState.Self.ProjectFolder)
-                                     && IsPathUnder(pickedPath, AppState.Self.ProjectFolder);
+            bool isInProjectFolder = !string.IsNullOrEmpty(_appState.ProjectFolder)
+                                     && IsPathUnder(pickedPath, _appState.ProjectFolder);
 
             if (!isInAchxFolder && !isInProjectFolder)
             {
@@ -1319,9 +1303,11 @@ public partial class MainWindow : Window
         // outside the .achx folder so they round-trip correctly.
         string storePath = string.IsNullOrEmpty(achxFolder)
             ? resolvedAbsPath
-            : TexturePathHelper.ComputeStorePath(resolvedAbsPath, achxFolder);
+            : TexturePathHelper.ComputeStorePath(
+                resolvedAbsPath,
+                FlatRedBall.IO.FileManager.GetDirectory(_projectManager.FileName));
 
-        AppCommands.Self.SetFrameTextureName(frame, storePath);
+        _appCommands.SetFrameTextureName(frame, storePath);
         WireframeCtrl.LoadTexture(resolvedAbsPath);
         RefreshPropertyPanel();
     }
@@ -1383,9 +1369,9 @@ public partial class MainWindow : Window
         _suppressPropRefresh = true;
         try
         {
-            var frame = SelectedState.Self.SelectedFrame;
-            var rect  = SelectedState.Self.SelectedRectangle;
-            var circ  = SelectedState.Self.SelectedCircle;
+            var frame = _selectedState.SelectedFrame;
+            var rect  = _selectedState.SelectedRectangle;
+            var circ  = _selectedState.SelectedCircle;
 
             PropNoneLabel.IsVisible   = frame is null && rect is null && circ is null;
             PropFramePanel.IsVisible  = frame is not null;
@@ -1400,9 +1386,9 @@ public partial class MainWindow : Window
                 PropRelX.Value       = (decimal)frame.RelativeX;
                 PropRelY.Value       = (decimal)frame.RelativeY;
                 PropTextureName.Text = TexturePathHelper.ComputeDisplayPath(
-                    frame.TextureName, ProjectManager.Self.FileName);
+                    frame.TextureName, _projectManager.FileName);
 
-                var unitType = AppState.Self.UnitType;
+                var unitType = _appState.UnitType;
                 PropPixelSection.IsVisible = unitType != UnitType.TextureCoordinate;
                 PropTcSection.IsVisible    = unitType == UnitType.TextureCoordinate;
                 PropTileSection.IsVisible  = unitType == UnitType.SpriteSheet;
@@ -1427,7 +1413,7 @@ public partial class MainWindow : Window
 
                     if (unitType == UnitType.SpriteSheet)
                     {
-                        var tmi = SelectedState.Self.SelectedTileMapInformation;
+                        var tmi = _selectedState.SelectedTileMapInformation;
                         int cellW = tmi?.TileWidth  > 0 ? tmi.TileWidth  : 16;
                         int cellH = tmi?.TileHeight > 0 ? tmi.TileHeight : 16;
 
@@ -1470,90 +1456,43 @@ public partial class MainWindow : Window
         }
     }
 
-    // ── Timeline strip ────────────────────────────────────────────────────────
-
-    private void RefreshTimelineStrip()
-    {
-        var chain = SelectedState.Self.SelectedChain
-            ?? (SelectedState.Self.SelectedFrame is { } f
-                ? AnimationEditor.Core.ObjectFinder.Self.GetAnimationChainContaining(f)
-                : null);
-
-        TimelineStrip.ItemsSource = chain is not null
-            ? Enumerable.Range(0, chain.Frames.Count).ToList()
-            : System.Array.Empty<int>();
-    }
-
-    // ── Status bar refresh ────────────────────────────────────────────────────
-
-    private void RefreshStatusBar()
-    {
-        var hasSavedFile = !string.IsNullOrEmpty(ProjectManager.Self.FileName);
-        if (hasSavedFile)
-        {
-            StatusDot.Fill = (Avalonia.Media.IBrush)this.FindResource("Ok")!;
-            StatusSaveLabel.Text = "Autosaved";
-        }
-        else
-        {
-            StatusDot.Fill = (Avalonia.Media.IBrush)this.FindResource("AccentSoft")!;
-            StatusSaveLabel.Text = "Not saved";
-        }
-
-        var acls = ProjectManager.Self.AnimationChainListSave;
-        if (acls is null)
-        {
-            StatusFilename.Text = "Untitled";
-            StatusCounts.Text   = string.Empty;
-            return;
-        }
-
-        StatusFilename.Text = ProjectManager.Self.FileName is { } fn
-            ? Path.GetFileName(fn)
-            : "Untitled";
-
-        int chainCount = acls.AnimationChains.Count;
-        int frameCount = acls.AnimationChains.Sum(c => c.Frames.Count);
-        StatusCounts.Text = $"{chainCount} chains  {frameCount} frames";
-    }
-
     // ── Property apply methods ────────────────────────────────────────────────
 
     private void ApplyFrameFlip()
     {
         if (_suppressPropRefresh) return;
-        var frame = SelectedState.Self.SelectedFrame;
+        var frame = _selectedState.SelectedFrame;
         if (frame is null) return;
         frame.FlipHorizontal = PropFlipH.IsChecked == true;
         frame.FlipVertical   = PropFlipV.IsChecked == true;
-        ApplicationEvents.Self.RaiseAnimationChainsChanged();
-        AppCommands.Self.RefreshWireframe();
+        _events.RaiseAnimationChainsChanged();
+        _appCommands.RefreshWireframe();
     }
 
     private void ApplyFrameLen()
     {
         if (_suppressPropRefresh) return;
-        var frame = SelectedState.Self.SelectedFrame;
+        var frame = _selectedState.SelectedFrame;
         if (frame is null || !PropFrameLen.Value.HasValue) return;
         frame.FrameLength = (float)PropFrameLen.Value.Value;
-        ApplicationEvents.Self.RaiseAnimationChainsChanged();
+        _events.RaiseAnimationChainsChanged();
     }
 
     private void ApplyFrameRelative()
     {
         if (_suppressPropRefresh) return;
-        var frame = SelectedState.Self.SelectedFrame;
+        var frame = _selectedState.SelectedFrame;
         if (frame is null) return;
         if (PropRelX.Value.HasValue) frame.RelativeX = (float)PropRelX.Value.Value;
         if (PropRelY.Value.HasValue) frame.RelativeY = (float)PropRelY.Value.Value;
-        ApplicationEvents.Self.RaiseAnimationChainsChanged();
-        AppCommands.Self.RefreshWireframe();
+        _events.RaiseAnimationChainsChanged();
+        _appCommands.RefreshWireframe();
     }
 
     private void ApplyFramePixelCoords()
     {
         if (_suppressPropRefresh) return;
-        var frame = SelectedState.Self.SelectedFrame;
+        var frame = _selectedState.SelectedFrame;
         if (frame is null) return;
         var (bmpW, bmpH) = WireframeCtrl.BitmapSize;
         if (bmpW <= 0 || bmpH <= 0) return;
@@ -1564,20 +1503,20 @@ public partial class MainWindow : Window
         PixelFrameEditor.SetY(frame,      (int)PropPixelY.Value.Value, bmpH);
         PixelFrameEditor.SetWidth(frame,  (int)PropPixelW.Value.Value, bmpW);
         PixelFrameEditor.SetHeight(frame, (int)PropPixelH.Value.Value, bmpH);
-        ApplicationEvents.Self.RaiseAnimationChainsChanged();
+        _events.RaiseAnimationChainsChanged();
         WireframeCtrl.RefreshFrames();
     }
 
     private void ApplyFrameTcCoords()
     {
         if (_suppressPropRefresh) return;
-        var frame = SelectedState.Self.SelectedFrame;
+        var frame = _selectedState.SelectedFrame;
         if (frame is null) return;
         if (PropTcLeft.Value.HasValue)   frame.LeftCoordinate   = (float)PropTcLeft.Value.Value;
         if (PropTcRight.Value.HasValue)  frame.RightCoordinate  = (float)PropTcRight.Value.Value;
         if (PropTcTop.Value.HasValue)    frame.TopCoordinate    = (float)PropTcTop.Value.Value;
         if (PropTcBottom.Value.HasValue) frame.BottomCoordinate = (float)PropTcBottom.Value.Value;
-        ApplicationEvents.Self.RaiseAnimationChainsChanged();
+        _events.RaiseAnimationChainsChanged();
         WireframeCtrl.RefreshFrames();
     }
 
@@ -1595,17 +1534,17 @@ public partial class MainWindow : Window
     {
         if (_suppressPropRefresh) return;
         if (!PropSpanW.Value.HasValue || !PropSpanH.Value.HasValue) return;
-        var frame = SelectedState.Self.SelectedFrame;
+        var frame = _selectedState.SelectedFrame;
         if (frame is null || string.IsNullOrEmpty(frame.TextureName)) return;
 
         int gridSize = GetGridSizeFromInput();
         if (gridSize < 1) gridSize = 1;
 
-        var tmi = SelectedState.Self.SelectedTileMapInformation;
+        var tmi = _selectedState.SelectedTileMapInformation;
         if (tmi is null)
         {
             tmi = new TileMapInformation { Name = frame.TextureName };
-            ProjectManager.Self.TileMapInformationList.TileMapInfos.Add(tmi);
+            _projectManager.TileMapInformationList.TileMapInfos.Add(tmi);
         }
         tmi.TileWidth  = (int)PropSpanW.Value.Value * gridSize;
         tmi.TileHeight = (int)PropSpanH.Value.Value * gridSize;
@@ -1616,7 +1555,7 @@ public partial class MainWindow : Window
     private void ApplyFrameTileCoords()
     {
         if (_suppressPropRefresh) return;
-        var frame = SelectedState.Self.SelectedFrame;
+        var frame = _selectedState.SelectedFrame;
         if (frame is null) return;
         if (!PropTileX.Value.HasValue || !PropTileY.Value.HasValue) return;
         var (bmpW, bmpH) = WireframeCtrl.BitmapSize;
@@ -1634,39 +1573,39 @@ public partial class MainWindow : Window
         frame.RightCoordinate  = right;
         frame.TopCoordinate    = top;
         frame.BottomCoordinate = bot;
-        ApplicationEvents.Self.RaiseAnimationChainsChanged();
+        _events.RaiseAnimationChainsChanged();
         WireframeCtrl.RefreshFrames();
     }
 
     private void ApplyRectProps()
     {
         if (_suppressPropRefresh) return;
-        var rect = SelectedState.Self.SelectedRectangle;
+        var rect = _selectedState.SelectedRectangle;
         if (rect is null) return;
         rect.Name = PropRectName.Text ?? "";
         if (PropRectX.Value.HasValue)      rect.X      = (float)PropRectX.Value.Value;
         if (PropRectY.Value.HasValue)      rect.Y      = (float)PropRectY.Value.Value;
         if (PropRectScaleX.Value.HasValue) rect.ScaleX = (float)PropRectScaleX.Value.Value;
         if (PropRectScaleY.Value.HasValue) rect.ScaleY = (float)PropRectScaleY.Value.Value;
-        ApplicationEvents.Self.RaiseAnimationChainsChanged();
-        AppCommands.Self.RefreshWireframe();
-        var frame = SelectedState.Self.SelectedFrame;
-        if (frame is not null) AppCommands.Self.RefreshTreeNode(frame);
+        _events.RaiseAnimationChainsChanged();
+        _appCommands.RefreshWireframe();
+        var frame = _selectedState.SelectedFrame;
+        if (frame is not null) _appCommands.RefreshTreeNode(frame);
     }
 
     private void ApplyCircleProps()
     {
         if (_suppressPropRefresh) return;
-        var circ = SelectedState.Self.SelectedCircle;
+        var circ = _selectedState.SelectedCircle;
         if (circ is null) return;
         circ.Name = PropCircleName.Text ?? "";
         if (PropCircleX.Value.HasValue)      circ.X      = (float)PropCircleX.Value.Value;
         if (PropCircleY.Value.HasValue)      circ.Y      = (float)PropCircleY.Value.Value;
         if (PropCircleRadius.Value.HasValue) circ.Radius = (float)PropCircleRadius.Value.Value;
-        ApplicationEvents.Self.RaiseAnimationChainsChanged();
-        AppCommands.Self.RefreshWireframe();
-        var frame = SelectedState.Self.SelectedFrame;
-        if (frame is not null) AppCommands.Self.RefreshTreeNode(frame);
+        _events.RaiseAnimationChainsChanged();
+        _appCommands.RefreshWireframe();
+        var frame = _selectedState.SelectedFrame;
+        if (frame is not null) _appCommands.RefreshTreeNode(frame);
     }
 
     // ── Playback controls wiring ──────────────────────────────────────────────
@@ -1706,14 +1645,14 @@ public partial class MainWindow : Window
     private void LoadAnimationFile(string fileName)
     {
         if (!string.IsNullOrEmpty(fileName))
-            ApplicationEvents.Self.CallAchxLoaded(fileName);
+            _events.CallAchxLoaded(fileName);
     }
 
     private void UpdateTitle()
     {
-        Title = string.IsNullOrEmpty(ProjectManager.Self.FileName)
+        Title = string.IsNullOrEmpty(_projectManager.FileName)
             ? "AnimationEditor"
-            : $"AnimationEditor - {ProjectManager.Self.FileName}";
+            : $"AnimationEditor - {_projectManager.FileName}";
     }
 
     private void LoadSettingsFile()
@@ -1914,7 +1853,7 @@ public partial class MainWindow : Window
             {
                 e.Handled = true;
                 int delta = e.Key == Key.Up ? -1 : +1;
-                AppCommands.Self.HandleReorder(delta);
+                _appCommands.HandleReorder(delta);
             }
         }), RoutingStrategies.Tunnel);
     }
@@ -1954,7 +1893,7 @@ public partial class MainWindow : Window
             out var chains, out var frames, out var rectangle, out var circle);
         if (!ok) return;
 
-        var acls = ProjectManager.Self.AnimationChainListSave;
+        var acls = _projectManager.AnimationChainListSave;
         if (acls is null) return;
 
         var selectedVm = AnimTree.SelectedItem as TreeNodeVm;
@@ -1968,16 +1907,16 @@ public partial class MainWindow : Window
                 existingNames.Add(chain.Name);
                 acls.AnimationChains.Add(chain);
             }
-            SelectedState.Self.SelectedChain = chains[^1];
+            _selectedState.SelectedChain = chains[^1];
             RefreshTreeView();
-            ApplicationEvents.Self.RaiseAnimationChainsChanged();
+            _events.RaiseAnimationChainsChanged();
         }
         else if (frames is { Count: > 0 })
         {
             AnimationChainSave? targetChain = null;
             if (selectedVm?.Data is AnimationChainSave c) targetChain = c;
             else if (selectedVm?.Data is AnimationFrameSave f)
-                targetChain = AnimationEditor.Core.ObjectFinder.Self.GetAnimationChainContaining(f);
+                targetChain = _objectFinder.GetAnimationChainContaining(f);
 
             if (targetChain is null && acls.AnimationChains.Count > 0)
                 targetChain = acls.AnimationChains[^1];
@@ -1989,14 +1928,14 @@ public partial class MainWindow : Window
                 pasted.ShapeCollectionSave ??= new FlatRedBall.Content.Math.Geometry.ShapeCollectionSave();
                 targetChain.Frames.Add(pasted);
             }
-            SelectedState.Self.SelectedFrame = frames[^1];
-            AppCommands.Self.RefreshTreeNode(targetChain);
-            AppCommands.Self.RefreshWireframe();
-            ApplicationEvents.Self.RaiseAnimationChainsChanged();
+            _selectedState.SelectedFrame = frames[^1];
+            _appCommands.RefreshTreeNode(targetChain);
+            _appCommands.RefreshWireframe();
+            _events.RaiseAnimationChainsChanged();
         }
         else if (rectangle is not null)
         {
-            var frame = SelectedState.Self.SelectedFrame;
+            var frame = _selectedState.SelectedFrame;
             if (frame is null) return;
             frame.ShapeCollectionSave ??= new FlatRedBall.Content.Math.Geometry.ShapeCollectionSave();
             var existingNames = frame.ShapeCollectionSave.AxisAlignedRectangleSaves
@@ -2006,13 +1945,13 @@ public partial class MainWindow : Window
             rectangle.Name = StringFunctions.MakeStringUnique(
                 rectangle.Name, existingNames, 2);
             frame.ShapeCollectionSave.AxisAlignedRectangleSaves.Add(rectangle);
-            AppCommands.Self.RefreshTreeNode(frame);
-            AppCommands.Self.RefreshAnimationFrameDisplay();
-            ApplicationEvents.Self.RaiseAnimationChainsChanged();
+            _appCommands.RefreshTreeNode(frame);
+            _appCommands.RefreshAnimationFrameDisplay();
+            _events.RaiseAnimationChainsChanged();
         }
         else if (circle is not null)
         {
-            var frame = SelectedState.Self.SelectedFrame;
+            var frame = _selectedState.SelectedFrame;
             if (frame is null) return;
             frame.ShapeCollectionSave ??= new FlatRedBall.Content.Math.Geometry.ShapeCollectionSave();
             var existingNames = frame.ShapeCollectionSave.AxisAlignedRectangleSaves
@@ -2022,12 +1961,12 @@ public partial class MainWindow : Window
             circle.Name = StringFunctions.MakeStringUnique(
                 circle.Name, existingNames, 2);
             frame.ShapeCollectionSave.CircleSaves.Add(circle);
-            AppCommands.Self.RefreshTreeNode(frame);
-            AppCommands.Self.RefreshAnimationFrameDisplay();
-            ApplicationEvents.Self.RaiseAnimationChainsChanged();
+            _appCommands.RefreshTreeNode(frame);
+            _appCommands.RefreshAnimationFrameDisplay();
+            _events.RaiseAnimationChainsChanged();
         }
 
-        AppCommands.Self.SaveCurrentAnimationChainList();
+        _appCommands.SaveCurrentAnimationChainList();
     }
 
     // ── Delete ────────────────────────────────────────────────────────────────
@@ -2038,13 +1977,13 @@ public partial class MainWindow : Window
         if (selectedVm is null) return;
 
         if (selectedVm.Data is AnimationChainSave chainToDel)
-            _ = AppCommands.Self.AskToDeleteAnimationChains(new() { chainToDel });
+            _ = _appCommands.AskToDeleteAnimationChains(new() { chainToDel });
         else if (selectedVm.Data is AnimationFrameSave frameToDel)
-            _ = AppCommands.Self.AskToDeleteFrames(new() { frameToDel });
+            _ = _appCommands.AskToDeleteFrames(new() { frameToDel });
         else if (selectedVm.Data is AxisAlignedRectangleSave rectToDel)
-            _ = AppCommands.Self.AskToDeleteRectangles(new() { rectToDel });
+            _ = _appCommands.AskToDeleteRectangles(new() { rectToDel });
         else if (selectedVm.Data is CircleSave circleToDel)
-            _ = AppCommands.Self.AskToDeleteCircles(new() { circleToDel });
+            _ = _appCommands.AskToDeleteCircles(new() { circleToDel });
     }
 
     // ── Add Multiple Frames ───────────────────────────────────────────────────
@@ -2093,15 +2032,15 @@ public partial class MainWindow : Window
         int count = (int)(countInput.Value ?? 0);
         if (count <= 0) return;
 
-        bool exceededBounds = AppCommands.Self.AddMultipleFrames(
+        bool exceededBounds = _appCommands.AddMultipleFrames(
             chain, count, incrToggle.IsChecked == true);
 
         if (exceededBounds)
             await ShowMessageAsync("Some frames were clipped because they exceeded the texture bounds.");
 
-        AppCommands.Self.RefreshTreeNode(chain);
-        ApplicationEvents.Self.RaiseAnimationChainsChanged();
-        AppCommands.Self.SaveCurrentAnimationChainList();
+        _appCommands.RefreshTreeNode(chain);
+        _events.RaiseAnimationChainsChanged();
+        _appCommands.SaveCurrentAnimationChainList();
     }
 
     // ── Adjust Offsets ────────────────────────────────────────────────────────
@@ -2169,7 +2108,7 @@ public partial class MainWindow : Window
 
         if (justifyBottomRb.IsChecked == true)
         {
-            AppCommands.Self.AdjustOffsetsJustifyBottom(chain, frame =>
+            _appCommands.AdjustOffsetsJustifyBottom(chain, frame =>
             {
                 if (bmpH > 0 && !string.IsNullOrEmpty(frame.TextureName))
                     return (float)bmpH;
@@ -2178,15 +2117,15 @@ public partial class MainWindow : Window
         }
         else
         {
-            AppCommands.Self.AdjustOffsetsAdjustAll(chain,
+            _appCommands.AdjustOffsetsAdjustAll(chain,
                 (float)(relXInput.Value ?? 0),
                 (float)(relYInput.Value ?? 0),
                 relative: relativeRb.IsChecked == true);
         }
 
-        AppCommands.Self.RefreshAnimationFrameDisplay();
-        AppCommands.Self.SaveCurrentAnimationChainList();
-        ApplicationEvents.Self.RaiseAnimationChainsChanged();
+        _appCommands.RefreshAnimationFrameDisplay();
+        _appCommands.SaveCurrentAnimationChainList();
+        _events.RaiseAnimationChainsChanged();
     }
 
     /// <summary>
@@ -2229,7 +2168,7 @@ public partial class MainWindow : Window
 
     private async Task DoResizeTextureAsync()
     {
-        var frame = SelectedState.Self.SelectedFrame;
+        var frame = _selectedState.SelectedFrame;
         if (frame is null || string.IsNullOrEmpty(frame.TextureName))
         {
             await ShowMessageAsync("Select a frame with a texture before resizing.");
@@ -2237,8 +2176,8 @@ public partial class MainWindow : Window
         }
 
         string? achxDir = null;
-        if (!string.IsNullOrEmpty(ProjectManager.Self.FileName))
-            achxDir = FlatRedBall.IO.FileManager.GetDirectory(ProjectManager.Self.FileName);
+        if (!string.IsNullOrEmpty(_projectManager.FileName))
+            achxDir = FlatRedBall.IO.FileManager.GetDirectory(_projectManager.FileName);
 
         var absTexPath = achxDir is not null
             ? Path.GetFullPath(Path.Combine(achxDir, frame.TextureName))
@@ -2333,7 +2272,7 @@ public partial class MainWindow : Window
         }
 
         // Adjust UV coordinates in all chains
-        var acls = ProjectManager.Self.AnimationChainListSave;
+        var acls = _projectManager.AnimationChainListSave;
         if (acls is not null)
         {
             var modifiedFrames = AnimationEditor.Core.IO.TextureResizeAdjuster.AdjustAll(
@@ -2349,10 +2288,10 @@ public partial class MainWindow : Window
         }
 
         RefreshTreeView();
-        AppCommands.Self.RefreshWireframe();
+        _appCommands.RefreshWireframe();
         RefreshTextureCombo();
-        AppCommands.Self.SaveCurrentAnimationChainList();
-        ApplicationEvents.Self.RaiseAnimationChainsChanged();
+        _appCommands.SaveCurrentAnimationChainList();
+        _events.RaiseAnimationChainsChanged();
 
         await ShowMessageAsync($"Resized texture saved to:\n{newAbsPath}");
     }
@@ -2426,7 +2365,7 @@ public partial class MainWindow : Window
         newName = newName.Trim();
         vm.IsEditing = false;
         if (!string.IsNullOrEmpty(newName) && newName != chain.Name)
-            AppCommands.Self.RenameChain(chain, newName);
+            _appCommands.RenameChain(chain, newName);
         AnimTree.Focus();
     }
 
@@ -2440,10 +2379,10 @@ public partial class MainWindow : Window
             await ShowMessageAsync("Chain name cannot be empty.");
             return;
         }
-        AppCommands.Self.RenameChain(chain, name);
-        AppCommands.Self.RefreshTreeNode(chain);
-        ApplicationEvents.Self.RaiseAnimationChainsChanged();
-        AppCommands.Self.SaveCurrentAnimationChainList();
+        _appCommands.RenameChain(chain, name);
+        _appCommands.RefreshTreeNode(chain);
+        _events.RaiseAnimationChainsChanged();
+        _appCommands.SaveCurrentAnimationChainList();
     }
 
     private async Task AskRenameFrameAsync(AnimationFrameSave frame)
@@ -2453,13 +2392,13 @@ public partial class MainWindow : Window
             "New texture path (relative to ACHX):",
             frame.TextureName ?? "");
         if (name is null) return;
-        AppCommands.Self.RenameFrame(frame, name);
-        var chain = AnimationEditor.Core.ObjectFinder.Self.GetAnimationChainContaining(frame);
-        if (chain is not null) AppCommands.Self.RefreshTreeNode(chain);
-        AppCommands.Self.RefreshWireframe();
+        _appCommands.RenameFrame(frame, name);
+        var chain = _objectFinder.GetAnimationChainContaining(frame);
+        if (chain is not null) _appCommands.RefreshTreeNode(chain);
+        _appCommands.RefreshWireframe();
         RefreshTextureCombo();
-        ApplicationEvents.Self.RaiseAnimationChainsChanged();
-        AppCommands.Self.SaveCurrentAnimationChainList();
+        _events.RaiseAnimationChainsChanged();
+        _appCommands.SaveCurrentAnimationChainList();
     }
 
     // ── View Texture in Explorer ──────────────────────────────────────────────
@@ -2473,8 +2412,8 @@ public partial class MainWindow : Window
         }
 
         string? achxDir = null;
-        if (!string.IsNullOrEmpty(ProjectManager.Self.FileName))
-            achxDir = FlatRedBall.IO.FileManager.GetDirectory(ProjectManager.Self.FileName);
+        if (!string.IsNullOrEmpty(_projectManager.FileName))
+            achxDir = FlatRedBall.IO.FileManager.GetDirectory(_projectManager.FileName);
 
         var absPath = achxDir is not null
             ? Path.GetFullPath(Path.Combine(achxDir, frame.TextureName))
