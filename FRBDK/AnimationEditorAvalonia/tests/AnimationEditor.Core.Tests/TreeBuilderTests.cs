@@ -312,9 +312,48 @@ public class TreeBuilderSingletonTests
     }
 
     /// <summary>
-    /// Regression test for Bug #2: clicking a chain after a frame was selected must clear
-    /// SelectedFrame so the context menu (and preview) reflect the chain, not the old frame.
+    /// Regression: clicking the parent frame after a shape is selected must clear the shape.
+    /// Without the fix, the guard `if (SelectedFrame != frame)` short-circuits and never
+    /// clears SelectedCircle.
     /// </summary>
+    [Fact]
+    public void RouteNodeSelection_FrameAlreadySelected_WithCircle_ClearsCircle()
+    {
+        var acls  = TestHelpers.SetupFreshAcls();
+        var chain = TestHelpers.MakeChain(acls, "Run", frameCount: 1);
+        var frame = chain.Frames[0];
+        var circle = new CircleSave { Name = "C" };
+
+        // Select the frame first, then a shape (SelectedCircle.set does not clear SelectedFrame)
+        SelectedState.Self.SelectedFrame  = frame;
+        SelectedState.Self.SelectedCircle = circle;
+        Assert.Same(circle, SelectedState.Self.SelectedCircle);
+
+        // Re-click the same frame node — must clear the circle
+        TreeBuilder.RouteNodeSelection(new TreeNodeVm { Data = frame });
+
+        Assert.Null(SelectedState.Self.SelectedCircle);
+        Assert.Same(frame, SelectedState.Self.SelectedFrame);
+    }
+
+    [Fact]
+    public void RouteNodeSelection_FrameAlreadySelected_WithRect_ClearsRect()
+    {
+        var acls  = TestHelpers.SetupFreshAcls();
+        var chain = TestHelpers.MakeChain(acls, "Idle", frameCount: 1);
+        var frame = chain.Frames[0];
+        var rect  = new AxisAlignedRectangleSave { Name = "HitBox" };
+
+        SelectedState.Self.SelectedFrame     = frame;
+        SelectedState.Self.SelectedRectangle = rect;
+        Assert.Same(rect, SelectedState.Self.SelectedRectangle);
+
+        TreeBuilder.RouteNodeSelection(new TreeNodeVm { Data = frame });
+
+        Assert.Null(SelectedState.Self.SelectedRectangle);
+        Assert.Same(frame, SelectedState.Self.SelectedFrame);
+    }
+
     [Fact]
     public void RouteNodeSelection_ChainAfterFrame_ClearsSelectedFrame()
     {
