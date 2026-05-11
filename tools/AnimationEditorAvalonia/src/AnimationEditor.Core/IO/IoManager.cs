@@ -10,7 +10,7 @@ namespace AnimationEditor.Core.IO
     public class IoManager : Singleton<IoManager>
     {
         /// <summary>Raised when saving the companion file fails. The app layer should display the error.</summary>
-        public event Action<string, Exception> SaveFailed;
+        public event Action<string, Exception>? SaveFailed;
 
         // ── Recovery file ─────────────────────────────────────────────────────
 
@@ -77,7 +77,7 @@ namespace AnimationEditor.Core.IO
 
             if (!fileToLoad.Exists()) return;
 
-            AESettingsSave loadedInstance = null;
+            AESettingsSave? loadedInstance = null;
             try
             {
                 loadedInstance = FileManager.XmlDeserialize<AESettingsSave>(fileToLoad.FullPath);
@@ -106,6 +106,6 @@ namespace AnimationEditor.Core.IO
 
         /// <summary>Raised after a companion file is loaded. Provides the full settings object
         /// so the UI layer can apply expanded tree nodes, guide lines, etc.</summary>
-        public event Action<AESettingsSave> SettingsLoaded;
+        public event Action<AESettingsSave>? SettingsLoaded;
     }
 }
