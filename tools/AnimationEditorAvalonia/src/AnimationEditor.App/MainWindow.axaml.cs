@@ -507,6 +507,24 @@ public partial class MainWindow : Window
 
     private void OnCloseBtnClick(object? sender, RoutedEventArgs e) => Close();
 
+    private void OnResizeGrip(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        var edge = (sender as Control)?.Name switch
+        {
+            "GripN"  => WindowEdge.North,
+            "GripS"  => WindowEdge.South,
+            "GripE"  => WindowEdge.East,
+            "GripW"  => WindowEdge.West,
+            "GripNE" => WindowEdge.NorthEast,
+            "GripNW" => WindowEdge.NorthWest,
+            "GripSE" => WindowEdge.SouthEast,
+            "GripSW" => WindowEdge.SouthWest,
+            _        => (WindowEdge?)null,
+        };
+        if (edge.HasValue) BeginResizeDrag(edge.Value, e);
+    }
+
     // ── Menu wiring ───────────────────────────────────────────────────────────
 
     private void WireMenuEvents()

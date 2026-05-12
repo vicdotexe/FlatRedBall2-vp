@@ -5,7 +5,6 @@
         xmlns:controls="clr-namespace:AnimationEditor.App.Controls"
         xmlns:models="clr-namespace:AnimationEditor.Core.ViewModels;assembly=AnimationEditor.Core"
         xmlns:svg="clr-namespace:Avalonia.Svg.Skia;assembly=Svg.Controls.Skia.Avalonia"
-        xmlns:chrome="clr-namespace:Avalonia.Controls.Chrome;assembly=Avalonia.Controls"
         mc:Ignorable="d" d:DesignWidth="1400" d:DesignHeight="900"
         x:Class="AnimationEditor.App.MainWindow"
         Title="AnimationEditor"
@@ -1017,21 +1016,13 @@
         </Grid>
     </DockPanel>
         <!-- Resize grips — 4px edges + 8px corners, transparent overlays -->
-        <Border Height="4" VerticalAlignment="Top" Background="Transparent"
-                chrome:WindowDecorationProperties.ElementRole="ResizeN" />
-        <Border Height="4" VerticalAlignment="Bottom" Background="Transparent"
-                chrome:WindowDecorationProperties.ElementRole="ResizeS" />
-        <Border Width="4" HorizontalAlignment="Left" Background="Transparent"
-                chrome:WindowDecorationProperties.ElementRole="ResizeW" />
-        <Border Width="4" HorizontalAlignment="Right" Background="Transparent"
-                chrome:WindowDecorationProperties.ElementRole="ResizeE" />
-        <Border Width="8" Height="8" HorizontalAlignment="Left" VerticalAlignment="Top" Background="Transparent"
-                chrome:WindowDecorationProperties.ElementRole="ResizeNW" />
-        <Border Width="8" Height="8" HorizontalAlignment="Right" VerticalAlignment="Top" Background="Transparent"
-                chrome:WindowDecorationProperties.ElementRole="ResizeNE" />
-        <Border Width="8" Height="8" HorizontalAlignment="Left" VerticalAlignment="Bottom" Background="Transparent"
-                chrome:WindowDecorationProperties.ElementRole="ResizeSW" />
-        <Border Width="8" Height="8" HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="Transparent"
-                chrome:WindowDecorationProperties.ElementRole="ResizeSE" />
+        <Border x:Name="GripN"  Height="4" VerticalAlignment="Top"    Background="Transparent" Cursor="TopSide"         PointerPressed="OnResizeGrip" />
+        <Border x:Name="GripS"  Height="4" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomSide"      PointerPressed="OnResizeGrip" />
+        <Border x:Name="GripW"  Width="4"  HorizontalAlignment="Left"  Background="Transparent" Cursor="LeftSide"        PointerPressed="OnResizeGrip" />
+        <Border x:Name="GripE"  Width="4"  HorizontalAlignment="Right" Background="Transparent" Cursor="RightSide"       PointerPressed="OnResizeGrip" />
+        <Border x:Name="GripNW" Width="8" Height="8" HorizontalAlignment="Left"  VerticalAlignment="Top"    Background="Transparent" Cursor="TopLeftCorner"     PointerPressed="OnResizeGrip" />
+        <Border x:Name="GripNE" Width="8" Height="8" HorizontalAlignment="Right" VerticalAlignment="Top"    Background="Transparent" Cursor="TopRightCorner"    PointerPressed="OnResizeGrip" />
+        <Border x:Name="GripSW" Width="8" Height="8" HorizontalAlignment="Left"  VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomLeftCorner"  PointerPressed="OnResizeGrip" />
+        <Border x:Name="GripSE" Width="8" Height="8" HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomRightCorner" PointerPressed="OnResizeGrip" />
     </Grid>
 </Window>
