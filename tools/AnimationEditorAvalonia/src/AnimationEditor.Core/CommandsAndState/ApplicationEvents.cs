@@ -12,6 +12,8 @@ namespace AnimationEditor.Core.CommandsAndState
         public event Action<AARectSave>? AfterAxisAlignedRectangleChanged;
         public event Action<CircleSave>? AfterCircleChanged;
         public event Action? AnimationChainsChanged;
+        public event Action<string>? CurrentFileChanged;
+        public event Action? AvailableTexturesChanged;
 
         public void RaiseAfterAxisAlignedRectangleChanged(AARectSave rectangle) =>
             AfterAxisAlignedRectangleChanged?.Invoke(rectangle);
@@ -33,5 +35,11 @@ namespace AnimationEditor.Core.CommandsAndState
 
         public void CallWireframeTextureChange() =>
             WireframeTextureChange?.Invoke();
+
+        public void RaiseCurrentFileChanged(string path) =>
+            CurrentFileChanged?.Invoke(path);
+
+        public void RaiseAvailableTexturesChanged() =>
+            AvailableTexturesChanged?.Invoke();
     }
 }

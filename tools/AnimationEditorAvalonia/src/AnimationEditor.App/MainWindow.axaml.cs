@@ -117,13 +117,6 @@ public partial class MainWindow : Window
 
         // File dialog service
         _appCommands.FileDialogService = new Services.AvaloniaFileDialogService(this);
-        _appCommands.SaveAsCompleted  += path =>
-        {
-            _appSettings.AddFile(new FilePath(path));
-            SaveSettingsFile();
-            RefreshRecentFiles();
-            UpdateTitle();
-        };
 
         // Tree events — fully wired (WireTreeView connects these after tree is constructed)
         _appCommands.RefreshTreeViewRequested           += () => Dispatcher.UIThread.InvokeAsync(RefreshTreeView);
@@ -132,7 +125,15 @@ public partial class MainWindow : Window
         _appCommands.RefreshAnimationFrameDisplayRequested += () => { };
         // RefreshWireframeRequested is handled by WireframeControl directly
 
-        _events.AchxLoaded               += HandleAchxLoaded;
+        _events.CurrentFileChanged     += path => Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            _appSettings.AddFile(new FilePath(path));
+            SaveSettingsFile();
+            RefreshRecentFiles();
+            UpdateTitle();
+        });
+        _events.AvailableTexturesChanged += () => Dispatcher.UIThread.InvokeAsync(RefreshTextureCombo);
+
         _events.AnimationChainsChanged    += HandleAnimationChainsChanged;
         _selectedState.SelectionChanged   += HandleSelectionChanged;
     }
@@ -377,17 +378,6 @@ public partial class MainWindow : Window
     }
 
     // ── Core event handlers ───────────────────────────────────────────────────
-
-    private void HandleAchxLoaded(string fileName)
-    {
-        _appCommands.LoadAnimationChain(fileName);   // triggers RefreshTreeViewRequested
-
-        _appSettings.AddFile(new FilePath(fileName));
-        SaveSettingsFile();
-        RefreshRecentFiles();
-        UpdateTitle();
-        RefreshTextureCombo();
-    }
 
     private void HandleAnimationChainsChanged()
     {
@@ -1739,7 +1729,7 @@ public partial class MainWindow : Window
     private void LoadAnimationFile(string fileName)
     {
         if (!string.IsNullOrEmpty(fileName))
-            _events.CallAchxLoaded(fileName);
+            _appCommands.OpenAchxWorkflow(fileName);
     }
 
     private void UpdateTitle()
