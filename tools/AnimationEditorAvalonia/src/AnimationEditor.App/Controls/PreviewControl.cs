@@ -1279,16 +1279,15 @@ public class PreviewControl : Control
                 {
                     float hw = sh.Param1 * om;
                     float hh = sh.Param2 * om;
-                    canvas.DrawRect(new SKRect(sx - hw, sy - hh, sx + hw, sy + hh), paint);
                     if (sh.IsSelected)
                         DrawShapeHandles(canvas, sx - hw, sy - hh, sx + hw, sy + hh);
+                    canvas.DrawRect(new SKRect(sx - hw, sy - hh, sx + hw, sy + hh), paint);
                 }
                 else
                 {
-                    canvas.DrawCircle(sx, sy, sh.Param1 * om, paint);
+                    float sr = sh.Param1 * om;
                     if (sh.IsSelected)
                     {
-                        float sr = sh.Param1 * om;
                         // Draw the bounding square outline for the circle so handles have context.
                         using var boxPaint = new SKPaint
                         {
@@ -1297,9 +1296,10 @@ public class PreviewControl : Control
                             StrokeWidth = 1f,
                             PathEffect  = SKPathEffect.CreateDash(new float[] { 4f, 4f }, 0f),
                         };
-                        canvas.DrawRect(new SKRect(sx - sr, sy - sr, sx + sr, sy + sr), boxPaint);
                         DrawShapeHandles(canvas, sx - sr, sy - sr, sx + sr, sy + sr);
+                        canvas.DrawRect(new SKRect(sx - sr, sy - sr, sx + sr, sy + sr), boxPaint);
                     }
+                    canvas.DrawCircle(sx, sy, sh.Param1 * om, paint);
                 }
             }
         }
