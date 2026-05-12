@@ -1,7 +1,8 @@
 using AnimationEditor.Core;
 using AnimationEditor.Core.CommandsAndState;
 using AnimationEditor.Core.IO;
-using FlatRedBall.Content.AnimationChain;
+using FlatRedBall2.Animation.Content;
+using System.IO;
 using Xunit;
 
 namespace AnimationEditor.Core.Tests;
@@ -10,12 +11,13 @@ namespace AnimationEditor.Core.Tests;
 public class IoManagerRecoveryTests : IDisposable
 {
     private readonly TestHelpers.TempDir _dir;
+    private readonly TestServices ctx;
 
     public IoManagerRecoveryTests()
     {
         _dir = new TestHelpers.TempDir();
-        TestHelpers.SetupFreshAcls();
-        IoManager.Self.RecoveryFilePath = _dir.Path + "/recovery.achx";
+        ctx = TestHelpers.SetupFreshAcls();
+        ctx.IoManager.RecoveryFilePath = _dir.Path + "/recovery.achx";
     }
 
     public void Dispose() => _dir.Dispose();
@@ -25,17 +27,17 @@ public class IoManagerRecoveryTests : IDisposable
     [Fact]
     public void RecoveryFileExists_WhenNoFileWritten_ReturnsFalse()
     {
-        Assert.False(IoManager.Self.RecoveryFileExists());
+        Assert.False(ctx.IoManager.RecoveryFileExists());
     }
 
     [Fact]
     public void RecoveryFileExists_AfterWriteRecoveryFile_ReturnsTrue()
     {
-        ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
+        ctx.ProjectManager.AnimationChainListSave = new AnimationChainListSave();
 
-        IoManager.Self.WriteRecoveryFile();
+        ctx.IoManager.WriteRecoveryFile(ctx.ProjectManager.AnimationChainListSave);
 
-        Assert.True(IoManager.Self.RecoveryFileExists());
+        Assert.True(ctx.IoManager.RecoveryFileExists());
     }
 
     // ── WriteRecoveryFile ─────────────────────────────────────────────────────
@@ -43,11 +45,11 @@ public class IoManagerRecoveryTests : IDisposable
     [Fact]
     public void WriteRecoveryFile_CreatesFileAtRecoveryPath()
     {
-        ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
+        ctx.ProjectManager.AnimationChainListSave = new AnimationChainListSave();
 
-        IoManager.Self.WriteRecoveryFile();
+        ctx.IoManager.WriteRecoveryFile(ctx.ProjectManager.AnimationChainListSave);
 
-        Assert.True(File.Exists(IoManager.Self.RecoveryFilePath));
+        Assert.True(File.Exists(ctx.IoManager.RecoveryFilePath));
     }
 
     [Fact]
@@ -55,14 +57,14 @@ public class IoManagerRecoveryTests : IDisposable
     {
         var acls = new AnimationChainListSave();
         acls.AnimationChains.Add(new AnimationChainSave { Name = "Walk" });
-        ProjectManager.Self.AnimationChainListSave = acls;
+        ctx.ProjectManager.AnimationChainListSave = acls;
 
-        IoManager.Self.WriteRecoveryFile();
-        var firstSize = new FileInfo(IoManager.Self.RecoveryFilePath).Length;
+        ctx.IoManager.WriteRecoveryFile(ctx.ProjectManager.AnimationChainListSave);
+        var firstSize = new FileInfo(ctx.IoManager.RecoveryFilePath).Length;
 
         acls.AnimationChains.Add(new AnimationChainSave { Name = "Run" });
-        IoManager.Self.WriteRecoveryFile();
-        var secondSize = new FileInfo(IoManager.Self.RecoveryFilePath).Length;
+        ctx.IoManager.WriteRecoveryFile(ctx.ProjectManager.AnimationChainListSave);
+        var secondSize = new FileInfo(ctx.IoManager.RecoveryFilePath).Length;
 
         Assert.True(secondSize > firstSize, "Second write should produce a larger file");
         Assert.Single(Directory.GetFiles(_dir.Path, "*.achx"));
@@ -71,20 +73,20 @@ public class IoManagerRecoveryTests : IDisposable
     [Fact]
     public void WriteRecoveryFile_WhenAclsIsNull_DoesNotCreateFile()
     {
-        ProjectManager.Self.AnimationChainListSave = null!;
+        ctx.ProjectManager.AnimationChainListSave = null;
 
-        IoManager.Self.WriteRecoveryFile();
+        ctx.IoManager.WriteRecoveryFile(ctx.ProjectManager.AnimationChainListSave);
 
-        Assert.False(File.Exists(IoManager.Self.RecoveryFilePath));
+        Assert.False(File.Exists(ctx.IoManager.RecoveryFilePath));
     }
 
     [Fact]
     public void WriteRecoveryFile_WhenPathIsInvalid_DoesNotThrow()
     {
-        IoManager.Self.RecoveryFilePath = "Z:\\NonExistentDrive\\recovery.achx";
-        ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
+        ctx.IoManager.RecoveryFilePath = "Z:\\NonExistentDrive\\recovery.achx";
+        ctx.ProjectManager.AnimationChainListSave = new AnimationChainListSave();
 
-        var ex = Record.Exception(() => IoManager.Self.WriteRecoveryFile());
+        var ex = Record.Exception(() => ctx.IoManager.WriteRecoveryFile(ctx.ProjectManager.AnimationChainListSave));
 
         Assert.Null(ex);
     }
@@ -92,12 +94,12 @@ public class IoManagerRecoveryTests : IDisposable
     [Fact]
     public void WriteRecoveryFile_WhenPathIsInvalid_FiresSaveFailed()
     {
-        IoManager.Self.RecoveryFilePath = "Z:\\NonExistentDrive\\recovery.achx";
-        ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
+        ctx.IoManager.RecoveryFilePath = "Z:\\NonExistentDrive\\recovery.achx";
+        ctx.ProjectManager.AnimationChainListSave = new AnimationChainListSave();
         Exception? caught = null;
-        IoManager.Self.SaveFailed += (_, e) => caught = e;
+        ctx.IoManager.SaveFailed += (_, e) => caught = e;
 
-        IoManager.Self.WriteRecoveryFile();
+        ctx.IoManager.WriteRecoveryFile(ctx.ProjectManager.AnimationChainListSave);
 
         // On most systems Z:\ doesn't exist; if it does this test is inconclusive
         // — but no exception must escape regardless
@@ -108,21 +110,21 @@ public class IoManagerRecoveryTests : IDisposable
     [Fact]
     public void DeleteRecoveryFile_WhenFileExists_RemovesFile()
     {
-        ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
-        IoManager.Self.WriteRecoveryFile();
-        Assert.True(IoManager.Self.RecoveryFileExists());
+        ctx.ProjectManager.AnimationChainListSave = new AnimationChainListSave();
+        ctx.IoManager.WriteRecoveryFile(ctx.ProjectManager.AnimationChainListSave);
+        Assert.True(ctx.IoManager.RecoveryFileExists());
 
-        IoManager.Self.DeleteRecoveryFile();
+        ctx.IoManager.DeleteRecoveryFile();
 
-        Assert.False(IoManager.Self.RecoveryFileExists());
+        Assert.False(ctx.IoManager.RecoveryFileExists());
     }
 
     [Fact]
     public void DeleteRecoveryFile_WhenFileDoesNotExist_DoesNotThrow()
     {
-        Assert.False(IoManager.Self.RecoveryFileExists());
+        Assert.False(ctx.IoManager.RecoveryFileExists());
 
-        var ex = Record.Exception(() => IoManager.Self.DeleteRecoveryFile());
+        var ex = Record.Exception(() => ctx.IoManager.DeleteRecoveryFile());
 
         Assert.Null(ex);
     }

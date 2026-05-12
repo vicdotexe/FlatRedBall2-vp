@@ -22,14 +22,14 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
 
         public void Undo()
         {
-            _frame.TextureName = _oldName;
+            _frame.TextureName = _oldName ?? string.Empty;
             _commands.RefreshTreeNode(_frame);
             _events.RaiseAnimationChainsChanged();
         }
 
         public void Redo()
         {
-            _frame.TextureName = _newName;
+            _frame.TextureName = _newName ?? string.Empty;
             _commands.RefreshTreeNode(_frame);
             _events.RaiseAnimationChainsChanged();
         }

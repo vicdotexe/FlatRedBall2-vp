@@ -1,12 +1,11 @@
-using FlatRedBall.Content.AnimationChain;
-using FlatRedBall.Content.Math.Geometry;
+using FlatRedBall2.Animation.Content;
 
 namespace AnimationEditor.Core
 {
     public interface IObjectFinder
     {
-        AnimationFrameSave GetAnimationFrameContaining(AxisAlignedRectangleSave rectangle);
-        AnimationFrameSave GetAnimationFrameContaining(CircleSave circle);
-        AnimationChainSave GetAnimationChainContaining(AnimationFrameSave frame);
+        AnimationFrameSave? GetAnimationFrameContaining(AARectSave rectangle);
+        AnimationFrameSave? GetAnimationFrameContaining(CircleSave circle);
+        AnimationChainSave? GetAnimationChainContaining(AnimationFrameSave frame);
     }
 }

@@ -1,7 +1,8 @@
 using AnimationEditor.Core;
 using AnimationEditor.Core.CommandsAndState;
 using AnimationEditor.Core.IO;
-using FlatRedBall.Content.AnimationChain;
+using FlatRedBall2.Animation.Content;
+using System.IO;
 using Xunit;
 
 namespace AnimationEditor.Core.Tests;
@@ -10,12 +11,13 @@ namespace AnimationEditor.Core.Tests;
 public class AppCommandsRecoveryTests : IDisposable
 {
     private readonly TestHelpers.TempDir _dir;
+    private readonly TestServices ctx;
 
     public AppCommandsRecoveryTests()
     {
         _dir = new TestHelpers.TempDir();
-        TestHelpers.SetupFreshAcls();
-        IoManager.Self.RecoveryFilePath = _dir.Path + "/recovery.achx";
+        ctx = TestHelpers.SetupFreshAcls();
+        ctx.IoManager.RecoveryFilePath = _dir.Path + "/recovery.achx";
     }
 
     public void Dispose() => _dir.Dispose();
@@ -25,24 +27,24 @@ public class AppCommandsRecoveryTests : IDisposable
     [Fact]
     public void SaveCurrentAnimationChainList_WhenFileNameIsNull_WritesRecoveryFile()
     {
-        ProjectManager.Self.FileName = null;
-        ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
+        ctx.ProjectManager.FileName = null;
+        ctx.ProjectManager.AnimationChainListSave = new AnimationChainListSave();
 
-        AppCommands.Self.SaveCurrentAnimationChainList();
+        ctx.AppCommands.SaveCurrentAnimationChainList();
 
-        Assert.True(IoManager.Self.RecoveryFileExists());
+        Assert.True(ctx.IoManager.RecoveryFileExists());
     }
 
     [Fact]
     public void SaveCurrentAnimationChainList_WhenFileNameIsSet_DoesNotWriteRecoveryFile()
     {
         var target = _dir.Path + "/hero.achx";
-        ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
-        ProjectManager.Self.FileName = target;
+        ctx.ProjectManager.AnimationChainListSave = new AnimationChainListSave();
+        ctx.ProjectManager.FileName = target;
 
-        AppCommands.Self.SaveCurrentAnimationChainList();
+        ctx.AppCommands.SaveCurrentAnimationChainList();
 
-        Assert.False(IoManager.Self.RecoveryFileExists());
+        Assert.False(ctx.IoManager.RecoveryFileExists());
     }
 
     [Fact]
@@ -50,12 +52,12 @@ public class AppCommandsRecoveryTests : IDisposable
     {
         var acls = new AnimationChainListSave();
         acls.AnimationChains.Add(new AnimationChainSave { Name = "Idle" });
-        ProjectManager.Self.AnimationChainListSave = acls;
-        ProjectManager.Self.FileName = null;
+        ctx.ProjectManager.AnimationChainListSave = acls;
+        ctx.ProjectManager.FileName = null;
 
-        AppCommands.Self.SaveCurrentAnimationChainList();
+        ctx.AppCommands.SaveCurrentAnimationChainList();
 
-        var xml = File.ReadAllText(IoManager.Self.RecoveryFilePath);
+        var xml = File.ReadAllText(ctx.IoManager.RecoveryFilePath);
         Assert.Contains("Idle", xml);
     }
 
@@ -65,29 +67,29 @@ public class AppCommandsRecoveryTests : IDisposable
     public async Task SaveCurrentAnimationChainListAsync_WhenSaved_DeletesRecoveryFile()
     {
         var target = _dir.Path + "/out.achx";
-        ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
-        AppCommands.Self.FileDialogService = new StubFileDialogService(target);
+        ctx.ProjectManager.AnimationChainListSave = new AnimationChainListSave();
+        ctx.AppCommands.FileDialogService = new StubFileDialogService(target);
 
         // Write a recovery file first
-        IoManager.Self.WriteRecoveryFile();
-        Assert.True(IoManager.Self.RecoveryFileExists());
+        ctx.IoManager.WriteRecoveryFile(ctx.ProjectManager.AnimationChainListSave);
+        Assert.True(ctx.IoManager.RecoveryFileExists());
 
-        await AppCommands.Self.SaveCurrentAnimationChainListAsync();
+        await ctx.AppCommands.SaveCurrentAnimationChainListAsync();
 
-        Assert.False(IoManager.Self.RecoveryFileExists());
+        Assert.False(ctx.IoManager.RecoveryFileExists());
     }
 
     [Fact]
     public async Task SaveCurrentAnimationChainListAsync_WhenDialogCancelled_PreservesRecoveryFile()
     {
-        ProjectManager.Self.AnimationChainListSave = new AnimationChainListSave();
-        AppCommands.Self.FileDialogService = new StubFileDialogService(null);
+        ctx.ProjectManager.AnimationChainListSave = new AnimationChainListSave();
+        ctx.AppCommands.FileDialogService = new StubFileDialogService(null);
 
-        IoManager.Self.WriteRecoveryFile();
-        Assert.True(IoManager.Self.RecoveryFileExists());
+        ctx.IoManager.WriteRecoveryFile(ctx.ProjectManager.AnimationChainListSave);
+        Assert.True(ctx.IoManager.RecoveryFileExists());
 
-        await AppCommands.Self.SaveCurrentAnimationChainListAsync();
+        await ctx.AppCommands.SaveCurrentAnimationChainListAsync();
 
-        Assert.True(IoManager.Self.RecoveryFileExists(), "Recovery should be preserved when user cancels Save As");
+        Assert.True(ctx.IoManager.RecoveryFileExists(), "Recovery should be preserved when user cancels Save As");
     }
 }

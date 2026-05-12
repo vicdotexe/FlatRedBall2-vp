@@ -6,10 +6,10 @@ namespace AnimationEditor.Core
 {
     public interface IProjectManager
     {
-        AnimationChainListSave AnimationChainListSave { get; set; }
+        AnimationChainListSave? AnimationChainListSave { get; set; }
         TileMapInformationList TileMapInformationList { get; set; }
         FilePath[] ReferencedPngs { get; }
-        string FileName { get; set; }
+        string? FileName { get; set; }
         TextureCoordinateType OnDiskCoordinateType { get; set; }
 
         void LoadAnimationChain(FilePath fileName);

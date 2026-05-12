@@ -126,9 +126,9 @@ public class WireframeControl : Control
             using var labelPaint = new SKPaint
             {
                 Color = new SKColor(0xe6, 0xe8, 0xec, 0xaa),
-                TextSize = 11,
                 IsAntialias = true,
             };
+            using var labelFont = new SKFont { Size = 11 };
 
             foreach (var (bounds, isSelected, name) in s.Frames)
             {
@@ -150,7 +150,7 @@ public class WireframeControl : Control
                 {
                     float labelY = sr.Top - 3f;
                     if (labelY > 0)
-                        canvas.DrawText(name, sr.Left, labelY, labelPaint);
+                        canvas.DrawText(name, sr.Left, labelY, SKTextAlign.Left, labelFont, labelPaint);
                 }
             }
 

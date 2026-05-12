@@ -148,8 +148,7 @@ public class TreeBuilderPureTests
     public void BuildFrameHeader_WithNoTextureName_ReturnsFrameIndexLabel()
     {
         var frame = new AnimationFrameSave { TextureName = "" };
-        Assert.Equal("Frame 0", TreeBuilder.BuildFrameHeader(frame, 0));
-        Assert.Equal("Frame 3", TreeBuilder.BuildFrameHeader(frame, 3));
+        Assert.Equal("<UNTEXTURED>", TreeBuilder.BuildFrameHeader(frame));
     }
 
     [Fact]

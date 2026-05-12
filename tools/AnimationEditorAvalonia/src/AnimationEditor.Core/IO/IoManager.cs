@@ -1,6 +1,8 @@
 using AnimationEditor.Core.CommandsAndState;
 using AnimationEditor.Core.Data;
+using FlatRedBall2.Animation.Content;
 using System;
+using System.IO;
 using FilePath = AnimationEditor.Core.Paths.FilePath;
 
 namespace AnimationEditor.Core.IO
@@ -15,6 +17,8 @@ namespace AnimationEditor.Core.IO
         }
         /// <summary>Raised when saving the companion file fails. The app layer should display the error.</summary>
         public event Action<string, Exception>? SaveFailed;
+        public string RecoveryFilePath { get; set; } =
+            Path.Combine(Path.GetTempPath(), "AnimationEditor_Recovery.achx");
 
         private FilePath GetCompanionFileFor(FilePath fileName)
         {
@@ -55,6 +59,45 @@ namespace AnimationEditor.Core.IO
                 ApplySettings(loadedInstance);
             }
         }
+
+        public void WriteRecoveryFile(AnimationChainListSave? animationChainListSave)
+        {
+            if (animationChainListSave == null) return;
+
+            string tempPath = RecoveryFilePath + ".tmp";
+            try
+            {
+                var directory = Path.GetDirectoryName(RecoveryFilePath);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                animationChainListSave.Save(tempPath);
+                File.Move(tempPath, RecoveryFilePath, overwrite: true);
+            }
+            catch (Exception e)
+            {
+                SaveFailed?.Invoke("Could not save recovery file " + RecoveryFilePath + "\n\n" + e, e);
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
+        }
+
+        public void DeleteRecoveryFile()
+        {
+            if (File.Exists(RecoveryFilePath))
+            {
+                File.Delete(RecoveryFilePath);
+            }
+        }
+
+        public bool RecoveryFileExists() => File.Exists(RecoveryFilePath);
 
         private void ApplySettings(AESettingsSave settings)
         {

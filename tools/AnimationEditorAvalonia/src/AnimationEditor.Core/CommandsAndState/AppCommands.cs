@@ -133,6 +133,10 @@ namespace AnimationEditor.Core.CommandsAndState
             {
                 _pm.SaveAnimationChainList(target);
             }
+            else
+            {
+                _ioManager.WriteRecoveryFile(_pm.AnimationChainListSave);
+            }
         }
 
         /// <summary>
@@ -150,6 +154,7 @@ namespace AnimationEditor.Core.CommandsAndState
 
             SaveCurrentAnimationChainList(path);
             _pm.FileName = path;
+            _ioManager.DeleteRecoveryFile();
             SaveAsCompleted?.Invoke(path);
         }
 

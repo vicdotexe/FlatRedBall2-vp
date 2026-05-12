@@ -152,13 +152,17 @@ public partial class MainWindow : Window
         ZoomCombo.SelectionChanged += OnZoomComboSelectionChanged;
         ZoomPlusBtn.Click  += (_, _) => StepZoomPreset(WireframeCtrl.Zoom * 100f, _zoomPresets, +1, p => WireframeCtrl.SetZoomPercent(p));
         ZoomMinusBtn.Click += (_, _) => StepZoomPreset(WireframeCtrl.Zoom * 100f, _zoomPresets, -1, p => WireframeCtrl.SetZoomPercent(p));
-        UnitTypeCombo.SelectionChanged += OnUnitTypeComboChanged;
+        var unitTypeCombo = this.FindControl<ComboBox>("UnitTypeCombo");
+        if (unitTypeCombo != null)
+        {
+            unitTypeCombo.SelectionChanged += OnUnitTypeComboChanged;
+            unitTypeCombo.SelectedIndex = (int)_appState.UnitType;
+        }
 
         // Apply initial grid state
         WireframeCtrl.SetGrid(false, 16);
 
-        // Sync UnitTypeCombo to current AppState
-        UnitTypeCombo.SelectedIndex = (int)_appState.UnitType;
+        // Sync UnitTypeCombo to current AppState if present in this layout
     }
 
     private void OnTextureComboChanged(object? sender, SelectionChangedEventArgs e)
@@ -296,11 +300,29 @@ public partial class MainWindow : Window
 
     private void OnUnitTypeComboChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (UnitTypeCombo.SelectedIndex >= 0)
+        if (sender is ComboBox combo && combo.SelectedIndex >= 0)
         {
-            _appState.UnitType = (UnitType)UnitTypeCombo.SelectedIndex;
+            _appState.UnitType = (UnitType)combo.SelectedIndex;
             Dispatcher.UIThread.InvokeAsync(RefreshPropertyPanel);
         }
+    }
+
+    private void OnUnitPixelBtnClick(object? sender, RoutedEventArgs e) =>
+        SetUnitType(UnitType.Pixel);
+
+    private void OnUnitTextureBtnClick(object? sender, RoutedEventArgs e) =>
+        SetUnitType(UnitType.TextureCoordinate);
+
+    private void OnUnitSpriteSheetBtnClick(object? sender, RoutedEventArgs e) =>
+        SetUnitType(UnitType.SpriteSheet);
+
+    private void SetUnitType(UnitType unitType)
+    {
+        _appState.UnitType = unitType;
+        UnitPixelBtn.IsChecked = unitType == UnitType.Pixel;
+        UnitTextureBtn.IsChecked = unitType == UnitType.TextureCoordinate;
+        UnitSpriteSheetBtn.IsChecked = unitType == UnitType.SpriteSheet;
+        Dispatcher.UIThread.InvokeAsync(RefreshPropertyPanel);
     }
 
     // ── WireframeControl event wiring ─────────────────────────────────────────
@@ -1289,9 +1311,7 @@ public partial class MainWindow : Window
         // outside the .achx folder so they round-trip correctly.
         string storePath = string.IsNullOrEmpty(achxFolder)
             ? resolvedAbsPath
-            : TexturePathHelper.ComputeStorePath(
-                resolvedAbsPath,
-                FlatRedBall.IO.FileManager.GetDirectory(_projectManager.FileName));
+            : TexturePathHelper.ComputeStorePath(resolvedAbsPath, achxFolder);
 
         _appCommands.SetFrameTextureName(frame, storePath);
         WireframeCtrl.LoadTexture(resolvedAbsPath);
