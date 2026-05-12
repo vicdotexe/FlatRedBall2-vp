@@ -98,12 +98,23 @@ namespace AnimationEditor.Core.CommandsAndState
         /// </summary>
         public event Action<string>? SaveAsCompleted;
 
+        /// <inheritdoc cref="IAppCommands.LoadFailed"/>
+        public event Action<string, Exception>? LoadFailed;
+
         // -------------------------------------------------------------------------
 
         public void LoadAnimationChain(string fileName)
         {
-            var selectedTextureFilePath = string.Empty;
-            _pm.LoadAnimationChain(new AnimationEditor.Core.Paths.FilePath(fileName));
+            try
+            {
+                _pm.LoadAnimationChain(new AnimationEditor.Core.Paths.FilePath(fileName));
+            }
+            catch (Exception ex)
+            {
+                LoadFailed?.Invoke(fileName, ex);
+                return;
+            }
+
             _undoManager.Clear();
             RefreshTreeViewRequested?.Invoke();
             _ioManager.LoadAndApplyCompanionFileFor(fileName);

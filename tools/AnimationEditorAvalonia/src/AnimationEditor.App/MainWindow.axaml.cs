@@ -124,6 +124,8 @@ public partial class MainWindow : Window
             RefreshRecentFiles();
             UpdateTitle();
         };
+        _appCommands.LoadFailed += (path, ex) =>
+            Dispatcher.UIThread.InvokeAsync(() => ShowLoadFailedDialogAsync(path, ex));
 
         // Tree events — fully wired (WireTreeView connects these after tree is constructed)
         _appCommands.RefreshTreeViewRequested           += () => Dispatcher.UIThread.InvokeAsync(RefreshTreeView);
@@ -380,7 +382,19 @@ public partial class MainWindow : Window
 
     private void HandleAchxLoaded(string fileName)
     {
-        _appCommands.LoadAnimationChain(fileName);   // triggers RefreshTreeViewRequested
+        bool failed = false;
+        void OnFail(string _, Exception __) => failed = true;
+        _appCommands.LoadFailed += OnFail;
+        try
+        {
+            _appCommands.LoadAnimationChain(fileName);
+        }
+        finally
+        {
+            _appCommands.LoadFailed -= OnFail;
+        }
+
+        if (failed) return;
 
         _appSettings.AddFile(new FilePath(fileName));
         SaveSettingsFile();
@@ -1777,6 +1791,36 @@ public partial class MainWindow : Window
         {
             // File in use — ignore
         }
+    }
+
+    // ── Load-failed error dialog ──────────────────────────────────────────────
+
+    private async Task ShowLoadFailedDialogAsync(string filePath, Exception ex)
+    {
+        var fileName = Path.GetFileName(filePath);
+        var dialog = new Window
+        {
+            Title = "Load Failed",
+            Width = 440,
+            Height = 180,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+
+        var panel = new StackPanel { Margin = new Avalonia.Thickness(16), Spacing = 12 };
+        panel.Children.Add(new TextBlock
+        {
+            Text = $"Could not load '{fileName}':\n{ex.Message}",
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap
+        });
+
+        var okBtn = new Button { Content = "OK", HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right };
+        okBtn.Click += (_, _) => dialog.Close();
+        panel.Children.Add(okBtn);
+
+        dialog.Content = panel;
+        dialog.Closed += (_, _) => { };
+
+        await dialog.ShowDialog(this);
     }
 
     private async Task<bool> ShowConfirmDialogAsync(string message, string title)
