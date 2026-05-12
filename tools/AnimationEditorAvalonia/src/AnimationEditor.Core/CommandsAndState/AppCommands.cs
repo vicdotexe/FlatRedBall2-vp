@@ -101,6 +101,24 @@ namespace AnimationEditor.Core.CommandsAndState
         /// <inheritdoc cref="IAppCommands.LoadFailed"/>
         public event Action<string, Exception>? LoadFailed;
 
+        // ── Open workflow ─────────────────────────────────────────────────────────
+
+        /// <inheritdoc cref="IAppCommands.OpenAchxWorkflow"/>
+        public void OpenAchxWorkflow(string path)
+        {
+            bool failed = false;
+            void OnFail(string _, Exception __) => failed = true;
+            LoadFailed += OnFail;
+            try { LoadAnimationChain(path); }
+            finally { LoadFailed -= OnFail; }
+
+            if (failed) return;
+
+            _events.CallAchxLoaded(path);
+            _events.RaiseCurrentFileChanged(path);
+            _events.RaiseAvailableTexturesChanged();
+        }
+
         // -------------------------------------------------------------------------
 
         public void LoadAnimationChain(string fileName)
@@ -153,7 +171,8 @@ namespace AnimationEditor.Core.CommandsAndState
         /// <summary>
         /// Show a Save-As file picker via <see cref="FileDialogService"/>, save the
         /// current animation chain list to the chosen path, update
-        /// <see cref="ProjectManager.FileName"/>, and fire <see cref="SaveAsCompleted"/>.
+        /// <see cref="ProjectManager.FileName"/>, and fire <see cref="SaveAsCompleted"/>
+        /// and <see cref="IApplicationEvents.CurrentFileChanged"/>.
         /// Does nothing if the user cancels the dialog.
         /// </summary>
         public async Task SaveCurrentAnimationChainListAsync()
@@ -167,6 +186,7 @@ namespace AnimationEditor.Core.CommandsAndState
             _pm.FileName = path;
             _ioManager.DeleteRecoveryFile();
             SaveAsCompleted?.Invoke(path);
+            _events.RaiseCurrentFileChanged(path);
         }
 
         public void DeleteAnimationChains(List<AnimationChainSave> animationChains)

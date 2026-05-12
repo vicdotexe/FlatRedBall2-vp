@@ -35,6 +35,12 @@ namespace AnimationEditor.Core.CommandsAndState
 
         // ── Methods ───────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Full open workflow: loads the .achx, fires <c>AchxLoaded</c> (post-load),
+        /// then fires <c>CurrentFileChanged</c> and <c>AvailableTexturesChanged</c>
+        /// so the UI can update its title, recent-files list, and texture combo.
+        /// </summary>
+        void OpenAchxWorkflow(string path);
         void LoadAnimationChain(string fileName);
         void RefreshTreeNode(AnimationChainSave animationChain);
         void RefreshTreeNode(AnimationFrameSave animationFrame);

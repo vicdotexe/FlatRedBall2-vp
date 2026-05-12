@@ -117,13 +117,6 @@ public partial class MainWindow : Window
 
         // File dialog service
         _appCommands.FileDialogService = new Services.AvaloniaFileDialogService(this);
-        _appCommands.SaveAsCompleted  += path =>
-        {
-            _appSettings.AddFile(new FilePath(path));
-            SaveSettingsFile();
-            RefreshRecentFiles();
-            UpdateTitle();
-        };
         _appCommands.LoadFailed += (path, ex) =>
             Dispatcher.UIThread.InvokeAsync(() => ShowLoadFailedDialogAsync(path, ex));
 
@@ -134,7 +127,15 @@ public partial class MainWindow : Window
         _appCommands.RefreshAnimationFrameDisplayRequested += () => { };
         // RefreshWireframeRequested is handled by WireframeControl directly
 
-        _events.AchxLoaded               += HandleAchxLoaded;
+        _events.CurrentFileChanged     += path => Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            _appSettings.AddFile(new FilePath(path));
+            SaveSettingsFile();
+            RefreshRecentFiles();
+            UpdateTitle();
+        });
+        _events.AvailableTexturesChanged += () => Dispatcher.UIThread.InvokeAsync(RefreshTextureCombo);
+
         _events.AnimationChainsChanged    += HandleAnimationChainsChanged;
         _selectedState.SelectionChanged   += HandleSelectionChanged;
     }
@@ -379,29 +380,6 @@ public partial class MainWindow : Window
     }
 
     // ── Core event handlers ───────────────────────────────────────────────────
-
-    private void HandleAchxLoaded(string fileName)
-    {
-        bool failed = false;
-        void OnFail(string _, Exception __) => failed = true;
-        _appCommands.LoadFailed += OnFail;
-        try
-        {
-            _appCommands.LoadAnimationChain(fileName);
-        }
-        finally
-        {
-            _appCommands.LoadFailed -= OnFail;
-        }
-
-        if (failed) return;
-
-        _appSettings.AddFile(new FilePath(fileName));
-        SaveSettingsFile();
-        RefreshRecentFiles();
-        UpdateTitle();
-        RefreshTextureCombo();
-    }
 
     private void HandleAnimationChainsChanged()
     {
@@ -1753,7 +1731,7 @@ public partial class MainWindow : Window
     private void LoadAnimationFile(string fileName)
     {
         if (!string.IsNullOrEmpty(fileName))
-            _events.CallAchxLoaded(fileName);
+            _appCommands.OpenAchxWorkflow(fileName);
     }
 
     private void UpdateTitle()

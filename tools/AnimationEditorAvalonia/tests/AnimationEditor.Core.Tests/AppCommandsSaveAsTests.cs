@@ -104,6 +104,34 @@ public class AppCommandsSaveAsTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveCurrentAnimationChainListAsync_WhenPathReturned_FiresCurrentFileChangedWithPath()
+    {
+        var target = Path.Combine(_dir.Path, "out.achx");
+        var ctx = TestHelpers.SetupFreshAcls();
+        ctx.AppCommands.FileDialogService = new StubFileDialogService(target);
+        ctx.ProjectManager.AnimationChainListSave = ctx.Acls;
+        string? received = null;
+        ctx.ApplicationEvents.CurrentFileChanged += p => received = p;
+
+        await ctx.AppCommands.SaveCurrentAnimationChainListAsync();
+
+        Assert.Equal(target, received);
+    }
+
+    [Fact]
+    public async Task SaveCurrentAnimationChainListAsync_WhenDialogCancelled_DoesNotFireCurrentFileChanged()
+    {
+        var ctx = TestHelpers.SetupFreshAcls();
+        ctx.AppCommands.FileDialogService = new StubFileDialogService(null);
+        bool fired = false;
+        ctx.ApplicationEvents.CurrentFileChanged += _ => fired = true;
+
+        await ctx.AppCommands.SaveCurrentAnimationChainListAsync();
+
+        Assert.False(fired);
+    }
+
+    [Fact]
     public async Task SaveCurrentAnimationChainListAsync_SavedFile_ContainsChainData()
     {
         var target = Path.Combine(_dir.Path, "data.achx");
@@ -119,6 +147,7 @@ public class AppCommandsSaveAsTests : IDisposable
         Assert.Contains("Run", xml);
     }
 }
+
 
 /// <summary>Test double that returns a pre-configured path (or null) from every dialog.</summary>
 internal sealed class StubFileDialogService : IFileDialogService
