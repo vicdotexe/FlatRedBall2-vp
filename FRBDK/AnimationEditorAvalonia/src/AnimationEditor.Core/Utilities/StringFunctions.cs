@@ -6,7 +6,7 @@ namespace AnimationEditor.Core.Utilities;
 // Ported verbatim from FRB1's FlatRedBall.Utilities.StringFunctions; only the
 // MakeStringUnique overloads (and the GetNumberAtEnd/IncrementNumberAtEnd
 // helpers they depend on) are kept.
-internal static class StringFunctions
+public static class StringFunctions
 {
     public static string MakeStringUnique(string stringToMakeUnique, List<string> stringList)
         => MakeStringUnique(stringToMakeUnique, stringList, 1);

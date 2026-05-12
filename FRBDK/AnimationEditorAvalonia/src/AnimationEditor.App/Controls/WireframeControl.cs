@@ -9,14 +9,14 @@ using Avalonia.Media;
 using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
 using Avalonia.Threading;
-using FlatRedBall.Content.AnimationChain;
+using FlatRedBall2.Animation.Content;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using FilePath = FlatRedBall.IO.FilePath;
+using FilePath = AnimationEditor.Core.Paths.FilePath;
 
 namespace AnimationEditor.App.Controls;
 
@@ -920,7 +920,7 @@ public class WireframeControl : Control
 
         string? achxFolder = string.IsNullOrEmpty(_projectManager?.FileName)
             ? null
-            : FlatRedBall.IO.FileManager.GetDirectory(_projectManager!.FileName);
+            : (Path.GetDirectoryName(_projectManager!.FileName) ?? string.Empty);
 
         IEnumerable<AnimationFrameSave> framesToSnap;
         if (selectedFrame != null)
@@ -942,7 +942,7 @@ public class WireframeControl : Control
 
             if (achxFolder != null && _loadedTexturePath != null)
             {
-                var fp = new FilePath(achxFolder + frame.TextureName);
+                var fp = new FilePath(Path.Combine(achxFolder, frame.TextureName));
                 if (!fp.Equals(new FilePath(_loadedTexturePath))) continue;
             }
 
@@ -1884,7 +1884,7 @@ public class WireframeControl : Control
 
         string? achxFolder = string.IsNullOrEmpty(_projectManager!.FileName)
             ? null
-            : FlatRedBall.IO.FileManager.GetDirectory(_projectManager!.FileName);
+            : (Path.GetDirectoryName(_projectManager!.FileName) ?? string.Empty);
 
         IEnumerable<AnimationFrameSave> framesToShow;
         if (selectedFrame != null)
@@ -1906,7 +1906,7 @@ public class WireframeControl : Control
             // Filter to frames that use the currently shown texture
             if (achxFolder != null && _loadedTexturePath != null)
             {
-                var fp = new FilePath(achxFolder + frame.TextureName);
+                var fp = new FilePath(Path.Combine(achxFolder, frame.TextureName));
                 if (!fp.Equals(new FilePath(_loadedTexturePath))) continue;
             }
 
@@ -1999,7 +1999,7 @@ public class WireframeControl : Control
         if (string.IsNullOrEmpty(_projectManager!.FileName))
             return textureName;
 
-        return FlatRedBall.IO.FileManager.GetDirectory(_projectManager!.FileName) + textureName;
+        return Path.Combine(Path.GetDirectoryName(_projectManager!.FileName) ?? string.Empty, textureName);
     }
 
     /// <summary>
