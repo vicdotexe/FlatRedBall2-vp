@@ -226,7 +226,10 @@ public class AnimationChainListSave
         frame.RelativeX = FloatEl(el, "RelativeX");
         frame.RelativeY = FloatEl(el, "RelativeY");
 
-        var shapesEl = el.Element("ShapesSave");
+        // FRB1 dialect: shape wrapper is <ShapeCollectionSave>. FRB2's <ShapesSave> is not
+        // accepted — no .achx files exist in the wild using it (the FRB2 writer didn't exist
+        // before this branch), so the dialect is unified on FRB1's element names.
+        var shapesEl = el.Element("ShapeCollectionSave");
         if (shapesEl != null)
             frame.ShapesSave = ParseShapes(shapesEl);
 
@@ -237,10 +240,10 @@ public class AnimationChainListSave
     {
         var shapes = new ShapesSave();
 
-        var aarctsEl = el.Element("AARectSaves");
+        var aarctsEl = el.Element("AxisAlignedRectangleSaves");
         if (aarctsEl != null)
         {
-            foreach (var r in aarctsEl.Elements("AARectSave"))
+            foreach (var r in aarctsEl.Elements("AxisAlignedRectangleSave"))
             {
                 shapes.AARectSaves.Add(new AARectSave
                 {
