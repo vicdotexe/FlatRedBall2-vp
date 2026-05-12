@@ -134,6 +134,7 @@ namespace AnimationEditor.Core.CommandsAndState
             }
 
             _undoManager.Clear();
+            _selectedState.Reset();
             RefreshTreeViewRequested?.Invoke();
             _ioManager.LoadAndApplyCompanionFileFor(fileName);
             RefreshWireframeRequested?.Invoke();

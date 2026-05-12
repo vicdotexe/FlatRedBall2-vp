@@ -559,9 +559,10 @@ public partial class MainWindow : Window
 
     private void OnNewClick(object? sender, RoutedEventArgs e)
     {
-        _projectManager.AnimationChainListSave =
-            new AnimationChainListSave();
+        _projectManager.AnimationChainListSave = new AnimationChainListSave();
         _projectManager.FileName = null;
+        _selectedState.Reset();
+        RefreshTreeView();
         _ = _appCommands.SaveCurrentAnimationChainListAsync();
     }
 
