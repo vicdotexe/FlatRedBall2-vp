@@ -162,5 +162,17 @@ namespace AnimationEditor.Core
             }
             return null;
         }
+
+        /// <inheritdoc/>
+        public void Reset()
+        {
+            _selectedChain = null;
+            _selectedFrame = null;
+            _selectedRectangle = null;
+            _selectedCircle = null;
+            _selectedNodes = new List<object>();
+            SelectedChains = new List<AnimationChainSave>();
+            SelectionChanged?.Invoke();
+        }
     }
 }

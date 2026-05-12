@@ -46,6 +46,7 @@ public partial class MainWindow : Window
     private bool _suppressTextureComboChanged;
     private bool _suppressZoomComboChanged;
     private bool _suppressPreviewZoomComboChanged;
+    private bool _suppressTreeSelectionHandling;
 
     private FilePath SettingsFilePath =>
         new FilePath((Path.GetDirectoryName(
@@ -559,9 +560,9 @@ public partial class MainWindow : Window
 
     private void OnNewClick(object? sender, RoutedEventArgs e)
     {
-        _projectManager.AnimationChainListSave =
-            new AnimationChainListSave();
+        _projectManager.AnimationChainListSave = new AnimationChainListSave();
         _projectManager.FileName = null;
+        _selectedState.Reset();
         RefreshTreeView();
         _ = _appCommands.SaveCurrentAnimationChainListAsync();
     }
@@ -942,6 +943,7 @@ public partial class MainWindow : Window
 
     private void OnTreeSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
+        if (_suppressTreeSelectionHandling) return;
         if (AnimTree.SelectedItem is not TreeNodeVm vm) return;
 
         // Sync multi-select into SelectedState
@@ -958,25 +960,33 @@ public partial class MainWindow : Window
 
     private void RefreshTreeView()
     {
-        var acls = _projectManager.AnimationChainListSave;
-
-        // Preserve expanded chain names before clearing
-        var expanded = TreeBuilder.GetExpandedChainNames(_treeRoots).ToHashSet();
-
-        _treeRoots.Clear();
-
-        if (acls is null) return;
-
-        foreach (var chain in acls.AnimationChains)
+        _suppressTreeSelectionHandling = true;
+        try
         {
-            var node = TreeBuilder.BuildChainNode(chain);
-            // Restore expand state — keep true if no prior state recorded yet
-            node.IsExpanded = expanded.Count == 0 || expanded.Contains(chain.Name);
-            _treeRoots.Add(node);
-        }
+            var acls = _projectManager.AnimationChainListSave;
 
-        // Re-select to keep visual state
-        SyncTreeSelection();
+            // Preserve expanded chain names before clearing
+            var expanded = TreeBuilder.GetExpandedChainNames(_treeRoots).ToHashSet();
+
+            _treeRoots.Clear();
+
+            if (acls is null) return;
+
+            foreach (var chain in acls.AnimationChains)
+            {
+                var node = TreeBuilder.BuildChainNode(chain);
+                // Restore expand state — keep true if no prior state recorded yet
+                node.IsExpanded = expanded.Count == 0 || expanded.Contains(chain.Name);
+                _treeRoots.Add(node);
+            }
+
+            // Re-select to keep visual state
+            SyncTreeSelection();
+        }
+        finally
+        {
+            _suppressTreeSelectionHandling = false;
+        }
     }
 
     private void RefreshChainNode(AnimationChainSave chain)

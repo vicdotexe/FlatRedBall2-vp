@@ -23,5 +23,12 @@ namespace AnimationEditor.Core
         string? SelectedTextureName { get; }
         TileMapInformation? SelectedTileMapInformation { get; }
         SelectionSnapshot Snapshot { get; set; }
+
+        /// <summary>
+        /// Clears all selection state (chain, frame, shapes, multi-select) and fires
+        /// <see cref="SelectionChanged"/> once. Call this when the project is reset or
+        /// a new file is loaded so the wireframe and preview stop showing stale content.
+        /// </summary>
+        void Reset();
     }
 }
