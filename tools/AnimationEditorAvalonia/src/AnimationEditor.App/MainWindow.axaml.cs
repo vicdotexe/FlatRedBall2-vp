@@ -71,6 +71,7 @@ public partial class MainWindow : Window
         _undoManager = undoManager;
 
         InitializeComponent();
+        PropertyChanged += (_, e) => { if (e.Property == OffScreenMarginProperty) Padding = OffScreenMargin; };
         WireframeCtrl.AttachScrollViewer(WireframeScrollViewer);
 
         WireAppCommands();
@@ -487,6 +488,24 @@ public partial class MainWindow : Window
             WireframeCtrl.LoadTexture(texPath);
         }
     }
+
+    // ── Custom title bar ─────────────────────────────────────────────────────
+
+    private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            BeginMoveDrag(e);
+    }
+
+    private void OnTitleBarDoubleTapped(object? sender, TappedEventArgs e) =>
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+
+    private void OnMinimizeBtnClick(object? sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+    private void OnMaximizeBtnClick(object? sender, RoutedEventArgs e) =>
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+
+    private void OnCloseBtnClick(object? sender, RoutedEventArgs e) => Close();
 
     // ── Menu wiring ───────────────────────────────────────────────────────────
 
