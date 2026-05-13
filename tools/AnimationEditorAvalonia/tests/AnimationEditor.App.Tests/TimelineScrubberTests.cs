@@ -59,4 +59,141 @@ public class TimelineScrubberTests
             window.Close();
         }
     }
+
+    [AvaloniaFact]
+    public void ScrubberOffset_AdvancesMidFrame_UpdatesToProportionalPosition()
+    {
+        var ctx = TestHelpers.BuildServices();
+        var chain = new AnimationChainSave { Name = "Run" };
+        chain.Frames.Add(new AnimationFrameSave { TextureName = "a.png", FrameLength = 0.1f, ShapesSave = new ShapesSave() });
+        chain.Frames.Add(new AnimationFrameSave { TextureName = "b.png", FrameLength = 0.1f, ShapesSave = new ShapesSave() });
+        var acls = new AnimationChainListSave();
+        acls.AnimationChains.Add(chain);
+        ctx.ProjectManager.AnimationChainListSave = acls;
+
+        var window = ctx.CreateMainWindow();
+        window.Show();
+
+        try
+        {
+            ctx.SelectedState.SelectedChain = chain;
+            Dispatcher.UIThread.RunJobs();
+
+            var timeline = window.FindControl<ItemsControl>("TimelineStrip")
+                ?? throw new InvalidOperationException("TimelineStrip not found");
+            var preview = window.FindControl<AnimationEditor.App.Controls.PreviewControl>("PreviewCtrl")
+                ?? throw new InvalidOperationException("PreviewCtrl not found");
+
+            var items = Assert.IsType<ObservableCollection<TimelineFrameVm>>(timeline.ItemsSource);
+            Assert.Equal(2, items.Count);
+
+            preview.PauseAutoPlayback();
+            preview.Playback.SetChain(chain);
+            preview.Playback.Play();
+            Dispatcher.UIThread.RunJobs();
+
+            // Advance halfway through frame 0 (0.05 of 0.1s)
+            preview.Playback.Advance(0.05);
+
+            // ScrubberOffset is updated synchronously from PlaybackTicked — no RunJobs needed
+            double travelWidth = items[0].Width - TimelineFrameVm.PlayheadWidth;
+            double expectedOffset = 0.5 * travelWidth;
+            Assert.Equal(expectedOffset, items[0].ScrubberOffset, precision: 6);
+            Assert.True(items[0].ScrubberOffset > 0);
+            Assert.True(items[0].ScrubberOffset < items[0].Width);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ScrubberOffset_IsZero_AfterReset()
+    {
+        var ctx = TestHelpers.BuildServices();
+        var chain = new AnimationChainSave { Name = "Run" };
+        chain.Frames.Add(new AnimationFrameSave { TextureName = "a.png", FrameLength = 0.1f, ShapesSave = new ShapesSave() });
+        chain.Frames.Add(new AnimationFrameSave { TextureName = "b.png", FrameLength = 0.1f, ShapesSave = new ShapesSave() });
+        var acls = new AnimationChainListSave();
+        acls.AnimationChains.Add(chain);
+        ctx.ProjectManager.AnimationChainListSave = acls;
+
+        var window = ctx.CreateMainWindow();
+        window.Show();
+
+        try
+        {
+            ctx.SelectedState.SelectedChain = chain;
+            Dispatcher.UIThread.RunJobs();
+
+            var timeline = window.FindControl<ItemsControl>("TimelineStrip")
+                ?? throw new InvalidOperationException("TimelineStrip not found");
+            var preview = window.FindControl<AnimationEditor.App.Controls.PreviewControl>("PreviewCtrl")
+                ?? throw new InvalidOperationException("PreviewCtrl not found");
+
+            var items = Assert.IsType<ObservableCollection<TimelineFrameVm>>(timeline.ItemsSource);
+
+            preview.PauseAutoPlayback();
+            preview.Playback.SetChain(chain);
+            preview.Playback.Play();
+            Dispatcher.UIThread.RunJobs();
+
+            preview.Playback.Advance(0.05); // advance mid-frame
+            Assert.True(items[0].ScrubberOffset > 0);
+
+            preview.Playback.Reset(); // reset should bring offset back to 0
+
+            Assert.Equal(0.0, items[0].ScrubberOffset);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ScrubberOffset_ClampedToTravelWidth_AtEndOfFrame()
+    {
+        var ctx = TestHelpers.BuildServices();
+        var chain = new AnimationChainSave { Name = "Run" };
+        chain.Frames.Add(new AnimationFrameSave { TextureName = "a.png", FrameLength = 0.1f, ShapesSave = new ShapesSave() });
+        chain.Frames.Add(new AnimationFrameSave { TextureName = "b.png", FrameLength = 0.1f, ShapesSave = new ShapesSave() });
+        var acls = new AnimationChainListSave();
+        acls.AnimationChains.Add(chain);
+        ctx.ProjectManager.AnimationChainListSave = acls;
+
+        var window = ctx.CreateMainWindow();
+        window.Show();
+
+        try
+        {
+            ctx.SelectedState.SelectedChain = chain;
+            Dispatcher.UIThread.RunJobs();
+
+            var timeline = window.FindControl<ItemsControl>("TimelineStrip")
+                ?? throw new InvalidOperationException("TimelineStrip not found");
+            var preview = window.FindControl<AnimationEditor.App.Controls.PreviewControl>("PreviewCtrl")
+                ?? throw new InvalidOperationException("PreviewCtrl not found");
+
+            var items = Assert.IsType<ObservableCollection<TimelineFrameVm>>(timeline.ItemsSource);
+
+            preview.PauseAutoPlayback();
+            preview.Playback.SetChain(chain);
+            preview.Playback.Play();
+            Dispatcher.UIThread.RunJobs();
+
+            // Advance just before the frame boundary — ratio ≈ 1.0
+            preview.Playback.Advance(0.0999);
+
+            double travelWidth = items[0].Width - TimelineFrameVm.PlayheadWidth;
+            // Offset must not exceed travel width (right edge of playhead == right edge of cell)
+            Assert.True(items[0].ScrubberOffset <= travelWidth + 1e-9);
+            Assert.True(items[0].ScrubberOffset >= travelWidth * 0.9);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
 }

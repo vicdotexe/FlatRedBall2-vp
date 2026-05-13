@@ -647,10 +647,14 @@
                                                                    Foreground="{StaticResource InkDim}" />
                                                     </StackPanel>
                                                 </Border>
-                                                <Border Height="2"
-                                                        VerticalAlignment="Top"
-                                                        Background="{StaticResource Accent}"
-                                                        IsVisible="{Binding IsCurrent}" />
+                                                <Canvas ClipToBounds="True"
+                                                        IsHitTestVisible="False"
+                                                        IsVisible="{Binding IsCurrent}">
+                                                    <Border Width="2"
+                                                            Height="38"
+                                                            Background="{StaticResource Accent}"
+                                                            Canvas.Left="{Binding ScrubberOffset}" />
+                                                </Canvas>
                                             </Grid>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>

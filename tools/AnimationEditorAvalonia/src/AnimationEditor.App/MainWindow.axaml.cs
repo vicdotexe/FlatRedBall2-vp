@@ -657,6 +657,7 @@ public partial class MainWindow : Window
 
         PreviewCtrl.ZoomChanged += SyncPreviewZoomCombo;
         PreviewCtrl.Playback.FrameIndexChanged += OnPreviewPlaybackFrameIndexChanged;
+        PreviewCtrl.Playback.PlaybackTicked += OnPlaybackTicked;
     }
 
     private void OnPreviewPlaybackFrameIndexChanged(int index)
@@ -667,6 +668,28 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.Post(
             () => UpdateTimelineScrubber(index),
             DispatcherPriority.Background);
+    }
+
+    private void OnPlaybackTicked()
+    {
+        if (_selectedState.SelectedFrame is not null)
+            return;
+
+        int idx = PreviewCtrl.Playback.CurrentFrameIndex;
+        if (idx < 0 || idx >= _timelineFrames.Count)
+            return;
+
+        var chain = GetTimelineChain();
+        if (chain is null || idx >= chain.Frames.Count)
+            return;
+
+        double frameDuration = chain.Frames[idx].FrameLength;
+        if (frameDuration <= 0) frameDuration = 0.1;
+
+        double elapsed = PreviewCtrl.Playback.FrameElapsed;
+        double ratio = Math.Clamp(elapsed / frameDuration, 0.0, 1.0);
+        double travelWidth = Math.Max(0, _timelineFrames[idx].Width - TimelineFrameVm.PlayheadWidth);
+        _timelineFrames[idx].ScrubberOffset = ratio * travelWidth;
     }
 
     // ── Editable preview-zoom combo (bottom preview) ─────────────────────────
