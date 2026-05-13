@@ -1405,6 +1405,7 @@ public class PreviewControl : Control
             if (sx < RulerSize || sx > s.Width) continue;
             bool isMajor = IsMajorTick(wx, majorStep, minorStep);
             float tickH = isMajor ? RulerSize * 0.55f : RulerSize * 0.30f;
+            canvas.DrawLine(sx, RulerSize - tickH, sx, RulerSize, tickPaint);
             if (isMajor)
                 canvas.DrawText(FormatRulerLabel(majorStep, wx), sx + 1f, RulerSize - tickH - 1f, labelFont, labelPaint);
         }
