@@ -598,20 +598,27 @@ public class PreviewControl : Control
     };
 
     /// <summary>
-    /// Captures a thread-safe snapshot of collision shapes attached to the currently
-    /// selected frame. Shapes are sourced from <see cref="ISelectedState.SelectedFrame"/>
-    /// so they only appear when a specific frame is pinned (not during free playback).
+    /// Captures a thread-safe snapshot of collision shapes for the current display frame.
+    /// When a frame is pinned via tree selection, shapes come from that frame and selection
+    /// highlighting is applied. During free playback (no pinned frame), shapes come from the
+    /// currently-playing frame and are all rendered in the unselected style.
     /// </summary>
     private PreviewShapeInfo[] BuildShapeInfos()
     {
-        var frame = _selectedState!.SelectedFrame;
+        var pinnedFrame = _selectedState!.SelectedFrame;
+        var frame = pinnedFrame ?? GetCurrentPlaybackFrame();
         if (frame?.ShapesSave is null) return Array.Empty<PreviewShapeInfo>();
 
-        var selectedRects = _selectedState!.SelectedRectangles.ToHashSet();
-        if (_selectedState!.SelectedRectangle is { } sr) selectedRects.Add(sr);
+        var selectedRects   = new HashSet<AARectSave>();
+        var selectedCircles = new HashSet<CircleSave>();
 
-        var selectedCircles = _selectedState!.SelectedCircles.ToHashSet();
-        if (_selectedState!.SelectedCircle is { } sc) selectedCircles.Add(sc);
+        if (pinnedFrame is not null)
+        {
+            selectedRects = _selectedState!.SelectedRectangles.ToHashSet();
+            if (_selectedState!.SelectedRectangle is { } sr) selectedRects.Add(sr);
+            selectedCircles = _selectedState!.SelectedCircles.ToHashSet();
+            if (_selectedState!.SelectedCircle is { } sc) selectedCircles.Add(sc);
+        }
 
         var list = new List<PreviewShapeInfo>();
         foreach (var r in frame.ShapesSave!.AARectSaves)
@@ -622,6 +629,18 @@ public class PreviewControl : Control
                 selectedCircles.Contains(c)));
         return list.ToArray();
     }
+
+    /// <summary>Returns the frame in <see cref="ISelectedState.SelectedChain"/> at the current playback index.</summary>
+    private AnimationFrameSave? GetCurrentPlaybackFrame()
+    {
+        var chain = _selectedState!.SelectedChain;
+        if (chain is null || chain.Frames.Count == 0) return null;
+        int idx = Math.Clamp(_playback.CurrentFrameIndex, 0, chain.Frames.Count - 1);
+        return chain.Frames[idx];
+    }
+
+    /// <summary>Test-only: returns the shape infos that would be passed to the renderer for the current state.</summary>
+    internal PreviewShapeInfo[] GetShapeInfosForTest() => BuildShapeInfos();
 
     // -- Pointer events --------------------------------------------------------
 
@@ -1174,14 +1193,14 @@ public class PreviewControl : Control
 
     // -- Inner types -----------------------------------------------------------
 
-    private enum PreviewShapeKind { Rect, Circle }
+    internal enum PreviewShapeKind { Rect, Circle }
 
     /// <summary>
     /// Immutable snapshot of a single collision shape, safe to pass to the render thread.
     /// <para>For <see cref="PreviewShapeKind.Rect"/>: Param1=ScaleX, Param2=ScaleY.</para>
     /// <para>For <see cref="PreviewShapeKind.Circle"/>: Param1=Radius, Param2=0.</para>
     /// </summary>
-    private record PreviewShapeInfo(
+    internal record PreviewShapeInfo(
         PreviewShapeKind Kind,
         float X, float Y,
         float Param1, float Param2,
