@@ -119,52 +119,52 @@ public static class TreeBuilder
     /// </summary>
     public static void SyncShapesInto(TreeNodeVm frameNode, ShapesSave? shapesSave)
     {
-        var rects   = shapesSave?.AARectSaves  ?? new System.Collections.Generic.List<AARectSave>();
-        var circles = shapesSave?.CircleSaves  ?? new System.Collections.Generic.List<CircleSave>();
+            var rects   = shapesSave?.AARectSaves  ?? new System.Collections.Generic.List<AARectSave>();
+            var circles = shapesSave?.CircleSaves  ?? new System.Collections.Generic.List<CircleSave>();
 
-        // Remove shape VMs that no longer exist in the data lists.
-        for (int i = frameNode.Children.Count - 1; i >= 0; i--)
-        {
-            var child = frameNode.Children[i];
-            bool keep = (child.Data is AARectSave r && rects.Contains(r))
-                     || (child.Data is CircleSave  c && circles.Contains(c));
-            if (!keep) frameNode.Children.RemoveAt(i);
-        }
+            // Remove shape VMs that no longer exist in the data lists.
+            for (int i = frameNode.Children.Count - 1; i >= 0; i--)
+            {
+                var child = frameNode.Children[i];
+                bool keep = (child.Data is AARectSave r && rects.Contains(r))
+                         || (child.Data is CircleSave  c && circles.Contains(c));
+                if (!keep) frameNode.Children.RemoveAt(i);
+            }
 
-        // Ensure every desired shape has a VM at the correct index.
-        int pos = 0;
-        foreach (var r in rects)
-        {
-            var vm = frameNode.Children.FirstOrDefault(n => ReferenceEquals(n.Data, r));
-            if (vm is null)
+            // Ensure every desired shape has a VM at the correct index.
+            int pos = 0;
+            foreach (var r in rects)
             {
-                vm = new TreeNodeVm { Header = r.Name, Data = r, Kind = NodeKind.RectShape, IsRectNode = true };
-                frameNode.Children.Insert(pos, vm);
+                var vm = frameNode.Children.FirstOrDefault(n => ReferenceEquals(n.Data, r));
+                if (vm is null)
+                {
+                    vm = new TreeNodeVm { Header = r.Name, Data = r, Kind = NodeKind.RectShape, IsRectNode = true };
+                    frameNode.Children.Insert(pos, vm);
+                }
+                else
+                {
+                    vm.Header = r.Name;
+                    int cur = frameNode.Children.IndexOf(vm);
+                    if (cur != pos) { frameNode.Children.RemoveAt(cur); frameNode.Children.Insert(pos, vm); }
+                }
+                pos++;
             }
-            else
+            foreach (var c in circles)
             {
-                vm.Header = r.Name;
-                int cur = frameNode.Children.IndexOf(vm);
-                if (cur != pos) { frameNode.Children.RemoveAt(cur); frameNode.Children.Insert(pos, vm); }
+                var vm = frameNode.Children.FirstOrDefault(n => ReferenceEquals(n.Data, c));
+                if (vm is null)
+                {
+                    vm = new TreeNodeVm { Header = c.Name, Data = c, Kind = NodeKind.CircleShape, IsCircleNode = true };
+                    frameNode.Children.Insert(pos, vm);
+                }
+                else
+                {
+                    vm.Header = c.Name;
+                    int cur = frameNode.Children.IndexOf(vm);
+                    if (cur != pos) { frameNode.Children.RemoveAt(cur); frameNode.Children.Insert(pos, vm); }
+                }
+                pos++;
             }
-            pos++;
-        }
-        foreach (var c in circles)
-        {
-            var vm = frameNode.Children.FirstOrDefault(n => ReferenceEquals(n.Data, c));
-            if (vm is null)
-            {
-                vm = new TreeNodeVm { Header = c.Name, Data = c, Kind = NodeKind.CircleShape, IsCircleNode = true };
-                frameNode.Children.Insert(pos, vm);
-            }
-            else
-            {
-                vm.Header = c.Name;
-                int cur = frameNode.Children.IndexOf(vm);
-                if (cur != pos) { frameNode.Children.RemoveAt(cur); frameNode.Children.Insert(pos, vm); }
-            }
-            pos++;
-        }
     }
 
     /// <summary>
@@ -198,7 +198,10 @@ public static class TreeBuilder
             }
             else
             {
-                vm.Header = BuildFrameHeader(frame, i);
+                // Only update header for named frames — unnamed "Frame N" labels stay
+                // stable across reorder so the user can visually track which frame moved.
+                if (!string.IsNullOrEmpty(frame.TextureName))
+                    vm.Header = BuildFrameHeader(frame, i);
                 vm.Meta   = $"{frame.FrameLength:0.00}s";
                 int cur   = chainNode.Children.IndexOf(vm);
                 if (cur != i) { chainNode.Children.RemoveAt(cur); chainNode.Children.Insert(i, vm); }

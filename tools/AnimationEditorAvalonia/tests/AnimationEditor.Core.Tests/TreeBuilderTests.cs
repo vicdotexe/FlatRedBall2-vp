@@ -352,23 +352,43 @@ public class TreeBuilderPureTests
     }
 
     [Fact]
-    public void SyncFramesInto_Reorder_UpdatesHeaderForUnnamedFrame()
+    public void SyncFramesInto_Reorder_KeepsUnnamedFrameHeaderStable()
     {
-        var frameA = new AnimationFrameSave { TextureName = "" };  // unnamed: "Frame 1"
-        var frameB = new AnimationFrameSave { TextureName = "" };  // unnamed: "Frame 2"
+        // Unnamed frames are labeled by creation order ("Frame 1", "Frame 2").
+        // After a reorder their labels must NOT change — the label staying put
+        // is how the user sees that the order actually changed.
+        var frameA = new AnimationFrameSave { TextureName = "" };
+        var frameB = new AnimationFrameSave { TextureName = "" };
         var chainNode = new TreeNodeVm();
-        chainNode.Children.Add(TreeBuilder.BuildFrameNode(frameA, 0));
-        chainNode.Children.Add(TreeBuilder.BuildFrameNode(frameB, 1));
+        chainNode.Children.Add(TreeBuilder.BuildFrameNode(frameA, 0));  // "Frame 1"
+        chainNode.Children.Add(TreeBuilder.BuildFrameNode(frameB, 1));  // "Frame 2"
 
-        Assert.Equal("Frame 1", chainNode.Children[0].Header);
-
-        // Move frameA to index 1
+        // Move frameA to index 1 (swap order)
         TreeBuilder.SyncFramesInto(chainNode, new[] { frameB, frameA });
 
-        // VM for frameA is now at index 1 → header should be "Frame 2"
-        var vmA = chainNode.Children[1];
-        Assert.Same(frameA, vmA.Data);
-        Assert.Equal("Frame 2", vmA.Header);
+        // Labels stay with their VMs — not renumbered by new position.
+        Assert.Equal("Frame 2", chainNode.Children[0].Header);  // frameB stays "Frame 2"
+        Assert.Equal("Frame 1", chainNode.Children[1].Header);  // frameA stays "Frame 1"
+    }
+
+    [Fact]
+    public void SyncFramesInto_MoveThirdToTop_ShowsFrame3AtTop()
+    {
+        // Regression: "Move to top" on the 3rd unnamed frame must produce
+        // "Frame 3 / Frame 1 / Frame 2" in the tree, not "Frame 1 / Frame 2 / Frame 3".
+        var frameA = new AnimationFrameSave { TextureName = "" };
+        var frameB = new AnimationFrameSave { TextureName = "" };
+        var frameC = new AnimationFrameSave { TextureName = "" };
+        var chainNode = new TreeNodeVm();
+        chainNode.Children.Add(TreeBuilder.BuildFrameNode(frameA, 0));  // "Frame 1"
+        chainNode.Children.Add(TreeBuilder.BuildFrameNode(frameB, 1));  // "Frame 2"
+        chainNode.Children.Add(TreeBuilder.BuildFrameNode(frameC, 2));  // "Frame 3"
+
+        TreeBuilder.SyncFramesInto(chainNode, new[] { frameC, frameA, frameB });
+
+        Assert.Equal("Frame 3", chainNode.Children[0].Header);
+        Assert.Equal("Frame 1", chainNode.Children[1].Header);
+        Assert.Equal("Frame 2", chainNode.Children[2].Header);
     }
 }
 
