@@ -304,6 +304,134 @@ public class HeadlessTreeViewTests
     }
 
     [AvaloniaFact]
+    public void ContextMenu_Frame_SingleFrameChain_HidesAllMoveItems()
+    {
+        var (window, ctx) = CreateWindow();
+        try
+        {
+            var tree  = GetTree(window);
+            var roots = GetRoots(tree);
+
+            var chain = new AnimationChainSave { Name = "OnlyOne" };
+            var frame = new AnimationFrameSave { TextureName = "A.png", ShapesSave = new ShapesSave() };
+            chain.Frames.Add(frame);
+            ctx.ProjectManager.AnimationChainListSave!.AnimationChains.Add(chain);
+
+            var frameVm = new TreeNodeVm { Header = "Frame 0", Data = frame };
+            roots.Add(frameVm);
+            tree.SelectedItem = frameVm;
+
+            TriggerContextMenuOpening(window);
+
+            var headers = ContextMenuHeaders(window);
+            Assert.DoesNotContain("^^ Move To Top",   headers);
+            Assert.DoesNotContain("^  Move Up",        headers);
+            Assert.DoesNotContain("v  Move Down",      headers);
+            Assert.DoesNotContain("vv Move To Bottom", headers);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void ContextMenu_Frame_FirstFrameOfMultiFrameChain_HidesUpAndTopItems()
+    {
+        var (window, ctx) = CreateWindow();
+        try
+        {
+            var tree  = GetTree(window);
+            var roots = GetRoots(tree);
+
+            var chain  = new AnimationChainSave { Name = "Walk" };
+            var frame0 = new AnimationFrameSave { TextureName = "A.png", ShapesSave = new ShapesSave() };
+            var frame1 = new AnimationFrameSave { TextureName = "B.png", ShapesSave = new ShapesSave() };
+            var frame2 = new AnimationFrameSave { TextureName = "C.png", ShapesSave = new ShapesSave() };
+            chain.Frames.Add(frame0);
+            chain.Frames.Add(frame1);
+            chain.Frames.Add(frame2);
+            ctx.ProjectManager.AnimationChainListSave!.AnimationChains.Add(chain);
+
+            var frameVm = new TreeNodeVm { Header = "Frame 0", Data = frame0 };
+            roots.Add(frameVm);
+            tree.SelectedItem = frameVm;
+
+            TriggerContextMenuOpening(window);
+
+            var headers = ContextMenuHeaders(window);
+            Assert.DoesNotContain("^^ Move To Top",   headers);
+            Assert.DoesNotContain("^  Move Up",        headers);
+            Assert.Contains("v  Move Down",            headers);
+            Assert.Contains("vv Move To Bottom",       headers);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void ContextMenu_Frame_LastFrameOfMultiFrameChain_HidesDownAndBottomItems()
+    {
+        var (window, ctx) = CreateWindow();
+        try
+        {
+            var tree  = GetTree(window);
+            var roots = GetRoots(tree);
+
+            var chain  = new AnimationChainSave { Name = "Walk" };
+            var frame0 = new AnimationFrameSave { TextureName = "A.png", ShapesSave = new ShapesSave() };
+            var frame1 = new AnimationFrameSave { TextureName = "B.png", ShapesSave = new ShapesSave() };
+            var frame2 = new AnimationFrameSave { TextureName = "C.png", ShapesSave = new ShapesSave() };
+            chain.Frames.Add(frame0);
+            chain.Frames.Add(frame1);
+            chain.Frames.Add(frame2);
+            ctx.ProjectManager.AnimationChainListSave!.AnimationChains.Add(chain);
+
+            var frameVm = new TreeNodeVm { Header = "Frame 2", Data = frame2 };
+            roots.Add(frameVm);
+            tree.SelectedItem = frameVm;
+
+            TriggerContextMenuOpening(window);
+
+            var headers = ContextMenuHeaders(window);
+            Assert.Contains("^^ Move To Top",          headers);
+            Assert.Contains("^  Move Up",              headers);
+            Assert.DoesNotContain("v  Move Down",      headers);
+            Assert.DoesNotContain("vv Move To Bottom", headers);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void ContextMenu_Frame_MiddleFrameOfChain_ShowsAllMoveItems()
+    {
+        var (window, ctx) = CreateWindow();
+        try
+        {
+            var tree  = GetTree(window);
+            var roots = GetRoots(tree);
+
+            var chain  = new AnimationChainSave { Name = "Walk" };
+            var frame0 = new AnimationFrameSave { TextureName = "A.png", ShapesSave = new ShapesSave() };
+            var frame1 = new AnimationFrameSave { TextureName = "B.png", ShapesSave = new ShapesSave() };
+            var frame2 = new AnimationFrameSave { TextureName = "C.png", ShapesSave = new ShapesSave() };
+            chain.Frames.Add(frame0);
+            chain.Frames.Add(frame1);
+            chain.Frames.Add(frame2);
+            ctx.ProjectManager.AnimationChainListSave!.AnimationChains.Add(chain);
+
+            var frameVm = new TreeNodeVm { Header = "Frame 1", Data = frame1 };
+            roots.Add(frameVm);
+            tree.SelectedItem = frameVm;
+
+            TriggerContextMenuOpening(window);
+
+            var headers = ContextMenuHeaders(window);
+            Assert.Contains("^^ Move To Top",   headers);
+            Assert.Contains("^  Move Up",        headers);
+            Assert.Contains("v  Move Down",      headers);
+            Assert.Contains("vv Move To Bottom", headers);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public void ContextMenu_FrameSelected_ContainsShapeItems()
     {
         var (window, ctx) = CreateWindow();

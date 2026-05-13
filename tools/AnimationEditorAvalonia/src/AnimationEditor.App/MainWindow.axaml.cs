@@ -1181,12 +1181,15 @@ public partial class MainWindow : Window
         else if (vm?.Data is AnimationFrameSave frame2)
         {
             var chain2 = _objectFinder.GetAnimationChainContaining(frame2);
-            if (chain2 is not null)
+            if (chain2 is not null && chain2.Frames.Count > 1)
             {
-                AddMenuItem("^^ Move To Top",    () => _appCommands.MoveFrameToTop(frame2, chain2));
-                AddMenuItem("^  Move Up",         () => _appCommands.MoveFrame(frame2, chain2, -1));
-                AddMenuItem("v  Move Down",        () => _appCommands.MoveFrame(frame2, chain2, +1));
-                AddMenuItem("vv Move To Bottom",  () => _appCommands.MoveFrameToBottom(frame2, chain2));
+                var frameIndex = chain2.Frames.IndexOf(frame2);
+                var isFirst    = frameIndex == 0;
+                var isLast     = frameIndex == chain2.Frames.Count - 1;
+                if (!isFirst) AddMenuItem("^^ Move To Top",   () => _appCommands.MoveFrameToTop(frame2, chain2));
+                if (!isFirst) AddMenuItem("^  Move Up",        () => _appCommands.MoveFrame(frame2, chain2, -1));
+                if (!isLast)  AddMenuItem("v  Move Down",      () => _appCommands.MoveFrame(frame2, chain2, +1));
+                if (!isLast)  AddMenuItem("vv Move To Bottom", () => _appCommands.MoveFrameToBottom(frame2, chain2));
                 AddSeparator();
             }
             AddMenuItem("Add AxisAlignedRectangle", () => _appCommands.AddAxisAlignedRectangle(frame2));
