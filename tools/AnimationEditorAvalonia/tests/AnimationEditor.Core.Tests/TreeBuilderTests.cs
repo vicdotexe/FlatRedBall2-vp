@@ -707,9 +707,11 @@ public class TreeBuilderSyncFramesTests
 
         TreeBuilder.SyncFramesInto(chainNode, chain.Frames);
 
-        // After swap, each frame's header must reflect its new index
-        Assert.Equal("Frame 1", chainNode.Children[0].Header);
-        Assert.Equal("Frame 2", chainNode.Children[1].Header);
+        // After swap, each frame's header must reflect its original name —
+        // labels are stable (stored in AnimationFrameSave.Name) so the user
+        // can visually identify which frame moved, not just its new position.
+        Assert.Equal("Frame 2", chainNode.Children[0].Header);
+        Assert.Equal("Frame 1", chainNode.Children[1].Header);
     }
 }
 
