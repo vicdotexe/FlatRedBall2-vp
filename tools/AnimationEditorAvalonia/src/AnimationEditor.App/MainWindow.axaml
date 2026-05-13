@@ -282,7 +282,8 @@
                                                    Foreground="{StaticResource Ink}"
                                                    Padding="2,1"
                                                    VerticalAlignment="Center"
-                                                   IsVisible="{Binding !IsEditing}" />
+                                                   IsVisible="{Binding !IsEditing}"
+                                                   DoubleTapped="OnHeaderTextDoubleTapped" />
                                         <!-- Inline-edit mode: match TextBlock font/padding so it sits in the same spot -->
                                         <TextBox Text="{Binding EditingText, Mode=TwoWay}"
                                                  IsVisible="{Binding IsEditing}"

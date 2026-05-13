@@ -756,7 +756,7 @@ public partial class MainWindow : Window
         ExpandAllBtn.Click  += (_, _) => SetAllExpanded(true);
         CollapseAllBtn.Click += (_, _) => SetAllExpanded(false);
 
-        // Inline rename: double-tap a chain node
+        // Blank-space double-tap: expand / collapse the node
         AnimTree.DoubleTapped += OnAnimTreeDoubleTapped;
 
         // Bubble-phase KeyDown from the inline TextBox (Enter=commit, Escape=cancel)
@@ -2473,8 +2473,30 @@ public partial class MainWindow : Window
 
     // ── Inline rename helpers ─────────────────────────────────────────────────
 
+    /// <summary>
+    /// Double-tap on the text label of a tree node → inline rename.
+    /// Marks the event handled so it does not bubble to <see cref="OnAnimTreeDoubleTapped"/>.
+    /// </summary>
+    private void OnHeaderTextDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (sender is not Control src) return;
+        var tvi = src.FindAncestorOfType<TreeViewItem>(includeSelf: true);
+        if (tvi?.DataContext is not TreeNodeVm vm) return;
+        e.Handled = true;
+
+        if (vm.Data is AnimationChainSave chain)
+            BeginInlineRename(vm, chain.Name);
+        else if (vm.Data is AnimationFrameSave frame)
+            BeginInlineRename(vm, frame.TextureName ?? string.Empty);
+    }
+
+    /// <summary>
+    /// Double-tap on blank space in a tree row (not the text label, not a Button) →
+    /// toggle expand / collapse.
+    /// </summary>
     private void OnAnimTreeDoubleTapped(object? sender, TappedEventArgs e)
     {
+        if (e.Source is Button) return;
         if (e.Source is not Control src) return;
         var tvi = src.FindAncestorOfType<TreeViewItem>(includeSelf: true);
         if (tvi?.DataContext is not TreeNodeVm vm) return;
