@@ -104,6 +104,109 @@ public static class TreeBuilder
         return Path.GetFileName(frame.TextureName);
     }
 
+    // ── Diff-update helpers ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Diff-updates the shape children of <paramref name="frameNode"/> to match
+    /// <paramref name="shapesSave"/> without replacing existing VMs.
+    /// <para>
+    /// VMs whose <see cref="TreeNodeVm.Data"/> still appears in
+    /// <paramref name="shapesSave"/> are reused and their
+    /// <see cref="TreeNodeVm.Header"/> is resynced (so a renamed shape is reflected).
+    /// VMs for removed shapes are deleted; new VMs are created for added shapes.
+    /// Order is: rects first, then circles.
+    /// </para>
+    /// </summary>
+    public static void SyncShapesInto(TreeNodeVm frameNode, ShapesSave? shapesSave)
+    {
+        var rects   = shapesSave?.AARectSaves  ?? new System.Collections.Generic.List<AARectSave>();
+        var circles = shapesSave?.CircleSaves  ?? new System.Collections.Generic.List<CircleSave>();
+
+        // Remove shape VMs that no longer exist in the data lists.
+        for (int i = frameNode.Children.Count - 1; i >= 0; i--)
+        {
+            var child = frameNode.Children[i];
+            bool keep = (child.Data is AARectSave r && rects.Contains(r))
+                     || (child.Data is CircleSave  c && circles.Contains(c));
+            if (!keep) frameNode.Children.RemoveAt(i);
+        }
+
+        // Ensure every desired shape has a VM at the correct index.
+        int pos = 0;
+        foreach (var r in rects)
+        {
+            var vm = frameNode.Children.FirstOrDefault(n => ReferenceEquals(n.Data, r));
+            if (vm is null)
+            {
+                vm = new TreeNodeVm { Header = r.Name, Data = r, Kind = NodeKind.RectShape, IsRectNode = true };
+                frameNode.Children.Insert(pos, vm);
+            }
+            else
+            {
+                vm.Header = r.Name;
+                int cur = frameNode.Children.IndexOf(vm);
+                if (cur != pos) { frameNode.Children.RemoveAt(cur); frameNode.Children.Insert(pos, vm); }
+            }
+            pos++;
+        }
+        foreach (var c in circles)
+        {
+            var vm = frameNode.Children.FirstOrDefault(n => ReferenceEquals(n.Data, c));
+            if (vm is null)
+            {
+                vm = new TreeNodeVm { Header = c.Name, Data = c, Kind = NodeKind.CircleShape, IsCircleNode = true };
+                frameNode.Children.Insert(pos, vm);
+            }
+            else
+            {
+                vm.Header = c.Name;
+                int cur = frameNode.Children.IndexOf(vm);
+                if (cur != pos) { frameNode.Children.RemoveAt(cur); frameNode.Children.Insert(pos, vm); }
+            }
+            pos++;
+        }
+    }
+
+    /// <summary>
+    /// Diff-updates the frame children of <paramref name="chainNode"/> to match
+    /// <paramref name="frames"/> without replacing existing VMs.
+    /// <para>
+    /// Frame VMs are matched by <see cref="TreeNodeVm.Data"/> reference.
+    /// Surviving VMs have their header and meta resynced and their shape children
+    /// recursively diff-updated via <see cref="SyncShapesInto"/>.
+    /// <see cref="TreeNodeVm.IsExpanded"/> is preserved on retained VMs.
+    /// </para>
+    /// </summary>
+    public static void SyncFramesInto(TreeNodeVm chainNode, System.Collections.Generic.IList<AnimationFrameSave> frames)
+    {
+        // Remove frame VMs whose data is no longer in the list.
+        for (int i = chainNode.Children.Count - 1; i >= 0; i--)
+        {
+            var child = chainNode.Children[i];
+            if (child.Data is AnimationFrameSave f && !frames.Contains(f))
+                chainNode.Children.RemoveAt(i);
+        }
+
+        // Ensure every desired frame has a VM at the correct index.
+        for (int i = 0; i < frames.Count; i++)
+        {
+            var frame = frames[i];
+            var vm    = chainNode.Children.FirstOrDefault(n => ReferenceEquals(n.Data, frame));
+            if (vm is null)
+            {
+                chainNode.Children.Insert(i, BuildFrameNode(frame, i));
+            }
+            else
+            {
+                vm.Header = BuildFrameHeader(frame, i);
+                vm.Meta   = $"{frame.FrameLength:0.00}s";
+                int cur   = chainNode.Children.IndexOf(vm);
+                if (cur != i) { chainNode.Children.RemoveAt(cur); chainNode.Children.Insert(i, vm); }
+                SyncShapesInto(vm, frame.ShapesSave);
+            }
+        }
+    }
+
     // ── Expand-state persistence ──────────────────────────────────────────────
 
     /// <summary>

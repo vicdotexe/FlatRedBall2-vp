@@ -262,6 +262,265 @@ public class TreeBuilderPureTests
     }
 }
 
+// ── SyncShapesInto tests ──────────────────────────────────────────────────────
+
+public class TreeBuilderSyncShapesTests
+{
+    private static TreeNodeVm FrameNodeWithRect(out AARectSave rect)
+    {
+        rect = new AARectSave { Name = "HitBox" };
+        var frame = new AnimationFrameSave { ShapesSave = new ShapesSave() };
+        frame.ShapesSave.AARectSaves.Add(rect);
+        return TreeBuilder.BuildFrameNode(frame);
+    }
+
+    private static TreeNodeVm FrameNodeWithCircle(out CircleSave circle)
+    {
+        circle = new CircleSave { Name = "Hurt" };
+        var frame = new AnimationFrameSave { ShapesSave = new ShapesSave() };
+        frame.ShapesSave.CircleSaves.Add(circle);
+        return TreeBuilder.BuildFrameNode(frame);
+    }
+
+    [Fact]
+    public void SyncShapesInto_ExistingRectVm_IsPreservedByReference()
+    {
+        var frameNode = FrameNodeWithRect(out var rect);
+        var originalVm = frameNode.Children[0];
+        var ss = new ShapesSave();
+        ss.AARectSaves.Add(rect);
+
+        TreeBuilder.SyncShapesInto(frameNode, ss);
+
+        Assert.Same(originalVm, frameNode.Children[0]);
+    }
+
+    [Fact]
+    public void SyncShapesInto_ExistingCircleVm_IsPreservedByReference()
+    {
+        var frameNode = FrameNodeWithCircle(out var circle);
+        var originalVm = frameNode.Children[0];
+        var ss = new ShapesSave();
+        ss.CircleSaves.Add(circle);
+
+        TreeBuilder.SyncShapesInto(frameNode, ss);
+
+        Assert.Same(originalVm, frameNode.Children[0]);
+    }
+
+    [Fact]
+    public void SyncShapesInto_RectNameChange_UpdatesHeader()
+    {
+        var frameNode = FrameNodeWithRect(out var rect);
+        rect.Name = "NewName";
+        var ss = new ShapesSave();
+        ss.AARectSaves.Add(rect);
+
+        TreeBuilder.SyncShapesInto(frameNode, ss);
+
+        Assert.Equal("NewName", frameNode.Children[0].Header);
+    }
+
+    [Fact]
+    public void SyncShapesInto_CircleNameChange_UpdatesHeader()
+    {
+        var frameNode = FrameNodeWithCircle(out var circle);
+        circle.Name = "NewCircle";
+        var ss = new ShapesSave();
+        ss.CircleSaves.Add(circle);
+
+        TreeBuilder.SyncShapesInto(frameNode, ss);
+
+        Assert.Equal("NewCircle", frameNode.Children[0].Header);
+    }
+
+    [Fact]
+    public void SyncShapesInto_AddedRect_IsInserted()
+    {
+        var frame = new AnimationFrameSave { ShapesSave = new ShapesSave() };
+        var frameNode = TreeBuilder.BuildFrameNode(frame);
+        var newRect = new AARectSave { Name = "New" };
+        frame.ShapesSave.AARectSaves.Add(newRect);
+
+        TreeBuilder.SyncShapesInto(frameNode, frame.ShapesSave);
+
+        Assert.Single(frameNode.Children);
+        Assert.Same(newRect, frameNode.Children[0].Data);
+    }
+
+    [Fact]
+    public void SyncShapesInto_RemovedRect_IsRemoved()
+    {
+        var frameNode = FrameNodeWithRect(out _);
+        Assert.Single(frameNode.Children);
+
+        TreeBuilder.SyncShapesInto(frameNode, new ShapesSave());
+
+        Assert.Empty(frameNode.Children);
+    }
+
+    [Fact]
+    public void SyncShapesInto_NullShapesSave_ClearsAllShapeChildren()
+    {
+        var frameNode = FrameNodeWithRect(out _);
+        Assert.Single(frameNode.Children);
+
+        TreeBuilder.SyncShapesInto(frameNode, null);
+
+        Assert.Empty(frameNode.Children);
+    }
+
+    [Fact]
+    public void SyncShapesInto_PreservesRectsBeforeCirclesOrder()
+    {
+        var rect   = new AARectSave  { Name = "R" };
+        var circle = new CircleSave  { Name = "C" };
+        var frame  = new AnimationFrameSave { ShapesSave = new ShapesSave() };
+        frame.ShapesSave.AARectSaves.Add(rect);
+        frame.ShapesSave.CircleSaves.Add(circle);
+        var frameNode  = TreeBuilder.BuildFrameNode(frame);
+        var originalRectVm   = frameNode.Children[0];
+        var originalCircleVm = frameNode.Children[1];
+
+        TreeBuilder.SyncShapesInto(frameNode, frame.ShapesSave);
+
+        Assert.Same(originalRectVm,   frameNode.Children[0]);
+        Assert.Same(originalCircleVm, frameNode.Children[1]);
+    }
+}
+
+// ── SyncFramesInto tests ──────────────────────────────────────────────────────
+
+public class TreeBuilderSyncFramesTests
+{
+    [Fact]
+    public void SyncFramesInto_ExistingFrameVm_IsPreservedByReference()
+    {
+        var chain = new AnimationChainSave { Name = "Walk" };
+        var frame = new AnimationFrameSave { TextureName = "walk1.png" };
+        chain.Frames.Add(frame);
+        var chainNode = TreeBuilder.BuildChainNode(chain);
+        var originalVm = chainNode.Children[0];
+
+        TreeBuilder.SyncFramesInto(chainNode, chain.Frames);
+
+        Assert.Same(originalVm, chainNode.Children[0]);
+    }
+
+    [Fact]
+    public void SyncFramesInto_ReorderedFrames_VmsAreReordered()
+    {
+        var chain  = new AnimationChainSave { Name = "Walk" };
+        var frameA = new AnimationFrameSave { TextureName = "a.png" };
+        var frameB = new AnimationFrameSave { TextureName = "b.png" };
+        chain.Frames.Add(frameA);
+        chain.Frames.Add(frameB);
+        var chainNode = TreeBuilder.BuildChainNode(chain);
+        var vmA = chainNode.Children[0];
+        var vmB = chainNode.Children[1];
+
+        chain.Frames.Clear();
+        chain.Frames.Add(frameB);
+        chain.Frames.Add(frameA);
+
+        TreeBuilder.SyncFramesInto(chainNode, chain.Frames);
+
+        Assert.Same(vmB, chainNode.Children[0]);
+        Assert.Same(vmA, chainNode.Children[1]);
+    }
+
+    [Fact]
+    public void SyncFramesInto_IsExpanded_PreservedAfterReorder()
+    {
+        var chain  = new AnimationChainSave { Name = "Walk" };
+        var frameA = new AnimationFrameSave { TextureName = "a.png" };
+        var frameB = new AnimationFrameSave { TextureName = "b.png" };
+        chain.Frames.Add(frameA);
+        chain.Frames.Add(frameB);
+        var chainNode = TreeBuilder.BuildChainNode(chain);
+        chainNode.Children[0].IsExpanded = true;
+
+        chain.Frames.Clear();
+        chain.Frames.Add(frameB);
+        chain.Frames.Add(frameA);
+
+        TreeBuilder.SyncFramesInto(chainNode, chain.Frames);
+
+        // frameA moved to index 1 and must still be expanded
+        Assert.False(chainNode.Children[0].IsExpanded);
+        Assert.True(chainNode.Children[1].IsExpanded);
+    }
+
+    [Fact]
+    public void SyncFramesInto_NewFrame_IsAdded()
+    {
+        var chain     = new AnimationChainSave { Name = "Walk" };
+        var chainNode = TreeBuilder.BuildChainNode(chain);
+        var newFrame  = new AnimationFrameSave { TextureName = "new.png" };
+        chain.Frames.Add(newFrame);
+
+        TreeBuilder.SyncFramesInto(chainNode, chain.Frames);
+
+        Assert.Single(chainNode.Children);
+        Assert.Same(newFrame, chainNode.Children[0].Data);
+    }
+
+    [Fact]
+    public void SyncFramesInto_RemovedFrame_IsRemoved()
+    {
+        var chain = new AnimationChainSave { Name = "Walk" };
+        var frame = new AnimationFrameSave { TextureName = "walk1.png" };
+        chain.Frames.Add(frame);
+        var chainNode = TreeBuilder.BuildChainNode(chain);
+        chain.Frames.Clear();
+
+        TreeBuilder.SyncFramesInto(chainNode, chain.Frames);
+
+        Assert.Empty(chainNode.Children);
+    }
+
+    [Fact]
+    public void SyncFramesInto_RecursesSyncShapesInto_ExistingFrameNode()
+    {
+        var chain = new AnimationChainSave { Name = "Walk" };
+        var rect  = new AARectSave { Name = "Hit" };
+        var frame = new AnimationFrameSave { TextureName = "w1.png", ShapesSave = new ShapesSave() };
+        frame.ShapesSave.AARectSaves.Add(rect);
+        chain.Frames.Add(frame);
+        var chainNode     = TreeBuilder.BuildChainNode(chain);
+        var frameVm       = chainNode.Children[0];
+        var originalRectVm = frameVm.Children[0];
+
+        TreeBuilder.SyncFramesInto(chainNode, chain.Frames);
+
+        Assert.Same(frameVm,        chainNode.Children[0]);
+        Assert.Same(originalRectVm, chainNode.Children[0].Children[0]);
+    }
+
+    [Fact]
+    public void SyncFramesInto_FrameHeader_UpdatesAfterIndexChange()
+    {
+        var chain  = new AnimationChainSave { Name = "Walk" };
+        var frameA = new AnimationFrameSave { TextureName = "" };
+        var frameB = new AnimationFrameSave { TextureName = "" };
+        chain.Frames.Add(frameA);
+        chain.Frames.Add(frameB);
+        var chainNode = TreeBuilder.BuildChainNode(chain);
+        Assert.Equal("Frame 1", chainNode.Children[0].Header);
+        Assert.Equal("Frame 2", chainNode.Children[1].Header);
+
+        chain.Frames.Clear();
+        chain.Frames.Add(frameB);
+        chain.Frames.Add(frameA);
+
+        TreeBuilder.SyncFramesInto(chainNode, chain.Frames);
+
+        // After swap, each frame's header must reflect its new index
+        Assert.Equal("Frame 1", chainNode.Children[0].Header);
+        Assert.Equal("Frame 2", chainNode.Children[1].Header);
+    }
+}
+
 // ── Singleton-touching tests (RouteNodeSelection) ─────────────────────────────
 
 [Collection("SequentialSingletons")]

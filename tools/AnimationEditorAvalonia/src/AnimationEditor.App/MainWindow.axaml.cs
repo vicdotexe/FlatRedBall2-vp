@@ -1000,10 +1000,8 @@ public partial class MainWindow : Window
         else
         {
             node.Header = rebuiltChainNode.Header;
-            node.Meta = rebuiltChainNode.Meta;
-            node.Children.Clear();
-            for (int i = 0; i < chain.Frames.Count; i++)
-                node.Children.Add(TreeBuilder.BuildFrameNode(chain.Frames[i], i));
+            node.Meta   = rebuiltChainNode.Meta;
+            TreeBuilder.SyncFramesInto(node, chain.Frames);
         }
     }
 
@@ -1025,13 +1023,11 @@ public partial class MainWindow : Window
         }
         else
         {
-            frameNode.Header = rebuiltFrameNode.Header;
-            frameNode.Kind = rebuiltFrameNode.Kind;
+            frameNode.Header     = rebuiltFrameNode.Header;
+            frameNode.Kind       = rebuiltFrameNode.Kind;
             frameNode.IsFrameNode = rebuiltFrameNode.IsFrameNode;
-            frameNode.Meta = rebuiltFrameNode.Meta;
-            frameNode.Children.Clear();
-            foreach (var child in rebuiltFrameNode.Children)
-                frameNode.Children.Add(child);
+            frameNode.Meta       = rebuiltFrameNode.Meta;
+            TreeBuilder.SyncShapesInto(frameNode, frame.ShapesSave);
         }
     }
 
