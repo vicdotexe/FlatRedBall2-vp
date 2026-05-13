@@ -584,10 +584,9 @@ public class HeadlessTreeViewTests
     // ── Scrollbar gutter ─────────────────────────────────────────────────────
 
     /// <summary>
-    /// The vertical scroll bar must always reserve its gutter width (Visible), not expand
-    /// on hover (Auto). When Auto, Avalonia widens the scrollbar on pointer-enter, which
-    /// slides the inline "+" add-frame button out from under the cursor and makes it
-    /// unreachable. See issue #183.
+    /// The vertical scroll bar must always be shown (Visible) so the gutter is always
+    /// reserved and the inline "+" add-frame button always has a stable position.
+    /// See issue #183.
     /// </summary>
     [AvaloniaFact]
     public void AnimTree_VerticalScrollBarVisibility_IsVisible()
@@ -598,6 +597,24 @@ public class HeadlessTreeViewTests
             var tree = GetTree(window);
             Assert.Equal(ScrollBarVisibility.Visible,
                          ScrollViewer.GetVerticalScrollBarVisibility(tree));
+        }
+        finally { window.Close(); }
+    }
+
+    /// <summary>
+    /// AllowAutoHide must be false so Avalonia uses gutter layout (scrollbar takes up
+    /// real layout space) instead of overlay mode (scrollbar floats on top of content).
+    /// In overlay mode the scrollbar expands on hover and covers the inline "+" button
+    /// even when VerticalScrollBarVisibility is Visible. See issue #183.
+    /// </summary>
+    [AvaloniaFact]
+    public void AnimTree_AllowAutoHide_IsFalse()
+    {
+        var (window, ctx) = CreateWindow();
+        try
+        {
+            var tree = GetTree(window);
+            Assert.False(ScrollViewer.GetAllowAutoHide(tree));
         }
         finally { window.Close(); }
     }
