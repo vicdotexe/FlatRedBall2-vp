@@ -476,12 +476,33 @@ public partial class MainWindow : Window
 
     private void RefreshHistoryPanel()
     {
-        var items = new ObservableCollection<Models.HistoryEntryVm>();
-        foreach (var cmd in _undoManager.UndoHistory)
+        var undoHistory = _undoManager.UndoHistory;
+        var redoHistory = _undoManager.RedoHistory;
+        var items = new List<Models.HistoryEntryVm>();
+        foreach (var cmd in undoHistory)
             items.Add(new Models.HistoryEntryVm(cmd.Description, "#e6e8ec"));
-        foreach (var cmd in _undoManager.RedoHistory)
+        foreach (var cmd in redoHistory)
             items.Add(new Models.HistoryEntryVm(cmd.Description, "#6a6e76"));
         HistoryList.ItemsSource = items;
+
+        int currentIndex = undoHistory.Count - 1;
+        HistoryList.SelectedIndex = currentIndex;
+        if (currentIndex >= 0)
+            HistoryList.ScrollIntoView(items[currentIndex]);
+
+        HistoryUndoButton.IsEnabled = _undoManager.CanUndo;
+        HistoryRedoButton.IsEnabled = _undoManager.CanRedo;
+    }
+
+    private void SetHistoryVisible(bool visible)
+    {
+        HistoryHeaderBorder.IsVisible = visible;
+        HistorySplitter.IsVisible = visible;
+        HistoryList.IsVisible = visible;
+        InspectorColumnGrid.RowDefinitions[2].Height = visible ? GridLength.Auto : new GridLength(0);
+        InspectorColumnGrid.RowDefinitions[3].Height = visible ? new GridLength(4) : new GridLength(0);
+        InspectorColumnGrid.RowDefinitions[4].Height = visible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+        MenuShowHistory.IsEnabled = !visible;
     }
 
     // ── Texture combo helpers ─────────────────────────────────────────────────
@@ -634,6 +655,12 @@ public partial class MainWindow : Window
             RefreshHistoryPanel();
         };
         RefreshHistoryPanel();
+
+        HistoryUndoButton.Click  += (_, _) => _undoManager.Undo();
+        HistoryRedoButton.Click  += (_, _) => _undoManager.Redo();
+        HistoryCloseButton.Click += (_, _) => SetHistoryVisible(false);
+        MenuShowHistory.Click    += (_, _) => SetHistoryVisible(true);
+        MenuShowHistory.IsEnabled = false;
 
         RefreshRecentFiles();
     }

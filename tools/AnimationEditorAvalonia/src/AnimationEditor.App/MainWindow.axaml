@@ -103,6 +103,8 @@
                         <Separator />
                         <MenuItem Header="Preview Zoom _In"     InputGesture="Ctrl+Shift+OemPlus" />
                         <MenuItem Header="Preview Zoom O_ut"    InputGesture="Ctrl+Shift+OemMinus" />
+                        <Separator />
+                        <MenuItem Header="Show _History" x:Name="MenuShowHistory" />
                     </MenuItem>
                     <MenuItem Header="_Help">
                         <MenuItem Header="_About"         x:Name="MenuAbout" />
@@ -738,7 +740,7 @@
                           HorizontalAlignment="Stretch" />
 
             <!-- ── Middle: Property Inspector ── -->
-            <Grid Grid.Column="2" RowDefinitions="Auto,2*,4,Auto,*">
+            <Grid x:Name="InspectorColumnGrid" Grid.Column="2" RowDefinitions="Auto,*,Auto,4,*">
 
                 <!-- ── Inspector pane header ── -->
                 <Border Grid.Row="0"
@@ -1001,26 +1003,55 @@
                     </ScrollViewer>
                 </Border>
 
+                <!-- ── History pane header ── -->
+                <Border x:Name="HistoryHeaderBorder"
+                        Grid.Row="2"
+                        Background="{StaticResource BgRail}"
+                        BorderBrush="{StaticResource LineBrush}"
+                        BorderThickness="1,1,0,1"
+                        Height="36">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0"
+                                   Text="HISTORY"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource InkMid}"
+                                   VerticalAlignment="Center"
+                                   Margin="10,0" />
+                        <StackPanel Grid.Column="1"
+                                    Orientation="Horizontal"
+                                    Spacing="2"
+                                    VerticalAlignment="Center"
+                                    Margin="0,0,4,0">
+                            <Button x:Name="HistoryUndoButton"
+                                    Content="↩"
+                                    FontSize="13"
+                                    Width="26" Height="26"
+                                    Padding="0"
+                                    ToolTip.Tip="Undo" />
+                            <Button x:Name="HistoryRedoButton"
+                                    Content="↪"
+                                    FontSize="13"
+                                    Width="26" Height="26"
+                                    Padding="0"
+                                    ToolTip.Tip="Redo" />
+                            <Button x:Name="HistoryCloseButton"
+                                    Content="✕"
+                                    FontSize="11"
+                                    Width="26" Height="26"
+                                    Padding="0"
+                                    ToolTip.Tip="Close History" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
                 <!-- ── History pane splitter ── -->
-                <GridSplitter Grid.Row="2"
+                <GridSplitter x:Name="HistorySplitter"
+                              Grid.Row="3"
                               ResizeDirection="Rows"
                               Background="{StaticResource LineBrush}"
                               HorizontalAlignment="Stretch"
                               Height="4" />
-
-                <!-- ── History pane header ── -->
-                <Border Grid.Row="3"
-                        Background="{StaticResource BgRail}"
-                        BorderBrush="{StaticResource LineBrush}"
-                        BorderThickness="1,0,0,1"
-                        Height="36">
-                    <TextBlock Text="HISTORY"
-                               FontSize="11"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource InkMid}"
-                               VerticalAlignment="Center"
-                               Margin="10,0" />
-                </Border>
 
                 <!-- ── History list ── -->
                 <ListBox x:Name="HistoryList"
