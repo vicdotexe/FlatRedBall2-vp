@@ -278,10 +278,14 @@
                             <Setter Property="IsExpanded"
                                     Value="{ReflectionBinding IsExpanded, Mode=TwoWay}" />
                         </Style>
-                        <!-- Expand chevron hit area to a full-height square; icon stays 12×12 centered. -->
+                        <!-- Expand chevron hit area to a full-height square; icon stays 12×12 centered.
+                             IsVisible=True overrides the default TemplateBinding HasItems so the container
+                             always reserves the same horizontal space — preventing a jagged appearance when
+                             some frame nodes have shapes (children) and others don't. -->
                         <Style Selector="TreeViewItem /template/ Panel#PART_ExpandCollapseChevronContainer">
                             <Setter Property="Margin" Value="0" />
                             <Setter Property="Width" Value="{DynamicResource TreeViewItemMinHeight}" />
+                            <Setter Property="IsVisible" Value="True" />
                         </Style>
                         <Style Selector="TreeViewItem /template/ ToggleButton#PART_ExpandCollapseChevron">
                             <Setter Property="VerticalAlignment" Value="Stretch" />
