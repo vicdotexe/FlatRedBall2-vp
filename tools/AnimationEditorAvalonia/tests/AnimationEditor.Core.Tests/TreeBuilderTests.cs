@@ -1,6 +1,7 @@
 using AnimationEditor.Core.ViewModels;
 using FlatRedBall2.Animation.Content;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using Xunit;
 
@@ -273,6 +274,99 @@ public class TreeBuilderPureTests
         var unrelated = new AnimationChainSave { Name = "Y" };
 
         Assert.Null(TreeBuilder.FindNodeForData(roots, unrelated));
+    }
+
+    // ── SyncChainsInto ────────────────────────────────────────────────────────
+
+    [Fact]
+    public void SyncChainsInto_AddedChain_InsertsExpandedVm()
+    {
+        // Regression (#237): a pasted chain is new — it gets the default expanded
+        // state, while the pre-existing collapsed chain keeps its state.
+        var existing = new AnimationChainSave { Name = "Walk" };
+        var roots = new ObservableCollection<TreeNodeVm> { TreeBuilder.BuildChainNode(existing) };
+        roots[0].IsExpanded = false;  // user collapsed the existing chain
+        var pasted = new AnimationChainSave { Name = "Walk2" };
+
+        TreeBuilder.SyncChainsInto(roots, new[] { existing, pasted });
+
+        Assert.Equal(2, roots.Count);
+        Assert.False(roots[0].IsExpanded);   // pre-existing chain stays collapsed
+        Assert.Same(pasted, roots[1].Data);
+        Assert.True(roots[1].IsExpanded);    // new chain defaults to expanded
+    }
+
+    [Fact]
+    public void SyncChainsInto_RemovedChain_DropsVm()
+    {
+        var chainA = new AnimationChainSave { Name = "Walk" };
+        var chainB = new AnimationChainSave { Name = "Run" };
+        var roots = new ObservableCollection<TreeNodeVm>
+        {
+            TreeBuilder.BuildChainNode(chainA),
+            TreeBuilder.BuildChainNode(chainB),
+        };
+
+        TreeBuilder.SyncChainsInto(roots, new[] { chainB });
+
+        Assert.Single(roots);
+        Assert.Same(chainB, roots[0].Data);
+    }
+
+    [Fact]
+    public void SyncChainsInto_Reorder_PreservesIsExpanded()
+    {
+        // Regression (#237): reordering chains must not re-expand a collapsed chain.
+        var chainA = new AnimationChainSave { Name = "Walk" };
+        var chainB = new AnimationChainSave { Name = "Run" };
+        var roots = new ObservableCollection<TreeNodeVm>
+        {
+            TreeBuilder.BuildChainNode(chainA),
+            TreeBuilder.BuildChainNode(chainB),
+        };
+        roots[0].IsExpanded = false;  // user collapsed "Walk"
+        var vmA = roots[0];
+
+        TreeBuilder.SyncChainsInto(roots, new[] { chainB, chainA });
+
+        Assert.False(vmA.IsExpanded);
+    }
+
+    [Fact]
+    public void SyncChainsInto_Reorder_ReusesExistingChainVm()
+    {
+        var chainA = new AnimationChainSave { Name = "Walk" };
+        var chainB = new AnimationChainSave { Name = "Run" };
+        var roots = new ObservableCollection<TreeNodeVm>
+        {
+            TreeBuilder.BuildChainNode(chainA),
+            TreeBuilder.BuildChainNode(chainB),
+        };
+        var originalVmA = roots[0];
+        var originalVmB = roots[1];
+
+        TreeBuilder.SyncChainsInto(roots, new[] { chainB, chainA });
+
+        Assert.Same(originalVmA, roots[1]);
+        Assert.Same(originalVmB, roots[0]);
+    }
+
+    [Fact]
+    public void SyncChainsInto_RetainedChain_RefreshesHeaderMetaAndSyncsFrames()
+    {
+        var chain = new AnimationChainSave { Name = "Walk" };
+        var roots = new ObservableCollection<TreeNodeVm> { TreeBuilder.BuildChainNode(chain) };
+
+        // Mutate the data model the way a rename + add-frame would.
+        chain.Name = "Walk Renamed";
+        chain.Frames.Add(new AnimationFrameSave { TextureName = "a.png" });
+
+        TreeBuilder.SyncChainsInto(roots, new[] { chain });
+
+        Assert.Equal("Walk Renamed", roots[0].Header);
+        Assert.Equal("1 fr", roots[0].Meta);
+        Assert.Single(roots[0].Children);
+        Assert.Equal("a.png", roots[0].Children[0].Header);
     }
 
     // ── SyncFramesInto ────────────────────────────────────────────────────────

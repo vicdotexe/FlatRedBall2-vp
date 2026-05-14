@@ -839,6 +839,38 @@ public class HeadlessTreeViewTests
     }
 
     [AvaloniaFact]
+    public void MoveChain_PreservesChainCollapseState()
+    {
+        // Regression (#237): reordering chains rebuilt the whole tree and re-expanded
+        // every chain. MoveChain must leave each chain's collapse state untouched.
+        var (window, ctx) = CreateWindow();
+        try
+        {
+            var chainA = new AnimationChainSave { Name = "Walk" };
+            var chainB = new AnimationChainSave { Name = "Run" };
+            ctx.ProjectManager.AnimationChainListSave!.AnimationChains.Add(chainA);
+            ctx.ProjectManager.AnimationChainListSave!.AnimationChains.Add(chainB);
+
+            TriggerRefreshTreeView(window);
+            Dispatcher.UIThread.RunJobs();
+
+            var roots = GetRoots(GetTree(window));
+            var chainAVm = roots[0];
+            chainAVm.IsExpanded = false;  // user collapses "Walk"
+
+            ctx.AppCommands.MoveChain(chainA, +1);
+            Dispatcher.UIThread.RunJobs();
+
+            // Same VM instance moved to index 1, still collapsed.
+            Assert.Same(chainAVm, roots[1]);
+            Assert.False(chainAVm.IsExpanded);
+            // The other chain keeps its (default expanded) state.
+            Assert.True(roots[0].IsExpanded);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public void MoveFrame_PreservesFrameVmIdentityAndSelection()
     {
         var (window, ctx) = CreateWindow();
@@ -907,6 +939,37 @@ public class HeadlessTreeViewTests
 
             var roots = GetRoots(GetTree(window));
             Assert.Equal("0.55s", roots[0].Children[0].Meta);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void RefreshTreeView_AfterChainAdded_PreservesExistingCollapseState()
+    {
+        // Regression (#237): copy/paste appends a chain then calls RefreshTreeView.
+        // The full rebuild re-expanded every pre-existing chain. RefreshTreeView
+        // must preserve the collapse state of chains that already had a tree node.
+        var (window, ctx) = CreateWindow();
+        try
+        {
+            var existing = new AnimationChainSave { Name = "Walk" };
+            ctx.ProjectManager.AnimationChainListSave!.AnimationChains.Add(existing);
+
+            TriggerRefreshTreeView(window);
+            Dispatcher.UIThread.RunJobs();
+
+            var roots = GetRoots(GetTree(window));
+            roots[0].IsExpanded = false;  // user collapses "Walk"
+
+            // Simulate the paste path: a new chain is appended, then the tree refreshes.
+            var pasted = new AnimationChainSave { Name = "Walk2" };
+            ctx.ProjectManager.AnimationChainListSave!.AnimationChains.Add(pasted);
+            TriggerRefreshTreeView(window);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(roots[0].IsExpanded);   // pre-existing chain stays collapsed
+            Assert.Same(pasted, roots[1].Data);
+            Assert.True(roots[1].IsExpanded);    // pasted chain defaults to expanded
         }
         finally { window.Close(); }
     }

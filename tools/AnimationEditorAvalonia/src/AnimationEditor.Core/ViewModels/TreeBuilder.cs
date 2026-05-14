@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using FlatRedBall2.Animation.Content;
@@ -229,6 +230,60 @@ public static class TreeBuilder
             children[i].Header = BuildFrameHeader(target, i);
             children[i].Meta   = $"{target.FrameLength:0.00}s";
             SyncShapesInto(children[i], target.ShapesSave);
+        }
+    }
+
+    /// <summary>
+    /// Diff-updates the root chain nodes in <paramref name="roots"/> to match
+    /// <paramref name="chains"/> without replacing existing <see cref="TreeNodeVm"/>
+    /// instances.  Retained chain VMs keep their <see cref="TreeNodeVm.IsExpanded"/>
+    /// state (and Avalonia's TreeView keeps them selected, since selection uses object
+    /// identity); their <see cref="TreeNodeVm.Header"/> and <see cref="TreeNodeVm.Meta"/>
+    /// are resynced and their frame children are diff-updated via
+    /// <see cref="SyncFramesInto"/>.  New chains get a freshly-built node (expanded by
+    /// default, per <see cref="BuildChainNode"/>); VMs for removed chains are deleted.
+    /// <para>
+    /// This is the chain-level counterpart of <see cref="SyncFramesInto"/>: it lets
+    /// copy/paste and reorder preserve each chain's collapse state instead of
+    /// rebuilding the whole tree and re-expanding everything.
+    /// </para>
+    /// </summary>
+    public static void SyncChainsInto(
+        ObservableCollection<TreeNodeVm> roots,
+        IList<AnimationChainSave> chains)
+    {
+        // Step 1: Remove root VMs whose chain is no longer in the list.
+        var chainSet = new HashSet<AnimationChainSave>(chains, ReferenceEqualityComparer.Instance);
+        for (int i = roots.Count - 1; i >= 0; i--)
+            if (roots[i].Data is AnimationChainSave c && !chainSet.Contains(c))
+                roots.RemoveAt(i);
+
+        // Build a lookup of surviving VMs keyed by chain reference.
+        var existingByChain = new Dictionary<AnimationChainSave, TreeNodeVm>(
+            ReferenceEqualityComparer.Instance);
+        foreach (var root in roots)
+            if (root.Data is AnimationChainSave c)
+                existingByChain[c] = root;
+
+        // Step 2: Append new VMs for chains not yet represented (step 3 reorders them).
+        foreach (var chain in chains)
+            if (!existingByChain.ContainsKey(chain))
+                roots.Add(BuildChainNode(chain));
+
+        // Step 3: Reorder to match the target chain order, then resync each retained
+        //         node's Header/Meta and diff-update its frame children.
+        for (int i = 0; i < chains.Count; i++)
+        {
+            var target = chains[i];
+            if (!ReferenceEquals(roots[i].Data, target))
+            {
+                for (int j = i + 1; j < roots.Count; j++)
+                    if (ReferenceEquals(roots[j].Data, target))
+                    { roots.Move(j, i); break; }
+            }
+            roots[i].Header = target.Name;
+            roots[i].Meta   = $"{target.Frames.Count} fr";
+            SyncFramesInto(roots[i], target.Frames);
         }
     }
 

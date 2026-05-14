@@ -1051,21 +1051,11 @@ public partial class MainWindow : Window
         try
         {
             var acls = _projectManager.AnimationChainListSave;
+            if (acls is null) { _treeRoots.Clear(); return; }
 
-            // Preserve expanded chain names before clearing
-            var expanded = TreeBuilder.GetExpandedChainNames(_treeRoots).ToHashSet();
-
-            _treeRoots.Clear();
-
-            if (acls is null) return;
-
-            foreach (var chain in acls.AnimationChains)
-            {
-                var node = TreeBuilder.BuildChainNode(chain);
-                // Restore expand state — keep true if no prior state recorded yet
-                node.IsExpanded = expanded.Count == 0 || expanded.Contains(chain.Name);
-                _treeRoots.Add(node);
-            }
+            // Diff-update the root nodes instead of clearing and rebuilding, so each
+            // chain's collapse state (and selection) survives copy/paste and reorder.
+            TreeBuilder.SyncChainsInto(_treeRoots, acls.AnimationChains);
 
             // Re-select to keep visual state
             SyncTreeSelection();
