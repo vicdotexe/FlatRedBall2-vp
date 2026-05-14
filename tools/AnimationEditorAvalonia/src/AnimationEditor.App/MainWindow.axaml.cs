@@ -144,9 +144,11 @@ public partial class MainWindow : Window
             SaveSettingsFile();
             RefreshRecentFiles();
             UpdateTitle();
+            UpdateStatusBar();
         });
         _events.AvailableTexturesChanged += () => Dispatcher.UIThread.InvokeAsync(RefreshTextureCombo);
 
+        _undoManager.StackChanged         += () => Dispatcher.UIThread.InvokeAsync(UpdateStatusBar);
         _events.AnimationChainsChanged    += HandleAnimationChainsChanged;
         _selectedState.SelectionChanged   += HandleSelectionChanged;
     }
@@ -167,6 +169,7 @@ public partial class MainWindow : Window
         ZoomCombo.SelectionChanged += OnZoomComboSelectionChanged;
         ZoomPlusBtn.Click  += (_, _) => StepZoomPreset(WireframeCtrl.Zoom * 100f, _zoomPresets, +1, p => WireframeCtrl.SetZoomPercent(p));
         ZoomMinusBtn.Click += (_, _) => StepZoomPreset(WireframeCtrl.Zoom * 100f, _zoomPresets, -1, p => WireframeCtrl.SetZoomPercent(p));
+        WireframeCtrl.WheelZoomPresets = _zoomPresets;
 
         // Apply initial grid state
         WireframeCtrl.SetGrid(false, 16);
@@ -255,7 +258,7 @@ public partial class MainWindow : Window
     // writes Text back into the control.
 
     private static readonly int[] _zoomPresets =
-        { 10, 25, 50, 100, 200, 400, 800 };
+        { 5, 10, 16, 25, 33, 50, 66, 75, 100, 150, 200, 300, 400, 800, 1600, 3200 };
     private static readonly string[] _zoomPresetTexts =
         _zoomPresets.Select(p => $"{p}%").ToArray();
 
@@ -394,6 +397,7 @@ public partial class MainWindow : Window
         }
 
         Dispatcher.UIThread.InvokeAsync(RefreshTimelineStrip);
+        Dispatcher.UIThread.InvokeAsync(UpdateStatusBar);
     }
 
     private void HandleSelectionChanged()
@@ -407,6 +411,40 @@ public partial class MainWindow : Window
         // Refresh timeline strip
         Dispatcher.UIThread.InvokeAsync(RefreshTimelineStrip);
     }
+
+    // ── Status bar ────────────────────────────────────────────────────────────
+
+    private static readonly Avalonia.Media.SolidColorBrush _autoSaveBrush =
+        new(Avalonia.Media.Color.FromRgb(0x6d, 0xd2, 0x8d));
+    private static readonly Avalonia.Media.SolidColorBrush _unsavedBrush =
+        new(Avalonia.Media.Color.FromRgb(0xf0, 0xc6, 0x74));
+    private static readonly Avalonia.Media.SolidColorBrush _failedBrush =
+        new(Avalonia.Media.Color.FromRgb(0xe0, 0x55, 0x55));
+
+    private void UpdateStatusBar()
+    {
+        var (label, brush) = _undoManager.SaveState switch
+        {
+            AnimationEditor.Core.CommandsAndState.Commands.SaveState.AutoSaveOn => ("Auto Save On", _autoSaveBrush),
+            AnimationEditor.Core.CommandsAndState.Commands.SaveState.Failed     => ("Auto Save Failed", _failedBrush),
+            _                                                                    => ("Not saved", _unsavedBrush),
+        };
+        StatusSaveLabel.Text = label;
+        StatusDot.Fill       = brush;
+        StatusFilename.Text  = Path.GetFileName(_projectManager.FileName ?? string.Empty);
+        var acls = _projectManager.AnimationChainListSave;
+        if (acls == null || acls.AnimationChains.Count == 0)
+        {
+            StatusCounts.Text = string.Empty;
+        }
+        else
+        {
+            int totalFrames = acls.AnimationChains.Sum(c => c.Frames.Count);
+            StatusCounts.Text = $"{acls.AnimationChains.Count} chains · {totalFrames} frames";
+        }
+    }
+
+
 
     // ── Texture combo helpers ─────────────────────────────────────────────────
 
@@ -486,6 +524,16 @@ public partial class MainWindow : Window
         {
             WireframeCtrl.LoadTexture(texPath);
         }
+
+        RefreshTextureNameLabel();
+    }
+
+    private void RefreshTextureNameLabel()
+    {
+        string? name = _selectedState.SelectedTextureName;
+        string label = string.IsNullOrEmpty(name) ? string.Empty : Path.GetFileName(name);
+        TextureNameLabel.Text = label;
+        TextureNameLabel.IsVisible = label.Length > 0;
     }
 
     // ── Custom title bar ─────────────────────────────────────────────────────
@@ -569,6 +617,7 @@ public partial class MainWindow : Window
         _projectManager.AnimationChainListSave = new AnimationChainListSave();
         _projectManager.FileName = null;
         _selectedState.Reset();
+        _undoManager.Clear();
         RefreshTreeView();
         _ = _appCommands.SaveCurrentAnimationChainListAsync();
     }
@@ -678,6 +727,7 @@ public partial class MainWindow : Window
         PreviewZoomCombo.SelectionChanged += OnPreviewZoomComboSelectionChanged;
         PreviewZoomPlusBtn.Click  += (_, _) => StepZoomPreset(PreviewCtrl.Zoom * 100f, _previewZoomPresets, +1, p => PreviewCtrl.SetZoomPercent(p));
         PreviewZoomMinusBtn.Click += (_, _) => StepZoomPreset(PreviewCtrl.Zoom * 100f, _previewZoomPresets, -1, p => PreviewCtrl.SetZoomPercent(p));
+        PreviewCtrl.WheelZoomPresets = _previewZoomPresets;
 
         PreviewCtrl.ZoomChanged += SyncPreviewZoomCombo;
         PreviewCtrl.Playback.FrameIndexChanged += OnPreviewPlaybackFrameIndexChanged;
@@ -718,13 +768,10 @@ public partial class MainWindow : Window
 
     // ── Editable preview-zoom combo (bottom preview) ─────────────────────────
     //
-    // Same editable-AutoCompleteBox pattern as ZoomCombo above. The bottom
-    // preview's wheel zoom uses a 1.25 / 0.8 multiplier so it almost always
-    // lands on a non-preset value — making the preset-snap display from the
-    // pre-fix code straight-up wrong.
+    // Same editable-AutoCompleteBox pattern as ZoomCombo above.
 
     private static readonly int[] _previewZoomPresets =
-        { 10, 25, 50, 100, 200, 400 };
+        { 5, 10, 16, 25, 33, 50, 66, 75, 100, 150, 200, 300, 400, 800, 1600, 3200 };
     private static readonly string[] _previewZoomPresetTexts =
         _previewZoomPresets.Select(p => $"{p}%").ToArray();
 
