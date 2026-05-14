@@ -125,20 +125,52 @@ public class AppCommandsLoadTests : IDisposable
     }
 
     /// <summary>
-    /// SelectedChain must be set BEFORE RefreshTreeViewRequested fires so
+    /// SelectedChain must be set BEFORE RebuildTreeViewRequested fires so
     /// any tree subscriber can reflect the selection immediately.
     /// </summary>
     [Fact]
-    public void LoadAnimationChain_SelectedChainIsSetBeforeTreeRefresh()
+    public void LoadAnimationChain_SelectedChainIsSetBeforeTreeRebuild()
     {
         var path = WriteAchx("Walk");
-        AnimationChainSave? observedDuringRefresh = null;
-        _ctx.AppCommands.RefreshTreeViewRequested += () =>
-            observedDuringRefresh = _ctx.SelectedState.SelectedChain;
+        AnimationChainSave? observedDuringRebuild = null;
+        _ctx.AppCommands.RebuildTreeViewRequested += () =>
+            observedDuringRebuild = _ctx.SelectedState.SelectedChain;
 
         _ctx.AppCommands.LoadAnimationChain(path);
 
-        Assert.NotNull(observedDuringRefresh);
-        Assert.Equal("Walk", observedDuringRefresh!.Name);
+        Assert.NotNull(observedDuringRebuild);
+        Assert.Equal("Walk", observedDuringRebuild!.Name);
+    }
+
+    // ── Tree rebuild (collapsed-on-load) ─────────────────────────────────────
+
+    /// <summary>
+    /// Loading a file must raise <see cref="IAppCommands.RebuildTreeViewRequested"/>
+    /// — the rebuild path collapses every chain — rather than the diff-update
+    /// <see cref="IAppCommands.RefreshTreeViewRequested"/> path, which would
+    /// re-expand every freshly-built chain node.
+    /// </summary>
+    [Fact]
+    public void LoadAnimationChain_FiresRebuildTreeViewRequested()
+    {
+        var path = WriteAchx("Walk");
+        bool rebuildFired = false;
+        _ctx.AppCommands.RebuildTreeViewRequested += () => rebuildFired = true;
+
+        _ctx.AppCommands.LoadAnimationChain(path);
+
+        Assert.True(rebuildFired);
+    }
+
+    [Fact]
+    public void LoadAnimationChain_DoesNotFireRefreshTreeViewRequested()
+    {
+        var path = WriteAchx("Walk");
+        bool refreshFired = false;
+        _ctx.AppCommands.RefreshTreeViewRequested += () => refreshFired = true;
+
+        _ctx.AppCommands.LoadAnimationChain(path);
+
+        Assert.False(refreshFired);
     }
 }

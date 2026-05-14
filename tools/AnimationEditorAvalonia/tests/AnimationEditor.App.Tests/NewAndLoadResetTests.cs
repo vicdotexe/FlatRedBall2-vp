@@ -43,7 +43,12 @@ public class NewAndLoadResetTests
         var path = Path.Combine(dir, "test.achx");
         var acls = new AnimationChainListSave();
         foreach (var name in chainNames)
-            acls.AnimationChains.Add(new AnimationChainSave { Name = name });
+        {
+            var chain = new AnimationChainSave { Name = name };
+            // Give each chain a frame so expand/collapse state is meaningful.
+            chain.Frames.Add(new AnimationFrameSave { TextureName = name + ".png", FrameLength = 0.1f });
+            acls.AnimationChains.Add(chain);
+        }
         acls.Save(path);
         return path;
     }
@@ -162,6 +167,37 @@ public class NewAndLoadResetTests
             Assert.Null(ctx.SelectedState.SelectedFrame);
             // SelectedChain should be the first chain of the *new* file, not the old one
             Assert.Equal("NewRun", ctx.SelectedState.SelectedChain?.Name);
+        }
+        finally
+        {
+            window.Close();
+            Directory.Delete(dir, true);
+        }
+    }
+
+    /// <summary>
+    /// Loading a .achx must present every chain collapsed so the tree is scannable
+    /// — even with many chains — instead of force-expanding every chain's frames.
+    /// </summary>
+    [AvaloniaFact]
+    public void Load_CollapsesAllChains()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var (window, ctx) = CreateWindow();
+        try
+        {
+            var path = WriteAchx(dir, "Walk", "Run", "Idle");
+            typeof(MainWindow)
+                .GetMethod("LoadAnimationFile", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .Invoke(window, [path]);
+            Dispatcher.UIThread.RunJobs();
+
+            var tree  = window.FindControl<TreeView>("AnimTree")!;
+            var roots = (System.Collections.ObjectModel.ObservableCollection<AnimationEditor.Core.ViewModels.TreeNodeVm>)tree.ItemsSource!;
+
+            Assert.Equal(3, roots.Count);
+            Assert.All(roots, node => Assert.False(node.IsExpanded));
         }
         finally
         {

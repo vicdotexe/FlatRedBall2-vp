@@ -129,6 +129,7 @@ public partial class MainWindow : Window
 
         // Tree events — fully wired (WireTreeView connects these after tree is constructed)
         _appCommands.RefreshTreeViewRequested           += () => Dispatcher.UIThread.InvokeAsync(RefreshTreeView);
+        _appCommands.RebuildTreeViewRequested           += () => Dispatcher.UIThread.InvokeAsync(RebuildTreeView);
         _appCommands.RefreshChainNodeRequested          += c  => Dispatcher.UIThread.InvokeAsync(() => RefreshChainNode(c));
         _appCommands.RefreshFrameNodeRequested          += f  => Dispatcher.UIThread.InvokeAsync(() => RefreshFrameNode(f));
         _appCommands.RefreshAnimationFrameDisplayRequested += () => { };
@@ -1058,6 +1059,36 @@ public partial class MainWindow : Window
             TreeBuilder.SyncChainsInto(_treeRoots, acls.AnimationChains);
 
             // Re-select to keep visual state
+            SyncTreeSelection();
+        }
+        finally
+        {
+            _suppressTreeSelectionHandling = false;
+        }
+    }
+
+    /// <summary>
+    /// Fully rebuilds the tree from scratch with every chain collapsed. Used on
+    /// .achx load (File &gt; Open, recent files, drag-drop, startup reopen) so a
+    /// freshly-opened file presents a scannable, collapsed overview. Contrast with
+    /// <see cref="RefreshTreeView"/>, which diff-updates and preserves each chain's
+    /// collapse state across edits.
+    /// </summary>
+    private void RebuildTreeView()
+    {
+        _suppressTreeSelectionHandling = true;
+        try
+        {
+            _treeRoots.Clear();
+
+            var acls = _projectManager.AnimationChainListSave;
+            if (acls is null) return;
+
+            // Empty expandedChainNames (not null) collapses every chain; null would
+            // default them all to expanded.
+            foreach (var node in TreeBuilder.BuildTree(acls, System.Array.Empty<string>()))
+                _treeRoots.Add(node);
+
             SyncTreeSelection();
         }
         finally
