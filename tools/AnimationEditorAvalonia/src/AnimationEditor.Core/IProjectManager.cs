@@ -14,5 +14,13 @@ namespace AnimationEditor.Core
 
         void LoadAnimationChain(FilePath fileName);
         void SaveAnimationChainList(string targetPath);
+
+        /// <summary>
+        /// Returns the texture names referenced by <paramref name="acls"/> that cannot be
+        /// decoded from <paramref name="achxDirectory"/>. An empty list means all textures
+        /// are present and valid. Only non-empty texture names are checked; each unique name
+        /// is checked at most once.
+        /// </summary>
+        IReadOnlyList<string> FindMissingTextures(AnimationChainListSave acls, string achxDirectory);
     }
 }
