@@ -19,6 +19,15 @@ namespace AnimationEditor.Core.CommandsAndState
         // ── Events ────────────────────────────────────────────────────────────
 
         event Action RefreshTreeViewRequested;
+
+        /// <summary>
+        /// Request a full tree-view rebuild from scratch with every chain collapsed.
+        /// Raised on .achx load (File &gt; Open, recent files, drag-drop, startup reopen).
+        /// Differs from <see cref="RefreshTreeViewRequested"/>, which diff-updates the
+        /// existing tree and preserves each chain's collapse state across edits.
+        /// </summary>
+        event Action RebuildTreeViewRequested;
+
         event Action<AnimationChainSave> RefreshChainNodeRequested;
         event Action<AnimationFrameSave> RefreshFrameNodeRequested;
         event Action RefreshAnimationFrameDisplayRequested;

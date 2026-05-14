@@ -42,11 +42,11 @@ public class AppCommandsLoadFailureTests : IDisposable
     }
 
     [Fact]
-    public void LoadAnimationChain_MissingFile_DoesNotFireRefreshTreeViewRequested()
+    public void LoadAnimationChain_MissingFile_DoesNotFireRebuildTreeViewRequested()
     {
         var ctx = TestHelpers.SetupFreshAcls();
         bool fired = false;
-        ctx.AppCommands.RefreshTreeViewRequested += () => fired = true;
+        ctx.AppCommands.RebuildTreeViewRequested += () => fired = true;
 
         ctx.AppCommands.LoadAnimationChain(@"C:\does\not\exist.achx");
 
@@ -94,13 +94,13 @@ public class AppCommandsLoadFailureTests : IDisposable
     }
 
     [Fact]
-    public void LoadAnimationChain_CorruptFile_DoesNotFireRefreshTreeViewRequested()
+    public void LoadAnimationChain_CorruptFile_DoesNotFireRebuildTreeViewRequested()
     {
         var ctx = TestHelpers.SetupFreshAcls();
         var badFile = Path.Combine(_dir.Path, "bad2.achx");
         File.WriteAllText(badFile, "this is not valid xml");
         bool fired = false;
-        ctx.AppCommands.RefreshTreeViewRequested += () => fired = true;
+        ctx.AppCommands.RebuildTreeViewRequested += () => fired = true;
 
         ctx.AppCommands.LoadAnimationChain(badFile);
 

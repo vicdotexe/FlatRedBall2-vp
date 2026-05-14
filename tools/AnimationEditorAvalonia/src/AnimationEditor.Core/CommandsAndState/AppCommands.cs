@@ -66,6 +66,9 @@ namespace AnimationEditor.Core.CommandsAndState
         /// </summary>
         public event Action? RefreshTreeViewRequested;
 
+        /// <inheritdoc cref="IAppCommands.RebuildTreeViewRequested"/>
+        public event Action? RebuildTreeViewRequested;
+
         /// <summary>
         /// Request a single chain's tree node to refresh.
         /// </summary>
@@ -136,7 +139,9 @@ namespace AnimationEditor.Core.CommandsAndState
             _undoManager.Clear();
             _selectedState.Reset();
             _selectedState.SelectedChain = _pm.AnimationChainListSave?.AnimationChains.FirstOrDefault();
-            RefreshTreeViewRequested?.Invoke();
+            // Rebuild (not refresh): a freshly-opened file should present a collapsed,
+            // scannable overview rather than every chain's frames expanded.
+            RebuildTreeViewRequested?.Invoke();
             _ioManager.LoadAndApplyCompanionFileFor(fileName);
             RefreshWireframeRequested?.Invoke();
             RefreshAnimationFrameDisplayRequested?.Invoke();
