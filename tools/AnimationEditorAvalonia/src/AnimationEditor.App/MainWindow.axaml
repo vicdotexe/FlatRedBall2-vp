@@ -168,10 +168,10 @@
         </Border>
 
         <!-- ── Main content: TreeView | Property Panel | [Wireframe / Preview] ── -->
-        <Grid x:Name="MainContentGrid" ColumnDefinitions="260,4,240,4,*">
+        <Grid x:Name="MainContentGrid" ColumnDefinitions="280,4,240,4,*">
 
             <!-- ── Left: Animation tree ── -->
-            <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto"
+            <Grid Grid.Column="0" RowDefinitions="Auto,Auto,*,Auto"
                   Background="{StaticResource BgApp}">
 
                 <!-- ── Tree pane header ── -->
@@ -223,18 +223,20 @@
                     </DockPanel>
                 </Border>
 
-                <!-- Delete chain confirm — floating overlay, sits on top of the tree -->
+                <!-- Delete chain confirm — stacked: label row above buttons row -->
                 <Border x:Name="DeleteChainConfirmPanel"
-                        Grid.Row="0" Grid.RowSpan="3"
-                        ZIndex="10"
+                        Grid.Row="1"
                         IsVisible="False"
-                        VerticalAlignment="Top"
                         Background="{StaticResource BgRail}"
                         BorderBrush="{StaticResource LineBrush}"
                         BorderThickness="0,0,0,1"
-                        Padding="10,5">
-                    <DockPanel>
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6">
+                        Padding="10,6">
+                    <StackPanel Spacing="5">
+                        <TextBlock x:Name="DeleteChainConfirmLabel"
+                                   Foreground="{StaticResource InkMid}"
+                                   FontSize="11"
+                                   TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
                             <Button x:Name="DeleteChainConfirmBtn"
                                     Content="Confirm ✕"
                                     Padding="8,3"
@@ -244,15 +246,10 @@
                                     Padding="8,3"
                                     FontSize="11" />
                         </StackPanel>
-                        <TextBlock x:Name="DeleteChainConfirmLabel"
-                                   Foreground="{StaticResource InkMid}"
-                                   VerticalAlignment="Center"
-                                   TextTrimming="CharacterEllipsis"
-                                   FontSize="11" />
-                    </DockPanel>
+                    </StackPanel>
                 </Border>
 
-                <TreeView x:Name="AnimTree" Grid.Row="1"
+                <TreeView x:Name="AnimTree" Grid.Row="2"
                           Background="{StaticResource BgApp}"
                           SelectionMode="Multiple"
                           ScrollViewer.VerticalScrollBarVisibility="Visible"
@@ -388,7 +385,7 @@
                 </TreeView>
 
                 <!-- ── Add Animation button ── -->
-                <Border Grid.Row="2"
+                <Border Grid.Row="3"
                         BorderBrush="{StaticResource LineBrush}"
                         BorderThickness="0,1,0,0"
                         Background="{StaticResource BgApp}"
