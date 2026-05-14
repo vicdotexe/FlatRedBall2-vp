@@ -41,7 +41,7 @@ public class NewAndLoadResetTests
     private static string WriteAchx(string dir, params string[] chainNames)
     {
         var path = Path.Combine(dir, "test.achx");
-        var acls = new AnimationChainListSave();
+        var acls = new AnimationChainListSave { CoordinateType = TextureCoordinateType.Pixel };
         foreach (var name in chainNames)
         {
             var chain = new AnimationChainSave { Name = name };
@@ -160,7 +160,7 @@ public class NewAndLoadResetTests
             // Load a different .achx
             var path = WriteAchx(dir, "NewRun");
             typeof(MainWindow)
-                .GetMethod("LoadAnimationFile", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .GetMethod("LoadAnimationFileAsync", BindingFlags.NonPublic | BindingFlags.Instance)!
                 .Invoke(window, [path]);
             Dispatcher.UIThread.RunJobs();
 
@@ -189,7 +189,7 @@ public class NewAndLoadResetTests
         {
             var path = WriteAchx(dir, "Walk", "Run", "Idle");
             typeof(MainWindow)
-                .GetMethod("LoadAnimationFile", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .GetMethod("LoadAnimationFileAsync", BindingFlags.NonPublic | BindingFlags.Instance)!
                 .Invoke(window, [path]);
             Dispatcher.UIThread.RunJobs();
 

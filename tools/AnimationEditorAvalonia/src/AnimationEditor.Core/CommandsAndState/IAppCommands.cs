@@ -48,8 +48,11 @@ namespace AnimationEditor.Core.CommandsAndState
         /// Full open workflow: loads the .achx, fires <c>AchxLoaded</c> (post-load),
         /// then fires <c>CurrentFileChanged</c> and <c>AvailableTexturesChanged</c>
         /// so the UI can update its title, recent-files list, and texture combo.
+        /// UV-format files require all referenced textures to be resolvable; missing
+        /// textures fire <see cref="LoadFailed"/> and abort the load. UV files with all
+        /// textures present prompt via <see cref="AppCommands.ConfirmAsync"/> before converting.
         /// </summary>
-        void OpenAchxWorkflow(string path);
+        Task OpenAchxWorkflowAsync(string path);
         void LoadAnimationChain(string fileName);
         void RefreshTreeNode(AnimationChainSave animationChain);
         void RefreshTreeNode(AnimationFrameSave animationFrame);

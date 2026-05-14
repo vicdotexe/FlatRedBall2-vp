@@ -109,7 +109,7 @@ public partial class MainWindow : Window
         var args = Environment.GetCommandLineArgs();
         if (args.Length >= 2 && File.Exists(args[1]))
         {
-            LoadAnimationFile(args[1]);
+            _ = LoadAnimationFileAsync(args[1]);
         }
         else
         {
@@ -580,7 +580,7 @@ public partial class MainWindow : Window
         {
             var item = new MenuItem { Header = file };
             var captured = file;
-            item.Click += (_, _) => LoadAnimationFile(captured);
+            item.Click += async (_, _) => await LoadAnimationFileAsync(captured);
             MenuLoadRecent.Items.Add(item);
         }
     }
@@ -611,7 +611,7 @@ public partial class MainWindow : Window
         });
 
         if (files.Count > 0)
-            LoadAnimationFile(files[0].Path.LocalPath);
+            await LoadAnimationFileAsync(files[0].Path.LocalPath);
     }
 
     private void OnSaveClick(object? sender, RoutedEventArgs e)
@@ -1965,10 +1965,10 @@ public partial class MainWindow : Window
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private void LoadAnimationFile(string fileName)
+    private async Task LoadAnimationFileAsync(string fileName)
     {
         if (!string.IsNullOrEmpty(fileName))
-            _appCommands.OpenAchxWorkflow(fileName);
+            await _appCommands.OpenAchxWorkflowAsync(fileName);
     }
 
     private void UpdateTitle()

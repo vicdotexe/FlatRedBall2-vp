@@ -271,6 +271,28 @@ namespace AnimationEditor.Core
             }
         }
 
+        public IReadOnlyList<string> FindMissingTextures(AnimationChainListSave acls, string achxDirectory)
+        {
+            var missing = new List<string>();
+            var seen = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+
+            foreach (var chain in acls.AnimationChains)
+            foreach (var frame in chain.Frames)
+            {
+                if (string.IsNullOrEmpty(frame.TextureName)) continue;
+                if (!seen.Add(frame.TextureName)) continue;
+
+                var path = System.IO.Path.IsPathRooted(frame.TextureName)
+                    ? frame.TextureName
+                    : System.IO.Path.Combine(achxDirectory, frame.TextureName);
+
+                if (TryReadPngSize(path) == null)
+                    missing.Add(frame.TextureName);
+            }
+
+            return missing;
+        }
+
         internal void LoadTileMapInformation(string fileName)
         {
             TileMapInformationList = XmlFile.Deserialize<TileMapInformationList>(fileName);

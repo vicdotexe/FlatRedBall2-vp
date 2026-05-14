@@ -8,7 +8,7 @@ using Xunit;
 namespace AnimationEditor.Core.Tests;
 
 /// <summary>
-/// Verifies that <see cref="IAppCommands.OpenAchxWorkflow"/> correctly sequences
+/// Verifies that <see cref="IAppCommands.OpenAchxWorkflowAsync"/> correctly sequences
 /// the open flow (load data, notify WireframeCtrl/PreviewCtrl via AchxLoaded,
 /// then raise CurrentFileChanged and AvailableTexturesChanged for the UI layer)
 /// — all without any Avalonia dependency.
@@ -29,10 +29,14 @@ public class OpenAchxWorkflowTests : IDisposable
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Writes a minimal pixel-format .achx (no frames, no textures) so the UV gate
+    /// is bypassed and the tests focus purely on workflow sequencing.
+    /// </summary>
     private string WriteMinimalAchx(string chainName = "Idle")
     {
         var path = Path.Combine(_dir.Path, "test.achx");
-        var acls = new AnimationChainListSave();
+        var acls = new AnimationChainListSave { CoordinateType = TextureCoordinateType.Pixel };
         acls.AnimationChains.Add(new AnimationChainSave { Name = chainName });
         acls.Save(path);
         return path;
@@ -41,11 +45,11 @@ public class OpenAchxWorkflowTests : IDisposable
     // ── Data loading ──────────────────────────────────────────────────────────
 
     [Fact]
-    public void OpenAchxWorkflow_WithValidFile_LoadsChainIntoProjectManager()
+    public async Task OpenAchxWorkflow_WithValidFile_LoadsChainIntoProjectManager()
     {
         var path = WriteMinimalAchx("Walk");
 
-        _ctx.AppCommands.OpenAchxWorkflow(path);
+        await _ctx.AppCommands.OpenAchxWorkflowAsync(path);
 
         Assert.NotNull(_ctx.ProjectManager.AnimationChainListSave);
         Assert.Single(_ctx.ProjectManager.AnimationChainListSave!.AnimationChains);
@@ -53,11 +57,11 @@ public class OpenAchxWorkflowTests : IDisposable
     }
 
     [Fact]
-    public void OpenAchxWorkflow_WithValidFile_SetsProjectManagerFileName()
+    public async Task OpenAchxWorkflow_WithValidFile_SetsProjectManagerFileName()
     {
         var path = WriteMinimalAchx();
 
-        _ctx.AppCommands.OpenAchxWorkflow(path);
+        await _ctx.AppCommands.OpenAchxWorkflowAsync(path);
 
         Assert.Equal(new FilePath(path), new FilePath(_ctx.ProjectManager.FileName!));
     }
@@ -65,27 +69,27 @@ public class OpenAchxWorkflowTests : IDisposable
     // ── Event ordering ────────────────────────────────────────────────────────
 
     [Fact]
-    public void OpenAchxWorkflow_AchxLoadedFiresAfterDataIsLoaded()
+    public async Task OpenAchxWorkflow_AchxLoadedFiresAfterDataIsLoaded()
     {
         var path = WriteMinimalAchx("Run");
         FilePath? fileNameAtNotification = null;
         _ctx.ApplicationEvents.AchxLoaded += _ =>
             fileNameAtNotification = _ctx.ProjectManager.FileName;
 
-        _ctx.AppCommands.OpenAchxWorkflow(path);
+        await _ctx.AppCommands.OpenAchxWorkflowAsync(path);
 
         // AchxLoaded fires after LoadAnimationChain sets the FileName
         Assert.Equal(new FilePath(path), fileNameAtNotification);
     }
 
     [Fact]
-    public void OpenAchxWorkflow_WithValidFile_FiresAchxLoadedWithPath()
+    public async Task OpenAchxWorkflow_WithValidFile_FiresAchxLoadedWithPath()
     {
         var path = WriteMinimalAchx();
         string? received = null;
         _ctx.ApplicationEvents.AchxLoaded += p => received = p;
 
-        _ctx.AppCommands.OpenAchxWorkflow(path);
+        await _ctx.AppCommands.OpenAchxWorkflowAsync(path);
 
         Assert.Equal(new FilePath(path), new FilePath(received!));
     }
@@ -93,26 +97,26 @@ public class OpenAchxWorkflowTests : IDisposable
     // ── CurrentFileChanged ────────────────────────────────────────────────────
 
     [Fact]
-    public void OpenAchxWorkflow_WithValidFile_FiresCurrentFileChangedWithPath()
+    public async Task OpenAchxWorkflow_WithValidFile_FiresCurrentFileChangedWithPath()
     {
         var path = WriteMinimalAchx();
         string? received = null;
         _ctx.ApplicationEvents.CurrentFileChanged += p => received = p;
 
-        _ctx.AppCommands.OpenAchxWorkflow(path);
+        await _ctx.AppCommands.OpenAchxWorkflowAsync(path);
 
         Assert.Equal(new FilePath(path), new FilePath(received!));
     }
 
     [Fact]
-    public void OpenAchxWorkflow_CurrentFileChangedFiresAfterDataIsLoaded()
+    public async Task OpenAchxWorkflow_CurrentFileChangedFiresAfterDataIsLoaded()
     {
         var path = WriteMinimalAchx("Jump");
         FilePath? fileNameAtNotification = null;
         _ctx.ApplicationEvents.CurrentFileChanged += _ =>
             fileNameAtNotification = _ctx.ProjectManager.FileName;
 
-        _ctx.AppCommands.OpenAchxWorkflow(path);
+        await _ctx.AppCommands.OpenAchxWorkflowAsync(path);
 
         Assert.Equal(new FilePath(path), fileNameAtNotification);
     }
@@ -120,13 +124,13 @@ public class OpenAchxWorkflowTests : IDisposable
     // ── AvailableTexturesChanged ───────────────────────────────────────────────
 
     [Fact]
-    public void OpenAchxWorkflow_WithValidFile_FiresAvailableTexturesChanged()
+    public async Task OpenAchxWorkflow_WithValidFile_FiresAvailableTexturesChanged()
     {
         var path = WriteMinimalAchx();
         bool fired = false;
         _ctx.ApplicationEvents.AvailableTexturesChanged += () => fired = true;
 
-        _ctx.AppCommands.OpenAchxWorkflow(path);
+        await _ctx.AppCommands.OpenAchxWorkflowAsync(path);
 
         Assert.True(fired);
     }
@@ -134,19 +138,19 @@ public class OpenAchxWorkflowTests : IDisposable
     // ── Load failure (corrupt / missing file) ─────────────────────────────────
 
     [Fact]
-    public void OpenAchxWorkflow_WithNonExistentFile_FiresLoadFailed()
+    public async Task OpenAchxWorkflow_WithNonExistentFile_FiresLoadFailed()
     {
         var path = Path.Combine(_dir.Path, "ghost.achx");
         bool loadFailedFired = false;
         _ctx.AppCommands.LoadFailed += (_, _) => loadFailedFired = true;
 
-        _ctx.AppCommands.OpenAchxWorkflow(path);
+        await _ctx.AppCommands.OpenAchxWorkflowAsync(path);
 
         Assert.True(loadFailedFired);
     }
 
     [Fact]
-    public void OpenAchxWorkflow_WithNonExistentFile_DoesNotFireSuccessEvents()
+    public async Task OpenAchxWorkflow_WithNonExistentFile_DoesNotFireSuccessEvents()
     {
         var path = Path.Combine(_dir.Path, "ghost.achx");
         bool currentFileFired = false;
@@ -154,7 +158,7 @@ public class OpenAchxWorkflowTests : IDisposable
         _ctx.ApplicationEvents.CurrentFileChanged += _ => currentFileFired = true;
         _ctx.ApplicationEvents.AvailableTexturesChanged += () => texturesFired = true;
 
-        _ctx.AppCommands.OpenAchxWorkflow(path);
+        await _ctx.AppCommands.OpenAchxWorkflowAsync(path);
 
         Assert.False(currentFileFired);
         Assert.False(texturesFired);

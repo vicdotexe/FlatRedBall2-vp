@@ -106,9 +106,46 @@ namespace AnimationEditor.Core.CommandsAndState
 
         // ── Open workflow ─────────────────────────────────────────────────────────
 
-        /// <inheritdoc cref="IAppCommands.OpenAchxWorkflow"/>
-        public void OpenAchxWorkflow(string path)
+        /// <inheritdoc cref="IAppCommands.OpenAchxWorkflowAsync"/>
+        public async Task OpenAchxWorkflowAsync(string path)
         {
+            // Quick-parse to read CoordinateType without committing to a full load.
+            AnimationChainListSave preview;
+            try { preview = AnimationChainListSave.FromFile(path); }
+            catch (Exception ex) { LoadFailed?.Invoke(path, ex); return; }
+
+            string achxDir = System.IO.Path.GetDirectoryName(path) ?? string.Empty;
+            var missing = _pm.FindMissingTextures(preview, achxDir);
+
+            var outcome = IO.UvLoadGate.DecideOutcome(
+                preview.CoordinateType,
+                allTexturesResolvable: missing.Count == 0,
+                userConfirmed: false);
+
+            if (outcome == IO.UvLoadOutcome.RefuseMissingTextures)
+            {
+                var names = string.Join(", ", missing);
+                LoadFailed?.Invoke(path,
+                    new InvalidOperationException(
+                        $"Cannot open '{System.IO.Path.GetFileName(path)}' — the following texture(s) could not be found or decoded: {names}. " +
+                        "All textures must be present to convert UV coordinates to pixel coordinates."));
+                return;
+            }
+
+            if (outcome == IO.UvLoadOutcome.ConvertAndLoad || outcome == IO.UvLoadOutcome.RefuseUserDeclined)
+            {
+                // UV file, textures all present — ask user.
+                bool confirmed = await ConfirmAsync(
+                    "This animation uses legacy texture-coordinate (UV) data and must be converted " +
+                    "to pixel coordinates before editing. Convert and open? " +
+                    "(No leaves the file untouched and does not open it.)",
+                    "Convert to Pixel Coordinates");
+
+                outcome = IO.UvLoadGate.DecideOutcome(preview.CoordinateType, allTexturesResolvable: true, userConfirmed: confirmed);
+            }
+
+            if (outcome == IO.UvLoadOutcome.RefuseUserDeclined) return;
+
             bool failed = false;
             void OnFail(string _, Exception __) => failed = true;
             LoadFailed += OnFail;
@@ -116,6 +153,9 @@ namespace AnimationEditor.Core.CommandsAndState
             finally { LoadFailed -= OnFail; }
 
             if (failed) return;
+
+            if (outcome == IO.UvLoadOutcome.ConvertAndLoad)
+                _pm.OnDiskCoordinateType = FlatRedBall2.Animation.Content.TextureCoordinateType.Pixel;
 
             _events.CallAchxLoaded(path);
             _events.RaiseCurrentFileChanged(path);

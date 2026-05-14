@@ -75,7 +75,7 @@ public class MainWindowMenuFlowTests
     private static string WriteAchx(string dir, params string[] chainNames)
     {
         var path = Path.Combine(dir, "test.achx");
-        var acls = new AnimationChainListSave();
+        var acls = new AnimationChainListSave { CoordinateType = TextureCoordinateType.Pixel };
         foreach (var name in chainNames)
             acls.AnimationChains.Add(new AnimationChainSave { Name = name });
         acls.Save(path);
@@ -99,7 +99,7 @@ public class MainWindowMenuFlowTests
             var path = WriteAchx(dir, "Walk", "Run");
 
             typeof(MainWindow)
-                .GetMethod("LoadAnimationFile", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .GetMethod("LoadAnimationFileAsync", BindingFlags.NonPublic | BindingFlags.Instance)!
                 .Invoke(window, [path]);
 
             Dispatcher.UIThread.RunJobs();
