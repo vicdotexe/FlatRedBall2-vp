@@ -176,6 +176,57 @@ public class StatusBarTests
     }
 
     [AvaloniaFact]
+    public void StatusBar_CountsBlank_AfterNewFile()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), System.Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var (window, ctx) = CreateWindow();
+        try
+        {
+            // Load a file with chains so counts are non-empty
+            var path = WriteAchx(dir, "Walk", "Run");
+            ctx.AppCommands.LoadAnimationChain(path);
+            Dispatcher.UIThread.RunJobs();
+
+            // New file clears the project
+            window.FindControl<MenuItem>("MenuNew")!
+                  .RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Dispatcher.UIThread.RunJobs();
+
+            var counts = window.FindControl<TextBlock>("StatusCounts")!;
+            Assert.Equal(string.Empty, counts.Text);
+        }
+        finally
+        {
+            window.Close();
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [AvaloniaFact]
+    public void StatusBar_ShowsCounts_AfterLoadFile()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), System.Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        var (window, ctx) = CreateWindow();
+        try
+        {
+            // WriteAchx adds one frame per chain
+            var path = WriteAchx(dir, "Walk", "Run", "Jump");
+            ctx.AppCommands.LoadAnimationChain(path);
+            Dispatcher.UIThread.RunJobs();
+
+            var counts = window.FindControl<TextBlock>("StatusCounts")!;
+            Assert.Equal("3 chains · 3 frames", counts.Text);
+        }
+        finally
+        {
+            window.Close();
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [AvaloniaFact]
     public void StatusBar_ShowsAutoSaveFailed_AfterMarkSaveFailed()
     {
         var (window, ctx) = CreateWindow();
