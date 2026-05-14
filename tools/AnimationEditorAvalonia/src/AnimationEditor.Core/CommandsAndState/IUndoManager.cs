@@ -11,7 +11,13 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
         bool CanUndo { get; }
         bool CanRedo { get; }
 
-        /// <summary>Raised after <see cref="Record"/>, <see cref="Undo"/>, <see cref="Redo"/>, or <see cref="Clear"/>.</summary>
+        /// <summary>
+        /// True when the current state has not been saved to disk since the last <see cref="Clear"/>.
+        /// Set to false by <see cref="MarkSaved"/>; reset to true by <see cref="Clear"/>.
+        /// </summary>
+        bool HasUnsavedChanges { get; }
+
+        /// <summary>Raised after <see cref="Record"/>, <see cref="Undo"/>, <see cref="Redo"/>, <see cref="Clear"/>, or <see cref="MarkSaved"/>.</summary>
         event Action? StackChanged;
 
         /// <summary>
@@ -27,5 +33,8 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
         void Redo();
 
         void Clear();
+
+        /// <summary>Marks the current state as saved, setting <see cref="HasUnsavedChanges"/> to false.</summary>
+        void MarkSaved();
     }
 }

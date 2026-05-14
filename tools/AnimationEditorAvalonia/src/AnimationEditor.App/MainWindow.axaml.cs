@@ -145,9 +145,11 @@ public partial class MainWindow : Window
             SaveSettingsFile();
             RefreshRecentFiles();
             UpdateTitle();
+            UpdateStatusBar();
         });
         _events.AvailableTexturesChanged += () => Dispatcher.UIThread.InvokeAsync(RefreshTextureCombo);
 
+        _undoManager.StackChanged         += () => Dispatcher.UIThread.InvokeAsync(UpdateStatusBar);
         _events.AnimationChainsChanged    += HandleAnimationChainsChanged;
         _selectedState.SelectionChanged   += HandleSelectionChanged;
     }
@@ -417,6 +419,7 @@ public partial class MainWindow : Window
         }
 
         Dispatcher.UIThread.InvokeAsync(RefreshTimelineStrip);
+        Dispatcher.UIThread.InvokeAsync(UpdateStatusBar);
     }
 
     private void HandleSelectionChanged()
@@ -430,6 +433,33 @@ public partial class MainWindow : Window
         // Refresh timeline strip
         Dispatcher.UIThread.InvokeAsync(RefreshTimelineStrip);
     }
+
+    // ── Status bar ────────────────────────────────────────────────────────────
+
+    private static readonly Avalonia.Media.SolidColorBrush _savedBrush =
+        new(Avalonia.Media.Color.FromRgb(0x6d, 0xd2, 0x8d));
+    private static readonly Avalonia.Media.SolidColorBrush _unsavedBrush =
+        new(Avalonia.Media.Color.FromRgb(0xf0, 0xc6, 0x74));
+
+    private void UpdateStatusBar()
+    {
+        bool unsaved = _undoManager.HasUnsavedChanges;
+        StatusSaveLabel.Text = unsaved ? "Not saved" : "Saved";
+        StatusDot.Fill       = unsaved ? _unsavedBrush : _savedBrush;
+        StatusFilename.Text  = Path.GetFileName(_projectManager.FileName ?? string.Empty);
+        var acls = _projectManager.AnimationChainListSave;
+        if (acls == null || acls.AnimationChains.Count == 0)
+        {
+            StatusCounts.Text = string.Empty;
+        }
+        else
+        {
+            int totalFrames = acls.AnimationChains.Sum(c => c.Frames.Count);
+            StatusCounts.Text = $"{acls.AnimationChains.Count} chains · {totalFrames} frames";
+        }
+    }
+
+
 
     // ── Texture combo helpers ─────────────────────────────────────────────────
 
@@ -592,6 +622,7 @@ public partial class MainWindow : Window
         _projectManager.AnimationChainListSave = new AnimationChainListSave();
         _projectManager.FileName = null;
         _selectedState.Reset();
+        _undoManager.Clear();
         RefreshTreeView();
         _ = _appCommands.SaveCurrentAnimationChainListAsync();
     }
