@@ -40,6 +40,7 @@ public partial class MainWindow : Window
     private readonly IIoManager _ioManager;
     private readonly IObjectFinder _objectFinder;
     private readonly IUndoManager _undoManager;
+    private readonly Services.ThumbnailService _thumbnailService;
 
     private AppSettingsModel _appSettings = new();
     private bool _suppressPropRefresh;
@@ -60,7 +61,8 @@ public partial class MainWindow : Window
         IApplicationEvents events,
         IIoManager ioManager,
         IObjectFinder objectFinder,
-        IUndoManager undoManager)
+        IUndoManager undoManager,
+        Services.ThumbnailService thumbnailService)
     {
         _projectManager = projectManager;
         _selectedState = selectedState;
@@ -70,6 +72,7 @@ public partial class MainWindow : Window
         _ioManager = ioManager;
         _objectFinder = objectFinder;
         _undoManager = undoManager;
+        _thumbnailService = thumbnailService;
 
         InitializeComponent();
         PropertyChanged += (_, e) => { if (e.Property == OffScreenMarginProperty) Padding = OffScreenMargin; };
@@ -87,7 +90,7 @@ public partial class MainWindow : Window
         WireKeyboard();
 
         WireframeCtrl.InitializeServices(_selectedState, _appState, _appCommands, _events, _projectManager, _undoManager);
-        PreviewCtrl.InitializeServices(_selectedState, _appState, _appCommands, _events, _projectManager, _undoManager);
+        PreviewCtrl.InitializeServices(_selectedState, _appState, _appCommands, _events, _projectManager, _undoManager, _thumbnailService);
 
         Opened += OnOpened;
         Closed += (_, _) =>
@@ -95,6 +98,7 @@ public partial class MainWindow : Window
             PreviewCtrl.Playback.FrameIndexChanged -= OnPreviewPlaybackFrameIndexChanged;
             foreach (var vm in _timelineFrames)
                 (vm.Thumbnail as IDisposable)?.Dispose();
+            DisposeTreeThumbnails();
         };
     }
 
@@ -1052,11 +1056,12 @@ public partial class MainWindow : Window
         try
         {
             var acls = _projectManager.AnimationChainListSave;
-            if (acls is null) { _treeRoots.Clear(); return; }
+            if (acls is null) { DisposeTreeThumbnails(); _treeRoots.Clear(); return; }
 
             // Diff-update the root nodes instead of clearing and rebuilding, so each
             // chain's collapse state (and selection) survives copy/paste and reorder.
             TreeBuilder.SyncChainsInto(_treeRoots, acls.AnimationChains);
+            RefreshTreeThumbnails();
 
             // Re-select to keep visual state
             SyncTreeSelection();
@@ -1079,6 +1084,7 @@ public partial class MainWindow : Window
         _suppressTreeSelectionHandling = true;
         try
         {
+            DisposeTreeThumbnails();
             _treeRoots.Clear();
 
             var acls = _projectManager.AnimationChainListSave;
@@ -1089,6 +1095,7 @@ public partial class MainWindow : Window
             foreach (var node in TreeBuilder.BuildTree(acls, System.Array.Empty<string>()))
                 _treeRoots.Add(node);
 
+            RefreshTreeThumbnails();
             SyncTreeSelection();
         }
         finally
@@ -1110,6 +1117,7 @@ public partial class MainWindow : Window
             node.Meta   = $"{chain.Frames.Count} fr";
             TreeBuilder.SyncFramesInto(node, chain.Frames);
         }
+        RefreshTreeThumbnails();
     }
 
     private void RefreshFrameNode(AnimationFrameSave frame)
@@ -1136,10 +1144,49 @@ public partial class MainWindow : Window
             frameNode.Meta       = rebuiltFrameNode.Meta;
             TreeBuilder.SyncShapesInto(frameNode, frame.ShapesSave);
         }
+        RefreshTreeThumbnails();
     }
 
     private TreeNodeVm? FindChainNode(AnimationChainSave chain) =>
         _treeRoots.FirstOrDefault(n => n.Data is AnimationChainSave c && c == chain);
+
+    /// <summary>
+    /// Regenerates each chain node's first-frame icon when its <see cref="ThumbnailSource"/>
+    /// has changed — a frame reorder, first-frame texture swap, first-frame region edit, or
+    /// first-frame delete. Chains with no frames fall back to the generic chain icon.
+    /// Change-detected, so calling it from every tree-refresh path is cheap when nothing
+    /// about a chain's first frame actually changed.
+    /// </summary>
+    private void RefreshTreeThumbnails()
+    {
+        foreach (var node in _treeRoots)
+        {
+            if (node.Data is not AnimationChainSave chain)
+                continue;
+
+            var source = ThumbnailSource.FromChain(chain);
+            // Regenerate when the first-frame visual changed, or when we have a source
+            // but no thumbnail yet (e.g. the texture was unresolvable on a prior pass).
+            bool needsRegen = !Equals(source, node.ThumbnailSource)
+                           || (source is not null && node.Thumbnail is null);
+            if (!needsRegen)
+                continue;
+
+            (node.Thumbnail as IDisposable)?.Dispose();
+            node.Thumbnail = source is null
+                ? null
+                : _thumbnailService.GetFrameThumbnail(chain.Frames[0], 14, 14);
+            node.ThumbnailSource = source;
+        }
+    }
+
+    /// <summary>Releases every chain node's first-frame thumbnail bitmap. Call before clearing
+    /// <c>_treeRoots</c> or on window close so the cropped bitmaps are not leaked.</summary>
+    private void DisposeTreeThumbnails()
+    {
+        foreach (var node in _treeRoots)
+            (node.Thumbnail as IDisposable)?.Dispose();
+    }
 
     private void SyncTreeSelection()
     {
@@ -1174,7 +1221,7 @@ public partial class MainWindow : Window
         if (chain is not null)
         {
             for (int i = 0; i < chain.Frames.Count && i < _timelineFrames.Count; i++)
-                _timelineFrames[i].Thumbnail = PreviewCtrl.GetFrameThumbnail(chain.Frames[i], 22, 18);
+                _timelineFrames[i].Thumbnail = _thumbnailService.GetFrameThumbnail(chain.Frames[i], 22, 18);
         }
 
         _currentTimelineFrameIndex = -1;

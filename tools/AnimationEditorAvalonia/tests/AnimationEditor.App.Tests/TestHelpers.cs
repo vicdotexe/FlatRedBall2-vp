@@ -1,4 +1,5 @@
 using AnimationEditor.App.Controls;
+using AnimationEditor.App.Services;
 using AnimationEditor.Core;
 using AnimationEditor.Core.CommandsAndState;
 using AnimationEditor.Core.CommandsAndState.Commands;
@@ -21,6 +22,7 @@ internal sealed class TestServices
     public ObjectFinder ObjectFinder { get; }
     public UndoManager UndoManager { get; }
     public AppCommands AppCommands { get; }
+    public ThumbnailService ThumbnailService { get; }
 
     public TestServices()
     {
@@ -33,12 +35,13 @@ internal sealed class TestServices
         UndoManager       = new UndoManager();
         AppCommands       = new AppCommands(ProjectManager, SelectedState, ApplicationEvents,
                                             IoManager, ObjectFinder, UndoManager);
+        ThumbnailService  = new ThumbnailService(ProjectManager);
     }
 
     public MainWindow CreateMainWindow() =>
         new MainWindow(
             ProjectManager, SelectedState, AppCommands, AppState,
-            ApplicationEvents, IoManager, ObjectFinder, UndoManager);
+            ApplicationEvents, IoManager, ObjectFinder, UndoManager, ThumbnailService);
 
     public WireframeControl CreateWireframeControl()
     {
@@ -50,7 +53,7 @@ internal sealed class TestServices
     public PreviewControl CreatePreviewControl()
     {
         var ctrl = new PreviewControl();
-        ctrl.InitializeServices(SelectedState, AppState, AppCommands, ApplicationEvents, ProjectManager, UndoManager);
+        ctrl.InitializeServices(SelectedState, AppState, AppCommands, ApplicationEvents, ProjectManager, UndoManager, ThumbnailService);
         return ctrl;
     }
 }

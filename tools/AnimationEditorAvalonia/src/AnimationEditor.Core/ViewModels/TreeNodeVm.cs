@@ -89,6 +89,44 @@ public class TreeNodeVm : INotifyPropertyChanged
     /// <summary>True when this node represents a CircleSave shape. Set once at construction time.</summary>
     public bool IsCircleNode { get; set; }
 
+    private object? _thumbnail;
+    /// <summary>
+    /// First-frame thumbnail for a chain node, set by the App layer once the texture is
+    /// resolved. Holds an <c>Avalonia.Media.Imaging.Bitmap</c> at runtime; <c>null</c> for
+    /// chains with no frames (or an unresolvable first-frame texture), in which case the
+    /// tree shows the generic chain icon. Always <c>null</c> on non-chain nodes.
+    /// </summary>
+    public object? Thumbnail
+    {
+        get => _thumbnail;
+        set
+        {
+            if (!ReferenceEquals(_thumbnail, value))
+            {
+                _thumbnail = value;
+                Notify();
+                Notify(nameof(HasThumbnail));
+                Notify(nameof(ShowGenericChainIcon));
+            }
+        }
+    }
+
+    /// <summary>True when a first-frame <see cref="Thumbnail"/> is available to show.</summary>
+    public bool HasThumbnail => _thumbnail is not null;
+
+    /// <summary>
+    /// True when the tree should show the generic chain icon — a chain node that has no
+    /// first-frame thumbnail. Drives the SVG-vs-thumbnail swap in the tree item template.
+    /// </summary>
+    public bool ShowGenericChainIcon => IsChainNode && _thumbnail is null;
+
+    /// <summary>
+    /// Signature of the first frame the current <see cref="Thumbnail"/> was rendered from.
+    /// The App layer compares this against <see cref="ThumbnailSource.FromChain"/> to skip
+    /// regenerating a chain icon whose first-frame visual is unchanged.
+    /// </summary>
+    public ThumbnailSource? ThumbnailSource { get; set; }
+
     public ObservableCollection<TreeNodeVm> Children { get; } = new();
 
     /// <summary>

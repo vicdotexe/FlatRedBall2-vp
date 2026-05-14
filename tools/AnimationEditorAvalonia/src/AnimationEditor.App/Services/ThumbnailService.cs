@@ -1,0 +1,115 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using AnimationEditor.Core;
+using FlatRedBall2.Animation.Content;
+using SkiaSharp;
+using FilePath = AnimationEditor.Core.Paths.FilePath;
+
+namespace AnimationEditor.App.Services;
+
+/// <summary>
+/// Decodes texture PNGs once, caches them, and crops frame-region thumbnails.
+/// Shared by the preview render path, the timeline strip, and the animation-tree
+/// first-frame chain icons so a sprite sheet is only decoded a single time.
+/// </summary>
+public sealed class ThumbnailService
+{
+    private readonly IProjectManager _projectManager;
+
+    /// <summary>
+    /// Decoded-bitmap cache keyed by absolute file path (case-insensitive). One decode per
+    /// file. Exposed so the preview render path can hand it to its off-thread draw op.
+    /// </summary>
+    public Dictionary<string, SKBitmap?> BitmapCache { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    public ThumbnailService(IProjectManager projectManager) =>
+        _projectManager = projectManager;
+
+    /// <summary>
+    /// Returns the cached decode of <paramref name="path"/>, decoding on first access.
+    /// Returns <c>null</c> for a null/empty path or a file that fails to decode (the
+    /// failure is cached too, so a missing texture is not retried every frame).
+    /// </summary>
+    public SKBitmap? GetBitmap(string? path)
+    {
+        if (string.IsNullOrEmpty(path)) return null;
+        if (BitmapCache.TryGetValue(path, out var cached)) return cached;
+        try
+        {
+            var bm = SKBitmap.Decode(path);
+            BitmapCache[path] = bm;
+            return bm;
+        }
+        catch
+        {
+            BitmapCache[path] = null;
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Resolves a frame's <see cref="AnimationFrameSave.TextureName"/> to an absolute file
+    /// path. Relative names require a saved .achx to derive the base folder. Returns
+    /// <c>null</c> when the texture cannot be located on disk.
+    /// </summary>
+    public string? ResolveTexturePath(AnimationFrameSave? frame)
+    {
+        if (frame is null || string.IsNullOrEmpty(frame.TextureName)) return null;
+
+        // Absolute path (e.g. drag-dropped textures before an ACHX file is saved).
+        if (Path.IsPathRooted(frame.TextureName))
+            return File.Exists(frame.TextureName) ? frame.TextureName : null;
+
+        // Relative path: requires a saved ACHX to derive the base folder.
+        if (string.IsNullOrEmpty(_projectManager.FileName))
+            return null;
+        string achxFolder = Path.GetDirectoryName(_projectManager.FileName) ?? string.Empty;
+        string full = new FilePath(Path.Combine(achxFolder, frame.TextureName)).FullPath;
+        return File.Exists(full) ? full : null;
+    }
+
+    /// <summary>
+    /// Returns an Avalonia Bitmap of the frame's texture region, scaled to fit within
+    /// <paramref name="maxWidth"/> × <paramref name="maxHeight"/> (preserving aspect ratio).
+    /// Returns <c>null</c> if the texture cannot be resolved, is not loaded, or the frame
+    /// has no valid UV region. Caller owns the returned bitmap.
+    /// </summary>
+    public Avalonia.Media.Imaging.Bitmap? GetFrameThumbnail(AnimationFrameSave frame, int maxWidth, int maxHeight)
+    {
+        var path = ResolveTexturePath(frame);
+        var bm = GetBitmap(path);
+        if (bm is null) return null;
+
+        float uvW = frame.RightCoordinate  - frame.LeftCoordinate;
+        float uvH = frame.BottomCoordinate - frame.TopCoordinate;
+        if (uvW <= 0f || uvH <= 0f) return null;
+
+        int tw = bm.Width, th = bm.Height;
+        int sx = Math.Clamp((int)(frame.LeftCoordinate * tw), 0, tw - 1);
+        int sy = Math.Clamp((int)(frame.TopCoordinate  * th), 0, th - 1);
+        int sw = Math.Clamp((int)(uvW * tw), 1, tw - sx);
+        int sh = Math.Clamp((int)(uvH * th), 1, th - sy);
+
+        float scale = Math.Min((float)maxWidth / sw, (float)maxHeight / sh);
+        int finalW = Math.Max(1, (int)(sw * scale));
+        int finalH = Math.Max(1, (int)(sh * scale));
+
+        using var thumb  = new SKBitmap(finalW, finalH);
+        using var canvas = new SKCanvas(thumb);
+        canvas.Clear(SKColors.Transparent);
+        using var img    = SKImage.FromBitmap(bm);
+        using var paint  = new SKPaint { Color = SKColors.White };
+        canvas.DrawImage(img,
+            SKRectI.Create(sx, sy, sw, sh),
+            SKRect.Create(0, 0, finalW, finalH),
+            new SKSamplingOptions(SKFilterMode.Linear),
+            paint);
+
+        using var ms = new MemoryStream();
+        thumb.Encode(ms, SKEncodedImageFormat.Png, 100);
+        ms.Position = 0;
+        return new Avalonia.Media.Imaging.Bitmap(ms);
+    }
+}

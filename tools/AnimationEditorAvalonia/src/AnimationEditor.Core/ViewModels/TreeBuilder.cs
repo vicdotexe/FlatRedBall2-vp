@@ -256,7 +256,11 @@ public static class TreeBuilder
         var chainSet = new HashSet<AnimationChainSave>(chains, ReferenceEqualityComparer.Instance);
         for (int i = roots.Count - 1; i >= 0; i--)
             if (roots[i].Data is AnimationChainSave c && !chainSet.Contains(c))
+            {
+                // Release the chain's first-frame thumbnail bitmap before dropping the node.
+                (roots[i].Thumbnail as System.IDisposable)?.Dispose();
                 roots.RemoveAt(i);
+            }
 
         // Build a lookup of surviving VMs keyed by chain reference.
         var existingByChain = new Dictionary<AnimationChainSave, TreeNodeVm>(

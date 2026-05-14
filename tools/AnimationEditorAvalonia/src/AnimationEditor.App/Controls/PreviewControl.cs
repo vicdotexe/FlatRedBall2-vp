@@ -1,3 +1,4 @@
+using AnimationEditor.App.Services;
 using AnimationEditor.Core;
 using AnimationEditor.Core.CommandsAndState;
 using AnimationEditor.Core.CommandsAndState.Commands;
@@ -29,10 +30,6 @@ public class PreviewControl : Control
     // -- Animation state -------------------------------------------------------
     private readonly DispatcherTimer _timer;
     private readonly AnimationEditor.Core.CommandsAndState.PlaybackController _playback = new();
-
-    // -- Bitmap cache ----------------------------------------------------------
-    private readonly Dictionary<string, SKBitmap?> _bitmapCache =
-        new(StringComparer.OrdinalIgnoreCase);
 
     // -- Camera ----------------------------------------------------------------
     private float _zoom = 1f;
@@ -145,10 +142,10 @@ public class PreviewControl : Control
             displayFrame = chain.Frames[idx];
         }
 
-        string? texPath   = ResolveTexturePath(displayFrame);
-        string? onionPath = ResolveTexturePath(onionFrame);
-        GetBitmap(texPath);
-        GetBitmap(onionPath);
+        string? texPath   = _thumbnailService!.ResolveTexturePath(displayFrame);
+        string? onionPath = _thumbnailService!.ResolveTexturePath(onionFrame);
+        _thumbnailService.GetBitmap(texPath);
+        _thumbnailService.GetBitmap(onionPath);
 
         var snap   = new RenderSnapshot(displayFrame, onionFrame, _zoom, _panX, _panY,
                                         _showGuides, texPath, onionPath, width, height,
@@ -158,50 +155,8 @@ public class PreviewControl : Control
                                         BuildShapeInfos());
         var bitmap = new SKBitmap(width, height);
         using var canvas = new SKCanvas(bitmap);
-        RenderSkCore(canvas, snap, _bitmapCache);
+        RenderSkCore(canvas, snap, _thumbnailService.BitmapCache);
         return bitmap;
-    }
-
-    /// <summary>
-    /// Returns an Avalonia Bitmap of the frame's texture region, scaled to fit within
-    /// <paramref name="maxWidth"/> × <paramref name="maxHeight"/> (preserving aspect ratio).
-    /// Returns null if the texture cannot be resolved, is not loaded, or the frame has no valid UV region.
-    /// </summary>
-    public Avalonia.Media.Imaging.Bitmap? GetFrameThumbnail(AnimationFrameSave frame, int maxWidth, int maxHeight)
-    {
-        var path = ResolveTexturePath(frame);
-        var bm = GetBitmap(path);
-        if (bm is null) return null;
-
-        float uvW = frame.RightCoordinate  - frame.LeftCoordinate;
-        float uvH = frame.BottomCoordinate - frame.TopCoordinate;
-        if (uvW <= 0f || uvH <= 0f) return null;
-
-        int tw = bm.Width, th = bm.Height;
-        int sx = Math.Clamp((int)(frame.LeftCoordinate * tw), 0, tw - 1);
-        int sy = Math.Clamp((int)(frame.TopCoordinate  * th), 0, th - 1);
-        int sw = Math.Clamp((int)(uvW * tw), 1, tw - sx);
-        int sh = Math.Clamp((int)(uvH * th), 1, th - sy);
-
-        float scale = Math.Min((float)maxWidth / sw, (float)maxHeight / sh);
-        int finalW = Math.Max(1, (int)(sw * scale));
-        int finalH = Math.Max(1, (int)(sh * scale));
-
-        using var thumb  = new SKBitmap(finalW, finalH);
-        using var canvas = new SKCanvas(thumb);
-        canvas.Clear(SKColors.Transparent);
-        using var img    = SKImage.FromBitmap(bm);
-        using var paint  = new SKPaint { Color = SKColors.White };
-        canvas.DrawImage(img,
-            SKRectI.Create(sx, sy, sw, sh),
-            SKRect.Create(0, 0, finalW, finalH),
-            new SKSamplingOptions(SKFilterMode.Linear),
-            paint);
-
-        using var ms = new MemoryStream();
-        thumb.Encode(ms, SKEncodedImageFormat.Png, 100);
-        ms.Position = 0;
-        return new Avalonia.Media.Imaging.Bitmap(ms);
     }
 
     // -- Injected services -----------------------------------------------------
@@ -212,6 +167,7 @@ public class PreviewControl : Control
     private IApplicationEvents? _events;
     private IProjectManager? _projectManager;
     private IUndoManager? _undoManager;
+    private ThumbnailService? _thumbnailService;
 
     /// <summary>
     /// Called from MainWindow after DI container wires all services.
@@ -223,7 +179,8 @@ public class PreviewControl : Control
         IAppCommands appCommands,
         IApplicationEvents events,
         IProjectManager projectManager,
-        IUndoManager undoManager)
+        IUndoManager undoManager,
+        ThumbnailService thumbnailService)
     {
         _selectedState  = selectedState;
         _appState       = appState;
@@ -231,6 +188,7 @@ public class PreviewControl : Control
         _events         = events;
         _projectManager = projectManager;
         _undoManager    = undoManager;
+        _thumbnailService = thumbnailService;
 
         _selectedState.SelectionChanged                        += () => Dispatcher.UIThread.InvokeAsync(OnSelectionChanged);
         _events.AnimationChainsChanged                         += () => Dispatcher.UIThread.InvokeAsync(InvalidateVisual);
@@ -420,43 +378,6 @@ public class PreviewControl : Control
         InvalidateVisual();
     }
 
-    // -- Bitmap cache helpers --------------------------------------------------
-
-    private SKBitmap? GetBitmap(string? path)
-    {
-        if (string.IsNullOrEmpty(path)) return null;
-        if (_bitmapCache.TryGetValue(path, out var cached)) return cached;
-        try
-        {
-            var bm = SKBitmap.Decode(path);
-            _bitmapCache[path] = bm;
-            return bm;
-        }
-        catch
-        {
-            _bitmapCache[path] = null;
-            return null;
-        }
-    }
-
-    private string? ResolveTexturePath(AnimationFrameSave? frame)
-    {
-        if (frame is null || string.IsNullOrEmpty(frame.TextureName)) return null;
-
-        // Absolute path (e.g. drag-dropped textures before an ACHX file is saved).
-        if (Path.IsPathRooted(frame.TextureName))
-            return File.Exists(frame.TextureName) ? frame.TextureName : null;
-
-        // Relative path: requires a saved ACHX to derive the base folder.
-        if (string.IsNullOrEmpty(_projectManager!.FileName))
-            return null;
-        string achxFolder = (Path.GetDirectoryName(_projectManager!.FileName) ?? string.Empty);
-        string full = new FilePath(Path.Combine(achxFolder, frame.TextureName)).FullPath;
-        if (!File.Exists(full))
-            return null;
-        return full;
-    }
-
     // -- Avalonia rendering ----------------------------------------------------
 
     public override void Render(DrawingContext ctx)
@@ -489,10 +410,10 @@ public class PreviewControl : Control
         if (w <= 0 || h <= 0) return;
 
         // Pre-fill bitmap cache synchronously before handing off to render thread
-        string? texPath   = ResolveTexturePath(displayFrame);
-        string? onionPath = ResolveTexturePath(onionFrame);
-        GetBitmap(texPath);
-        GetBitmap(onionPath);
+        string? texPath   = _thumbnailService!.ResolveTexturePath(displayFrame);
+        string? onionPath = _thumbnailService!.ResolveTexturePath(onionFrame);
+        _thumbnailService.GetBitmap(texPath);
+        _thumbnailService.GetBitmap(onionPath);
 
         ctx.Custom(new DrawOp(
             new RenderSnapshot(
@@ -502,7 +423,7 @@ public class PreviewControl : Control
                 _hGuides.ToArray(), _vGuides.ToArray(),
                 _draggedGuideIdx, _draggingHGuide,
                 BuildShapeInfos()),
-            _bitmapCache));
+            _thumbnailService.BitmapCache));
     }
 
     // -- Guide helpers ---------------------------------------------------------

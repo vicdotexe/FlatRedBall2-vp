@@ -1,3 +1,4 @@
+using AnimationEditor.App.Services;
 using AnimationEditor.Core;
 using AnimationEditor.Core.CommandsAndState;
 using AnimationEditor.Core.CommandsAndState.Commands;
@@ -68,6 +69,9 @@ public partial class App : Application
                 sp.GetRequiredService<IUndoManager>()));
         sc.AddSingleton<IAppCommands>(sp => sp.GetRequiredService<AppCommands>());
 
+        sc.AddSingleton<ThumbnailService>(sp =>
+            new ThumbnailService(sp.GetRequiredService<IProjectManager>()));
+
         sc.AddTransient<MainWindow>(sp => new MainWindow(
             sp.GetRequiredService<IProjectManager>(),
             sp.GetRequiredService<ISelectedState>(),
@@ -76,7 +80,8 @@ public partial class App : Application
             sp.GetRequiredService<IApplicationEvents>(),
             sp.GetRequiredService<IIoManager>(),
             sp.GetRequiredService<IObjectFinder>(),
-            sp.GetRequiredService<IUndoManager>()));
+            sp.GetRequiredService<IUndoManager>(),
+            sp.GetRequiredService<ThumbnailService>()));
 
         return sc.BuildServiceProvider();
     }
