@@ -99,12 +99,19 @@ public sealed class ThumbnailService
         using var thumb  = new SKBitmap(finalW, finalH);
         using var canvas = new SKCanvas(thumb);
         canvas.Clear(SKColors.Transparent);
+        // Crop the frame's region into its own image first, then scale. Scaling a sub-rect of
+        // the full sheet directly lets the sampler reach past the rect edges and pull in
+        // neighbouring frames (visible bleed / thin seam lines). A standalone subset has no
+        // neighbours to bleed from.
         using var img    = SKImage.FromBitmap(bm);
+        using var region = img.Subset(SKRectI.Create(sx, sy, sw, sh));
+        if (region is null) return null;   // sx/sy/sw/sh are clamped in-bounds, so defensive only
         using var paint  = new SKPaint { Color = SKColors.White };
-        canvas.DrawImage(img,
-            SKRectI.Create(sx, sy, sw, sh),
+        // Nearest-neighbour ("point") sampling: keeps sprite-sheet art crisp/pixellated
+        // instead of the blurry smear linear filtering produces on game art.
+        canvas.DrawImage(region,
             SKRect.Create(0, 0, finalW, finalH),
-            new SKSamplingOptions(SKFilterMode.Linear),
+            new SKSamplingOptions(SKFilterMode.Nearest),
             paint);
 
         using var ms = new MemoryStream();

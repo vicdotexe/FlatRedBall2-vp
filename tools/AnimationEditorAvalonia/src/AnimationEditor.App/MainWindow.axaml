@@ -13,8 +13,10 @@
         WindowDecorations="None">
 
     <Window.Resources>
-        <!-- Size of node-kind icons in the animation TreeView. Kept below the 32px Fluent
-             row height (TreeViewItemMinHeight) so enlarging the icon never grows the row. -->
+        <!-- Size of the chain ("animation") icon in the TreeView — the first-frame preview
+             thumbnail, or the generic chain glyph when a chain has no frames. Kept below the
+             32px Fluent row height (TreeViewItemMinHeight) so the row never grows. Frame and
+             shape icons are not affected; they stay at the compact 14px size. -->
         <x:Double x:Key="TreeNodeIconSize">28</x:Double>
     </Window.Resources>
 
@@ -285,7 +287,9 @@
                             <Grid ColumnDefinitions="*,Auto,Auto" HorizontalAlignment="Stretch">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                     <!-- Node kind icons: SVG files are the single source of truth for path data. -->
-                                    <!-- Chain node: first-frame thumbnail when the chain has frames, generic glyph otherwise. -->
+                                    <!-- Chain node: first-frame thumbnail when the chain has frames, generic glyph
+                                         otherwise. Only the chain ("animation") icon is enlarged so the first-frame
+                                         preview is readable; frame/shape icons stay at the compact 14px size. -->
                                     <Image IsVisible="{Binding HasThumbnail}"
                                            Width="{StaticResource TreeNodeIconSize}" Height="{StaticResource TreeNodeIconSize}"
                                            Margin="0,0,4,0"
@@ -299,19 +303,19 @@
                                              Path="avares://AnimationEditor.App/Assets/icons/svg/IconChain.svg"
                                              CurrentColor="#9098a4" />
                                     <svg:Svg IsVisible="{Binding IsFrameNode}"
-                                             Width="{StaticResource TreeNodeIconSize}" Height="{StaticResource TreeNodeIconSize}"
+                                             Width="14" Height="14"
                                              Margin="0,0,4,0"
                                              VerticalAlignment="Center"
                                              Path="avares://AnimationEditor.App/Assets/icons/svg/IconFrame.svg"
                                              CurrentColor="#5d6573" />
                                     <svg:Svg IsVisible="{Binding IsRectNode}"
-                                             Width="{StaticResource TreeNodeIconSize}" Height="{StaticResource TreeNodeIconSize}"
+                                             Width="14" Height="14"
                                              Margin="0,0,4,0"
                                              VerticalAlignment="Center"
                                              Path="avares://AnimationEditor.App/Assets/icons/svg/IconShape.svg"
                                              CurrentColor="#5d6573" />
                                     <svg:Svg IsVisible="{Binding IsCircleNode}"
-                                             Width="{StaticResource TreeNodeIconSize}" Height="{StaticResource TreeNodeIconSize}"
+                                             Width="14" Height="14"
                                              Margin="0,0,4,0"
                                              VerticalAlignment="Center"
                                              Path="avares://AnimationEditor.App/Assets/icons/svg/IconCircle.svg"
