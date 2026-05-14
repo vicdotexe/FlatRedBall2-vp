@@ -103,6 +103,8 @@ namespace AnimationEditor.Core.CommandsAndState
         /// </summary>
         public IFileDialogService FileDialogService { get; set; } = NullFileDialogService.Instance;
 
+        public event Action<string>? FramesDeleted;
+
         /// <summary>
         /// Fired after <see cref="SaveCurrentAnimationChainListAsync"/> successfully saves a file.
         /// The argument is the full path of the saved file.
@@ -387,17 +389,22 @@ namespace AnimationEditor.Core.CommandsAndState
             }
         }
 
-        public async Task AskToDeleteFrames(List<AnimationFrameSave> frames)
+        public void DeleteFrames(List<AnimationFrameSave> frames)
         {
-            var message = $"Delete the following {frames.Count} frame(s)?\n\n" +
-                string.Join("\n", frames.Select(f => $"Frame {f.TextureName}"));
-
-            if (await ConfirmAsync(message, "Delete?"))
+            var chain = _selectedState.SelectedChain;
+            if (chain != null)
             {
-                var chain = _selectedState.SelectedChain;
-                if (chain != null)
-                    _undoManager.Execute(new DeleteFramesCommand(frames, chain, this, _events));
+                var validFrames = frames.Where(f => chain.Frames.Contains(f)).ToList();
+                string label = validFrames.Count == 1
+                    ? $"Frame {chain.Frames.IndexOf(validFrames[0]) + 1}"
+                    : $"{validFrames.Count} frames";
+                _undoManager.Execute(new DeleteFramesCommand(frames, chain, this, _events));
+                if (validFrames.Count > 0)
+                    FramesDeleted?.Invoke(label);
             }
+
+            RefreshWireframeRequested?.Invoke();
+            _events.RaiseAnimationChainsChanged();
         }
 
         private List<string> GetSelectedFrameShapeNames()

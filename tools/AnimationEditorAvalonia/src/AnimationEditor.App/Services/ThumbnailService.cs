@@ -78,15 +78,33 @@ public sealed class ThumbnailService
     /// </summary>
     public Avalonia.Media.Imaging.Bitmap? GetFrameThumbnail(AnimationFrameSave frame, int maxWidth, int maxHeight)
     {
-        var path = ResolveTexturePath(frame);
-        var bm = GetBitmap(path);
+        var bm = GetBitmap(ResolveTexturePath(frame));
         if (bm is null) return null;
 
+        using var thumb = RenderFrameThumbnail(bm, frame, maxWidth, maxHeight);
+        if (thumb is null) return null;
+
+        using var ms = new MemoryStream();
+        thumb.Encode(ms, SKEncodedImageFormat.Png, 100);
+        ms.Position = 0;
+        return new Avalonia.Media.Imaging.Bitmap(ms);
+    }
+
+    /// <summary>
+    /// Pure SkiaSharp core of <see cref="GetFrameThumbnail"/>: crops <paramref name="frame"/>'s
+    /// UV region out of <paramref name="source"/> and scales it to fit within
+    /// <paramref name="maxWidth"/> × <paramref name="maxHeight"/> (aspect-preserving).
+    /// Returns <c>null</c> for a degenerate UV region. Exposed (internal) so tests can verify
+    /// crop/scale/sampling behaviour without going through file decode or Avalonia bitmap wrapping.
+    /// </summary>
+    internal static SKBitmap? RenderFrameThumbnail(
+        SKBitmap source, AnimationFrameSave frame, int maxWidth, int maxHeight)
+    {
         float uvW = frame.RightCoordinate  - frame.LeftCoordinate;
         float uvH = frame.BottomCoordinate - frame.TopCoordinate;
         if (uvW <= 0f || uvH <= 0f) return null;
 
-        int tw = bm.Width, th = bm.Height;
+        int tw = source.Width, th = source.Height;
         int sx = Math.Clamp((int)(frame.LeftCoordinate * tw), 0, tw - 1);
         int sy = Math.Clamp((int)(frame.TopCoordinate  * th), 0, th - 1);
         int sw = Math.Clamp((int)(uvW * tw), 1, tw - sx);
@@ -96,20 +114,24 @@ public sealed class ThumbnailService
         int finalW = Math.Max(1, (int)(sw * scale));
         int finalH = Math.Max(1, (int)(sh * scale));
 
-        using var thumb  = new SKBitmap(finalW, finalH);
+        // Crop the frame's region into its own image first, then scale. Scaling a sub-rect of
+        // the full sheet directly lets the sampler reach past the rect edges and pull in
+        // neighbouring frames (visible bleed / thin seam lines). A standalone subset has no
+        // neighbours to bleed from.
+        using var img    = SKImage.FromBitmap(source);
+        using var region = img.Subset(SKRectI.Create(sx, sy, sw, sh));
+        if (region is null) return null;   // sx/sy/sw/sh are clamped in-bounds, so defensive only
+
+        var thumb = new SKBitmap(finalW, finalH);
         using var canvas = new SKCanvas(thumb);
         canvas.Clear(SKColors.Transparent);
-        using var img    = SKImage.FromBitmap(bm);
         using var paint  = new SKPaint { Color = SKColors.White };
-        canvas.DrawImage(img,
-            SKRectI.Create(sx, sy, sw, sh),
+        // Nearest-neighbour ("point") sampling: keeps sprite-sheet art crisp/pixellated
+        // instead of the blurry smear linear filtering produces on game art.
+        canvas.DrawImage(region,
             SKRect.Create(0, 0, finalW, finalH),
-            new SKSamplingOptions(SKFilterMode.Linear),
+            new SKSamplingOptions(SKFilterMode.Nearest),
             paint);
-
-        using var ms = new MemoryStream();
-        thumb.Encode(ms, SKEncodedImageFormat.Png, 100);
-        ms.Position = 0;
-        return new Avalonia.Media.Imaging.Bitmap(ms);
+        return thumb;
     }
 }

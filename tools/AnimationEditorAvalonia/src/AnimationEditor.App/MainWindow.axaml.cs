@@ -47,6 +47,8 @@ public partial class MainWindow : Window
     private bool _suppressZoomComboChanged;
     private bool _suppressPreviewZoomComboChanged;
     private bool _suppressTreeSelectionHandling;
+    private System.Threading.CancellationTokenSource? _toastCts;
+    private List<AnimationChainSave>? _pendingDeleteChains;
 
     private FilePath SettingsFilePath =>
         new FilePath((Path.GetDirectoryName(
@@ -74,6 +76,7 @@ public partial class MainWindow : Window
         _thumbnailService = thumbnailService;
 
         InitializeComponent();
+        InitToast();
         PropertyChanged += (_, e) => { if (e.Property == OffScreenMarginProperty) Padding = OffScreenMargin; };
         WireframeCtrl.AttachScrollViewer(WireframeScrollViewer);
 
@@ -151,6 +154,28 @@ public partial class MainWindow : Window
         _undoManager.StackChanged         += () => Dispatcher.UIThread.InvokeAsync(UpdateStatusBar);
         _events.AnimationChainsChanged    += HandleAnimationChainsChanged;
         _selectedState.SelectionChanged   += HandleSelectionChanged;
+
+        _appCommands.FramesDeleted += label =>
+            Dispatcher.UIThread.InvokeAsync(() => ShowFrameDeletedToast(label));
+
+        FrameDeletedToastUndoBtn.Click += (_, _) =>
+        {
+            _toastCts?.Cancel();
+            FrameDeletedToastPanel.IsVisible = false;
+            _undoManager.Undo();
+        };
+
+        DeleteChainConfirmBtn.Click += (_, _) => CommitDeleteChain();
+        DeleteChainCancelBtn.Click  += (_, _) => CancelDeleteChain();
+
+        PointerPressed += (_, e) =>
+        {
+            if (_pendingDeleteChains is not null &&
+                !DeleteChainConfirmPanel.IsPointerOver)
+            {
+                CancelDeleteChain();
+            }
+        };
     }
 
     // ── Wireframe toolbar wiring ──────────────────────────────────────────────
@@ -1180,6 +1205,14 @@ public partial class MainWindow : Window
         _treeRoots.FirstOrDefault(n => n.Data is AnimationChainSave c && c == chain);
 
     /// <summary>
+    /// Pixel size the chain first-frame thumbnail bitmap is baked at. Kept at twice the
+    /// displayed icon size (the <c>TreeNodeIconSize</c> resource in MainWindow.axaml, 28px)
+    /// so the <c>Image</c> control downsamples — which is crisp — instead of upscaling a
+    /// too-small bitmap, which looks blurry. The 2× headroom also covers high-DPI displays.
+    /// </summary>
+    private const int TreeChainThumbnailPixelSize = 56;
+
+    /// <summary>
     /// Regenerates each chain node's first-frame icon when its <see cref="ThumbnailSource"/>
     /// has changed — a frame reorder, first-frame texture swap, first-frame region edit, or
     /// first-frame delete. Chains with no frames fall back to the generic chain icon.
@@ -1204,7 +1237,8 @@ public partial class MainWindow : Window
             (node.Thumbnail as IDisposable)?.Dispose();
             node.Thumbnail = source is null
                 ? null
-                : _thumbnailService.GetFrameThumbnail(chain.Frames[0], 14, 14);
+                : _thumbnailService.GetFrameThumbnail(
+                    chain.Frames[0], TreeChainThumbnailPixelSize, TreeChainThumbnailPixelSize);
             node.ThumbnailSource = source;
         }
     }
@@ -1394,7 +1428,7 @@ public partial class MainWindow : Window
             AddMenuItem("View Texture in Explorer", () => ViewTextureInExplorer(frame2));
             AddSeparator();
             AddMenuItem("Delete Frame", () =>
-                _ = _appCommands.AskToDeleteFrames(new() { frame2 }));
+                _appCommands.DeleteFrames(new List<AnimationFrameSave> { frame2 }));
         }
         else if (vm?.Data is AnimationChainSave chain)
         {
@@ -1429,8 +1463,13 @@ public partial class MainWindow : Window
             AddMenuItem("Adjust Offsets…", () => _ = AskAdjustOffsetsAsync(chain));
             AddMenuItem("Rename…",          () => BeginInlineRenameSelected(chain));
             AddSeparator();
-            AddMenuItem("Delete Animation",
-                () => _ = _appCommands.AskToDeleteAnimationChains(new() { chain }));
+            AddMenuItem("Delete Animation", () =>
+            {
+                if (chain.Frames.Count > 0)
+                    ShowDeleteChainConfirm(chain);
+                else
+                    _appCommands.DeleteAnimationChains(new List<AnimationChainSave> { chain });
+            });
         }
         else
         {
@@ -1630,7 +1669,22 @@ public partial class MainWindow : Window
                     }
                     catch (Exception ex)
                     {
-                        await ShowConfirmDialogAsync($"Could not copy the file:\n{ex.Message}", "Copy Failed");
+                        var capturedSource = pickedPath;
+                        var capturedDest   = destination;
+                        ShowToast($"Could not copy: {ex.Message}", retryAction: () =>
+                        {
+                            try
+                            {
+                                File.Copy(capturedSource, capturedDest, overwrite: true);
+                                _appCommands.SetFrameTextureName(frame, TexturePathHelper.ComputeStorePath(capturedDest, achxFolder));
+                                WireframeCtrl.LoadTexture(capturedDest);
+                                RefreshPropertyPanel();
+                            }
+                            catch (Exception retryEx)
+                            {
+                                ShowToast($"Retry failed: {retryEx.Message}");
+                            }
+                        });
                     }
                 }
             }
@@ -1929,32 +1983,11 @@ public partial class MainWindow : Window
 
     // ── Load-failed error dialog ──────────────────────────────────────────────
 
-    private async Task ShowLoadFailedDialogAsync(string filePath, Exception ex)
+    private Task ShowLoadFailedDialogAsync(string filePath, Exception ex)
     {
         var fileName = Path.GetFileName(filePath);
-        var dialog = new Window
-        {
-            Title = "Load Failed",
-            Width = 440,
-            Height = 180,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner
-        };
-
-        var panel = new StackPanel { Margin = new Avalonia.Thickness(16), Spacing = 12 };
-        panel.Children.Add(new TextBlock
-        {
-            Text = $"Could not load '{fileName}':\n{ex.Message}",
-            TextWrapping = Avalonia.Media.TextWrapping.Wrap
-        });
-
-        var okBtn = new Button { Content = "OK", HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right };
-        okBtn.Click += (_, _) => dialog.Close();
-        panel.Children.Add(okBtn);
-
-        dialog.Content = panel;
-        dialog.Closed += (_, _) => { };
-
-        await dialog.ShowDialog(this);
+        ShowStatusMessage($"⚠ Could not load '{fileName}': {ex.Message}", isError: true);
+        return Task.CompletedTask;
     }
 
     private async Task<bool> ShowConfirmDialogAsync(string message, string title)
@@ -2091,25 +2124,61 @@ public partial class MainWindow : Window
         return await tcs.Task;
     }
 
-    // ── Message dialog helper ─────────────────────────────────────────────────
+    // ── Status bar message ────────────────────────────────────────────────────
 
-    private async Task ShowMessageAsync(string message, string title = "Animation Editor")
+    private DispatcherTimer? _statusMessageTimer;
+
+    private void ShowStatusMessage(string text, bool isError = false)
     {
-        var dialog = new Window
-        {
-            Title = title,
-            Width = 400,
-            Height = 145,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner
-        };
+        StatusMessage.Text = text;
+        StatusMessage.Foreground = isError
+            ? new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(220, 80, 60))
+            : new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromArgb(255, 160, 160, 160));
+        StatusMessage.IsVisible = true;
 
-        var ok = new Button { Content = "OK", IsDefault = true, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right };
-        var panel = new StackPanel { Margin = new Avalonia.Thickness(16), Spacing = 12 };
-        panel.Children.Add(new TextBlock { Text = message, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
-        panel.Children.Add(ok);
-        dialog.Content = panel;
-        ok.Click += (_, _) => dialog.Close();
-        await dialog.ShowDialog(this);
+        _statusMessageTimer?.Stop();
+        _statusMessageTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        _statusMessageTimer.Tick += (_, _) =>
+        {
+            _statusMessageTimer.Stop();
+            StatusMessage.IsVisible = false;
+            StatusMessage.Text = string.Empty;
+        };
+        _statusMessageTimer.Start();
+    }
+
+    // ── Toast notification ────────────────────────────────────────────────────
+
+    private DispatcherTimer? _toastTimer;
+    private Action? _toastRetryAction;
+
+    private void InitToast()
+    {
+        ToastDismissBtn.Click += (_, _) => HideToast();
+        ToastRetryBtn.Click   += (_, _) =>
+        {
+            HideToast();
+            _toastRetryAction?.Invoke();
+        };
+    }
+
+    private void ShowToast(string message, Action? retryAction = null)
+    {
+        _toastRetryAction = retryAction;
+        ToastMessage.Text = message;
+        ToastRetryBtn.IsVisible = retryAction is not null;
+        ToastPanel.IsVisible = true;
+
+        _toastTimer?.Stop();
+        _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(6) };
+        _toastTimer.Tick += (_, _) => HideToast();
+        _toastTimer.Start();
+    }
+
+    private void HideToast()
+    {
+        _toastTimer?.Stop();
+        ToastPanel.IsVisible = false;
     }
 
     // ── Keyboard wiring ───────────────────────────────────────────────────────
@@ -2281,14 +2350,16 @@ public partial class MainWindow : Window
         if (selectedVm.Data is AnimationChainSave chainToDel)
         {
             var chains = _selectedState.SelectedChains;
-            _ = _appCommands.AskToDeleteAnimationChains(
-                chains.Count > 0 ? chains : new() { chainToDel });
+            List<AnimationChainSave> toDelete = chains.Count > 0 ? chains : new List<AnimationChainSave> { chainToDel };
+            if (toDelete.Any(c => c.Frames.Count > 0))
+                ShowDeleteChainConfirm(toDelete);
+            else
+                _appCommands.DeleteAnimationChains(toDelete);
         }
         else if (selectedVm.Data is AnimationFrameSave frameToDel)
         {
             var frames = _selectedState.SelectedFrames;
-            _ = _appCommands.AskToDeleteFrames(
-                frames.Count > 0 ? frames : new() { frameToDel });
+            _appCommands.DeleteFrames(frames.Count > 0 ? frames : new() { frameToDel });
         }
         else if (selectedVm.Data is AARectSave rectToDel)
         {
@@ -2303,6 +2374,54 @@ public partial class MainWindow : Window
                 circles.Count > 0 ? circles : new() { circleToDel });
         }
     }
+
+    private async void ShowFrameDeletedToast(string label)
+    {
+        _toastCts?.Cancel();
+        _toastCts = new System.Threading.CancellationTokenSource();
+        System.Threading.CancellationToken token = _toastCts.Token;
+
+        FrameDeletedToastLabel.Text = $"\"{label}\" deleted";
+        FrameDeletedToastPanel.IsVisible = true;
+
+        try
+        {
+            await System.Threading.Tasks.Task.Delay(4000, token);
+            FrameDeletedToastPanel.IsVisible = false;
+        }
+        catch (System.Threading.Tasks.TaskCanceledException) { }
+    }
+
+    private void ShowDeleteChainConfirm(AnimationChainSave chain) =>
+        ShowDeleteChainConfirm(new List<AnimationChainSave> { chain });
+
+    private void ShowDeleteChainConfirm(List<AnimationChainSave> chains)
+    {
+        _pendingDeleteChains = chains;
+        string label = chains.Count == 1
+            ? $"Delete \"{chains[0].Name}\"?"
+            : $"Delete {chains.Count} animations?";
+        DeleteChainConfirmLabel.Text = label;
+        DeleteChainConfirmPanel.IsVisible = true;
+    }
+
+    private void CommitDeleteChain()
+    {
+        if (_pendingDeleteChains is null) return;
+        List<AnimationChainSave> chains = _pendingDeleteChains;
+        _pendingDeleteChains = null;
+        DeleteChainConfirmPanel.IsVisible = false;
+        _appCommands.DeleteAnimationChains(chains);
+    }
+
+    private void CancelDeleteChain()
+    {
+        _pendingDeleteChains = null;
+        DeleteChainConfirmPanel.IsVisible = false;
+    }
+
+    internal void ShowDeleteChainConfirmForTest(AnimationChainSave chain) =>
+        ShowDeleteChainConfirm(new List<AnimationChainSave> { chain });
 
     // ── Add Multiple Frames ───────────────────────────────────────────────────
 
@@ -2358,7 +2477,7 @@ public partial class MainWindow : Window
             chain, count, incrToggle.IsChecked == true);
 
         if (exceededBounds)
-            await ShowMessageAsync("Some frames were clipped because they exceeded the texture bounds.");
+            ShowStatusMessage("Some frames were clipped — exceeded texture bounds.");
 
         _appCommands.RefreshTreeNode(chain);
         _events.RaiseAnimationChainsChanged();
@@ -2497,7 +2616,7 @@ public partial class MainWindow : Window
         var frame = _selectedState.SelectedFrame;
         if (frame is null || string.IsNullOrEmpty(frame.TextureName))
         {
-            await ShowMessageAsync("Select a frame with a texture before resizing.");
+            ShowStatusMessage("Select a frame with a texture before resizing.", isError: true);
             return;
         }
 
@@ -2511,7 +2630,7 @@ public partial class MainWindow : Window
 
         if (!File.Exists(absTexPath))
         {
-            await ShowMessageAsync($"Texture file not found:\n{absTexPath}");
+            ShowStatusMessage($"⚠ Texture file not found: {absTexPath}", isError: true);
             return;
         }
 
@@ -2521,7 +2640,7 @@ public partial class MainWindow : Window
         {
             if (bmp is null)
             {
-                await ShowMessageAsync("Could not read texture file.");
+                ShowStatusMessage("⚠ Could not read texture file.", isError: true);
                 return;
             }
             oldW = bmp.Width;
@@ -2582,7 +2701,7 @@ public partial class MainWindow : Window
 
         if (newW == oldW && newH == oldH)
         {
-            await ShowMessageAsync("New size is the same as current size. No changes made.");
+            ShowStatusMessage("New size is the same as current — no changes made.");
             return;
         }
 
@@ -2623,7 +2742,7 @@ public partial class MainWindow : Window
         _appCommands.SaveCurrentAnimationChainList();
         _events.RaiseAnimationChainsChanged();
 
-        await ShowMessageAsync($"Resized texture saved to:\n{newAbsPath}");
+        ShowStatusMessage($"Texture resized and saved to: {newAbsPath}");
     }
 
     // ── Inline rename helpers ─────────────────────────────────────────────────
@@ -2754,14 +2873,25 @@ public partial class MainWindow : Window
         newName = newName.Trim();
         vm.IsEditing = false;
 
-        if (vm.Data is AnimationChainSave chain &&
-            !string.IsNullOrEmpty(newName) && newName != chain.Name)
+        if (vm.Data is AnimationChainSave chain)
         {
-            _appCommands.RenameChain(chain, newName);
+            if (string.IsNullOrEmpty(newName))
+            {
+                ShowStatusMessage("Chain name cannot be empty.", isError: true);
+            }
+            else if (newName != chain.Name)
+            {
+                _appCommands.RenameChain(chain, newName);
+            }
         }
 
         AnimTree.Focus();
     }
+
+    internal void CommitInlineRenamePublic(TreeNodeVm vm, string newName) =>
+        CommitInlineRename(vm, newName);
+
+    internal IReadOnlyList<TreeNodeVm> GetTreeRoots() => _treeRoots;
 
     // ── View Texture in Explorer ──────────────────────────────────────────────
 
@@ -2769,7 +2899,7 @@ public partial class MainWindow : Window
     {
         if (string.IsNullOrEmpty(frame.TextureName))
         {
-            _ = ShowMessageAsync("This frame has no texture path set.");
+            ShowStatusMessage("This frame has no texture path set.", isError: true);
             return;
         }
 
@@ -2783,7 +2913,7 @@ public partial class MainWindow : Window
 
         if (!File.Exists(absPath))
         {
-            _ = ShowMessageAsync($"Texture file not found:\n{absPath}");
+            ShowStatusMessage($"⚠ Texture file not found: {absPath}", isError: true);
             return;
         }
 
@@ -2793,7 +2923,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            _ = ShowMessageAsync($"Could not open Explorer:\n{ex.Message}");
+            ShowStatusMessage($"⚠ Could not open Explorer: {ex.Message}", isError: true);
         }
     }
 }
