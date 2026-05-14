@@ -172,14 +172,22 @@
                                Foreground="{StaticResource InkMid}"
                                VerticalAlignment="Center" />
                 </StackPanel>
+                <!-- center: transient status message (last child — fills remaining space) -->
+                <TextBlock x:Name="StatusMessage"
+                           FontSize="11"
+                           FontFamily="Consolas,Menlo,Monospace"
+                           Foreground="{StaticResource InkMid}"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center"
+                           IsVisible="False" />
             </DockPanel>
         </Border>
 
         <!-- ── Main content: TreeView | Property Panel | [Wireframe / Preview] ── -->
-        <Grid ColumnDefinitions="260,4,240,4,*">
+        <Grid x:Name="MainContentGrid" ColumnDefinitions="280,4,240,4,*">
 
             <!-- ── Left: Animation tree ── -->
-            <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto"
+            <Grid Grid.Column="0" RowDefinitions="Auto,Auto,*,Auto"
                   Background="{StaticResource BgApp}">
 
                 <!-- ── Tree pane header ── -->
@@ -231,7 +239,34 @@
                     </DockPanel>
                 </Border>
 
-                <TreeView x:Name="AnimTree" Grid.Row="1"
+                <!-- Delete chain confirm -->
+                <Border x:Name="DeleteChainConfirmPanel"
+                        Grid.Row="1"
+                        IsVisible="False"
+                        Background="{StaticResource BgRail}"
+                        BorderBrush="{StaticResource LineBrush}"
+                        BorderThickness="0,0,0,1"
+                        Padding="10,5">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6">
+                            <Button x:Name="DeleteChainConfirmBtn"
+                                    Content="Confirm"
+                                    Padding="8,3"
+                                    FontSize="11" />
+                            <Button x:Name="DeleteChainCancelBtn"
+                                    Content="Cancel"
+                                    Padding="8,3"
+                                    FontSize="11" />
+                        </StackPanel>
+                        <TextBlock x:Name="DeleteChainConfirmLabel"
+                                   Foreground="{StaticResource InkMid}"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
+                                   FontSize="11" />
+                    </DockPanel>
+                </Border>
+
+                <TreeView x:Name="AnimTree" Grid.Row="2"
                           Background="{StaticResource BgApp}"
                           SelectionMode="Multiple"
                           ScrollViewer.VerticalScrollBarVisibility="Visible"
@@ -369,7 +404,7 @@
                 </TreeView>
 
                 <!-- ── Add Animation button ── -->
-                <Border Grid.Row="2"
+                <Border Grid.Row="3"
                         BorderBrush="{StaticResource LineBrush}"
                         BorderThickness="0,1,0,0"
                         Background="{StaticResource BgApp}"
@@ -968,6 +1003,61 @@
             </Grid>
         </Grid>
     </DockPanel>
+        <!-- Frame-deleted undo toast -->
+        <Border x:Name="FrameDeletedToastPanel"
+                IsVisible="False"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Margin="0,0,0,30"
+                Background="#333"
+                CornerRadius="4"
+                Padding="12,6"
+                ZIndex="50">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <TextBlock x:Name="FrameDeletedToastLabel"
+                           Foreground="White"
+                           VerticalAlignment="Center"
+                           FontSize="12" />
+                <Button x:Name="FrameDeletedToastUndoBtn"
+                        Content="Undo"
+                        Padding="8,3"
+                        FontSize="12" />
+            </StackPanel>
+        </Border>
+        <!-- ── Toast notification overlay ── -->
+        <Border x:Name="ToastPanel"
+                IsVisible="False"
+                VerticalAlignment="Bottom"
+                HorizontalAlignment="Stretch"
+                Margin="0,0,0,22"
+                Background="{StaticResource BgRail}"
+                BorderBrush="{StaticResource LineBrush}"
+                BorderThickness="0,1,0,0"
+                Height="36"
+                ZIndex="10">
+            <DockPanel Margin="16,0">
+                <Button x:Name="ToastDismissBtn"
+                        DockPanel.Dock="Right"
+                        Content="✕"
+                        Width="28" Height="22"
+                        Padding="0" BorderThickness="0"
+                        Background="Transparent"
+                        Foreground="{StaticResource InkMid}"
+                        VerticalAlignment="Center" />
+                <Button x:Name="ToastRetryBtn"
+                        DockPanel.Dock="Right"
+                        Content="Retry"
+                        Height="22"
+                        Padding="8,0"
+                        Margin="0,0,4,0"
+                        VerticalAlignment="Center" />
+                <TextBlock x:Name="ToastMessage"
+                           VerticalAlignment="Center"
+                           FontSize="11"
+                           Foreground="{StaticResource InkMid}"
+                           TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+        </Border>
         <!-- Resize grips — 4px edges + 8px corners, transparent overlays -->
         <Border x:Name="GripN"  Height="4" VerticalAlignment="Top"    Background="Transparent" Cursor="TopSide"         PointerPressed="OnResizeGrip" />
         <Border x:Name="GripS"  Height="4" VerticalAlignment="Bottom" Background="Transparent" Cursor="BottomSide"      PointerPressed="OnResizeGrip" />
