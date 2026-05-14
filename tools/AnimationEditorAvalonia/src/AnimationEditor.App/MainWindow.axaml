@@ -223,22 +223,18 @@
                     </DockPanel>
                 </Border>
 
-                <!-- Delete chain confirm — stacked: label row above buttons row -->
+                <!-- Delete chain confirm -->
                 <Border x:Name="DeleteChainConfirmPanel"
                         Grid.Row="1"
                         IsVisible="False"
                         Background="{StaticResource BgRail}"
                         BorderBrush="{StaticResource LineBrush}"
                         BorderThickness="0,0,0,1"
-                        Padding="10,6">
-                    <StackPanel Spacing="5">
-                        <TextBlock x:Name="DeleteChainConfirmLabel"
-                                   Foreground="{StaticResource InkMid}"
-                                   FontSize="11"
-                                   TextWrapping="Wrap" />
-                        <StackPanel Orientation="Horizontal" Spacing="6">
+                        Padding="10,5">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6">
                             <Button x:Name="DeleteChainConfirmBtn"
-                                    Content="Confirm ✕"
+                                    Content="Confirm"
                                     Padding="8,3"
                                     FontSize="11" />
                             <Button x:Name="DeleteChainCancelBtn"
@@ -246,7 +242,12 @@
                                     Padding="8,3"
                                     FontSize="11" />
                         </StackPanel>
-                    </StackPanel>
+                        <TextBlock x:Name="DeleteChainConfirmLabel"
+                                   Foreground="{StaticResource InkMid}"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
+                                   FontSize="11" />
+                    </DockPanel>
                 </Border>
 
                 <TreeView x:Name="AnimTree" Grid.Row="2"
