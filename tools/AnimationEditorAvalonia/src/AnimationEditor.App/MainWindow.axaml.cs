@@ -1953,7 +1953,18 @@ public partial class MainWindow : Window
     private async Task<bool> ShowConfirmDialogAsync(string message, string title)
     {
         var tcs = new TaskCompletionSource<bool>();
+        var dialog = BuildConfirmDialog(message, title, tcs);
+        await dialog.ShowDialog(this);
+        return await tcs.Task;
+    }
 
+    /// <summary>
+    /// Builds the yes/no confirmation dialog. "Yes" is the default action (ENTER)
+    /// and "No" is the cancel action (ESC); closing the window by any other means
+    /// resolves <paramref name="tcs"/> to false. Extracted for testability.
+    /// </summary>
+    internal static Window BuildConfirmDialog(string message, string title, TaskCompletionSource<bool> tcs)
+    {
         var dialog = new Window
         {
             Title = title,
@@ -1976,8 +1987,8 @@ public partial class MainWindow : Window
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right
         };
 
-        var yesBtn = new Button { Content = "Yes" };
-        var noBtn  = new Button { Content = "No" };
+        var yesBtn = new Button { Content = "Yes", IsDefault = true };
+        var noBtn  = new Button { Content = "No", IsCancel = true };
         yesBtn.Click += (_, _) => { tcs.TrySetResult(true);  dialog.Close(); };
         noBtn.Click  += (_, _) => { tcs.TrySetResult(false); dialog.Close(); };
         buttons.Children.Add(yesBtn);
@@ -1987,8 +1998,7 @@ public partial class MainWindow : Window
         dialog.Content = panel;
         dialog.Closed += (_, _) => tcs.TrySetResult(false);
 
-        await dialog.ShowDialog(this);
-        return await tcs.Task;
+        return dialog;
     }
 
     // ── String-input dialog helper ────────────────────────────────────────────
