@@ -1094,6 +1094,42 @@ public class HeadlessTreeViewTests
     }
 
     [AvaloniaFact]
+    public void AddFrameBtnDoubleTapped_MarksEventHandled()
+    {
+            // Regression (#218): the + button has DoubleTapped="OnAddFrameBtnDoubleTapped" which
+            // marks e.Handled=true so that OnAnimTreeDoubleTapped (registered with handledEventsToo=false)
+            // never fires when the double-tap originates from the + button area.
+            var (window, ctx) = CreateWindow();
+            try
+            {
+                var chain = new AnimationChainSave { Name = "Walk" };
+                ctx.ProjectManager.AnimationChainListSave!.AnimationChains.Add(chain);
+                TriggerRefreshTreeView(window);
+                Dispatcher.UIThread.RunJobs();
+
+                var tree = GetTree(window);
+                var chainNode = GetRoots(tree)[0];
+                chainNode.IsExpanded = true;
+                Dispatcher.UIThread.RunJobs();
+
+                var fakeArgs = (TappedEventArgs)System.Runtime.CompilerServices.RuntimeHelpers
+                    .GetUninitializedObject(typeof(TappedEventArgs));
+
+                var handler = typeof(MainWindow).GetMethod(
+                    "OnAddFrameBtnDoubleTapped",
+                    BindingFlags.NonPublic | BindingFlags.Instance)
+                    ?? throw new InvalidOperationException("OnAddFrameBtnDoubleTapped not found");
+                handler.Invoke(window, [null, fakeArgs]);
+
+                Assert.True(fakeArgs.Handled,
+                    "OnAddFrameBtnDoubleTapped must set e.Handled=true to block the chain rename.");
+                Assert.False(chainNode.IsEditing,
+                    "The chain node must not enter rename mode after + button double-tap.");
+            }
+            finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public void PressEnterToConfirmRename_DoesNotCollapseChainNode()
     {
             // Regression: Avalonia 12.x TreeViewItem.OnKeyDown handles Key.Enter by toggling
