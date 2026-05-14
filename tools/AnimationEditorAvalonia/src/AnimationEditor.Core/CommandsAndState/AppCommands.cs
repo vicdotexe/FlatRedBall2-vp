@@ -208,8 +208,15 @@ namespace AnimationEditor.Core.CommandsAndState
             var target = fileName ?? _pm.FileName;
             if (!string.IsNullOrEmpty(target))
             {
-                _pm.SaveAnimationChainList(target);
-                _undoManager.MarkSaved();
+                try
+                {
+                    _pm.SaveAnimationChainList(target);
+                    _undoManager.MarkSaved();
+                }
+                catch
+                {
+                    _undoManager.MarkSaveFailed();
+                }
             }
             else
             {

@@ -12,12 +12,12 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
         bool CanRedo { get; }
 
         /// <summary>
-        /// True when the current state has not been saved to disk since the last <see cref="Clear"/>.
-        /// Set to false by <see cref="MarkSaved"/>; reset to true by <see cref="Clear"/>.
+        /// Current save state of the open document.
+        /// Updated by <see cref="MarkSaved"/>, <see cref="MarkSaveFailed"/>, and <see cref="Clear"/>.
         /// </summary>
-        bool HasUnsavedChanges { get; }
+        SaveState SaveState { get; }
 
-        /// <summary>Raised after <see cref="Record"/>, <see cref="Undo"/>, <see cref="Redo"/>, <see cref="Clear"/>, or <see cref="MarkSaved"/>.</summary>
+        /// <summary>Raised after <see cref="Record"/>, <see cref="Undo"/>, <see cref="Redo"/>, <see cref="Clear"/>, <see cref="MarkSaved"/>, or <see cref="MarkSaveFailed"/>.</summary>
         event Action? StackChanged;
 
         /// <summary>
@@ -34,7 +34,10 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
 
         void Clear();
 
-        /// <summary>Marks the current state as saved, setting <see cref="HasUnsavedChanges"/> to false.</summary>
+        /// <summary>Marks the last auto-save as successful, setting <see cref="SaveState"/> to <see cref="SaveState.AutoSaveOn"/>.</summary>
         void MarkSaved();
+
+        /// <summary>Marks the last auto-save as failed, setting <see cref="SaveState"/> to <see cref="SaveState.Failed"/>.</summary>
+        void MarkSaveFailed();
     }
 }

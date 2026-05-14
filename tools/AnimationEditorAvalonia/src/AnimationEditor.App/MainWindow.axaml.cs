@@ -413,16 +413,23 @@ public partial class MainWindow : Window
 
     // ── Status bar ────────────────────────────────────────────────────────────
 
-    private static readonly Avalonia.Media.SolidColorBrush _savedBrush =
+    private static readonly Avalonia.Media.SolidColorBrush _autoSaveBrush =
         new(Avalonia.Media.Color.FromRgb(0x6d, 0xd2, 0x8d));
     private static readonly Avalonia.Media.SolidColorBrush _unsavedBrush =
         new(Avalonia.Media.Color.FromRgb(0xf0, 0xc6, 0x74));
+    private static readonly Avalonia.Media.SolidColorBrush _failedBrush =
+        new(Avalonia.Media.Color.FromRgb(0xe0, 0x55, 0x55));
 
     private void UpdateStatusBar()
     {
-        bool unsaved = _undoManager.HasUnsavedChanges;
-        StatusSaveLabel.Text = unsaved ? "Not saved" : "Saved";
-        StatusDot.Fill       = unsaved ? _unsavedBrush : _savedBrush;
+        var (label, brush) = _undoManager.SaveState switch
+        {
+            AnimationEditor.Core.CommandsAndState.Commands.SaveState.AutoSaveOn => ("Auto Save On", _autoSaveBrush),
+            AnimationEditor.Core.CommandsAndState.Commands.SaveState.Failed     => ("Auto Save Failed", _failedBrush),
+            _                                                                    => ("Not saved", _unsavedBrush),
+        };
+        StatusSaveLabel.Text = label;
+        StatusDot.Fill       = brush;
         StatusFilename.Text  = Path.GetFileName(_projectManager.FileName ?? string.Empty);
         var acls = _projectManager.AnimationChainListSave;
         if (acls == null || acls.AnimationChains.Count == 0)

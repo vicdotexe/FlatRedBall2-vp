@@ -11,13 +11,13 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
     {
         private readonly Stack<IUndoableCommand> _undoStack = new();
         private readonly Stack<IUndoableCommand> _redoStack = new();
-        private bool _hasBeenSaved;
+        private SaveState _saveState = SaveState.Unsaved;
 
         public bool CanUndo => _undoStack.Count > 0;
         public bool CanRedo => _redoStack.Count > 0;
-        public bool HasUnsavedChanges => !_hasBeenSaved;
+        public SaveState SaveState => _saveState;
 
-        /// <summary>Raised after <see cref="Record"/>, <see cref="Undo"/>, <see cref="Redo"/>, <see cref="Clear"/>, or <see cref="MarkSaved"/>.</summary>
+        /// <summary>Raised after <see cref="Record"/>, <see cref="Undo"/>, <see cref="Redo"/>, <see cref="Clear"/>, <see cref="MarkSaved"/>, or <see cref="MarkSaveFailed"/>.</summary>
         public event Action? StackChanged;
 
         /// <summary>
@@ -55,14 +55,21 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
         {
             _undoStack.Clear();
             _redoStack.Clear();
-            _hasBeenSaved = false;
+            _saveState = SaveState.Unsaved;
             StackChanged?.Invoke();
         }
 
-        /// <summary>Marks the current state as saved, setting <see cref="HasUnsavedChanges"/> to false.</summary>
+        /// <summary>Marks the last auto-save as successful, setting <see cref="SaveState"/> to <see cref="SaveState.AutoSaveOn"/>.</summary>
         public void MarkSaved()
         {
-            _hasBeenSaved = true;
+            _saveState = SaveState.AutoSaveOn;
+            StackChanged?.Invoke();
+        }
+
+        /// <summary>Marks the last auto-save as failed, setting <see cref="SaveState"/> to <see cref="SaveState.Failed"/>.</summary>
+        public void MarkSaveFailed()
+        {
+            _saveState = SaveState.Failed;
             StackChanged?.Invoke();
         }
     }

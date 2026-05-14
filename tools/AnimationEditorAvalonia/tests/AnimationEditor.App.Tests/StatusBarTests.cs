@@ -56,7 +56,7 @@ public class StatusBarTests
     }
 
     [AvaloniaFact]
-    public void StatusBar_ShowsSaved_AfterMarkSaved()
+    public void StatusBar_ShowsAutoSaveOn_AfterMarkSaved()
     {
         var (window, ctx) = CreateWindow();
         try
@@ -65,7 +65,7 @@ public class StatusBarTests
             Dispatcher.UIThread.RunJobs();
 
             var label = window.FindControl<TextBlock>("StatusSaveLabel")!;
-            Assert.Equal("Saved", label.Text);
+            Assert.Equal("Auto Save On", label.Text);
         }
         finally { window.Close(); }
     }
@@ -89,7 +89,7 @@ public class StatusBarTests
     }
 
     [AvaloniaFact]
-    public void StatusBar_ShowsSaved_AfterLoadFile()
+    public void StatusBar_ShowsAutoSaveOn_AfterLoadFile()
     {
         var dir = Path.Combine(Path.GetTempPath(), System.Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
@@ -101,7 +101,7 @@ public class StatusBarTests
             Dispatcher.UIThread.RunJobs();
 
             var label = window.FindControl<TextBlock>("StatusSaveLabel")!;
-            Assert.Equal("Saved", label.Text);
+            Assert.Equal("Auto Save On", label.Text);
         }
         finally
         {
@@ -176,16 +176,16 @@ public class StatusBarTests
     }
 
     [AvaloniaFact]
-    public void StatusBar_CountsEmpty_WhenNoChains()
+    public void StatusBar_ShowsAutoSaveFailed_AfterMarkSaveFailed()
     {
         var (window, ctx) = CreateWindow();
         try
         {
-            ctx.ApplicationEvents.RaiseAnimationChainsChanged();
+            ctx.UndoManager.MarkSaveFailed();
             Dispatcher.UIThread.RunJobs();
 
-            var counts = window.FindControl<TextBlock>("StatusCounts")!;
-            Assert.Equal(string.Empty, counts.Text);
+            var label = window.FindControl<TextBlock>("StatusSaveLabel")!;
+            Assert.Equal("Auto Save Failed", label.Text);
         }
         finally { window.Close(); }
     }
