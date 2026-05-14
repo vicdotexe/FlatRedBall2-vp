@@ -29,7 +29,20 @@ public class TimelineBuilderTests
     }
 
     [Fact]
-    public void BuildFrameItems_ClampsNegativeFrameLengthToBaseWidth()
+    public void BuildFrameItems_WidthsAreProportionalToDuration()
+    {
+        var chain = new AnimationChainSave { Name = "Run" };
+        chain.Frames.Add(new AnimationFrameSave { FrameLength = 0.1f });
+        chain.Frames.Add(new AnimationFrameSave { FrameLength = 0.2f });
+
+        var result = TimelineBuilder.BuildFrameItems(chain);
+
+        // A 0.2s frame must be exactly twice as wide as a 0.1s frame (no additive offset).
+        Assert.Equal(result[0].Width * 2.0, result[1].Width, precision: 6);
+    }
+
+    [Fact]
+    public void BuildFrameItems_ClampsNegativeFrameLengthToMinCellWidth()
     {
         var chain = new AnimationChainSave { Name = "Run" };
         chain.Frames.Add(new AnimationFrameSave { FrameLength = -1f });
@@ -37,6 +50,29 @@ public class TimelineBuilderTests
         var result = TimelineBuilder.BuildFrameItems(chain);
 
         Assert.Single(result);
-        Assert.Equal(TimelineBuilder.BaseCellWidth, result[0].Width);
+        Assert.Equal(TimelineBuilder.MinCellWidth, result[0].Width);
+    }
+
+    [Fact]
+    public void BuildFrameItems_ZeroLengthFrame_GetsMinCellWidth()
+    {
+        var chain = new AnimationChainSave { Name = "Run" };
+        chain.Frames.Add(new AnimationFrameSave { FrameLength = 0f });
+
+        var result = TimelineBuilder.BuildFrameItems(chain);
+
+        Assert.Single(result);
+        Assert.Equal(TimelineBuilder.MinCellWidth, result[0].Width);
+    }
+
+    [Fact]
+    public void BuildFrameItems_WidthEqualsFrameLengthTimesPixelsPerSecond()
+    {
+        var chain = new AnimationChainSave { Name = "Run" };
+        chain.Frames.Add(new AnimationFrameSave { FrameLength = 0.5f });
+
+        var result = TimelineBuilder.BuildFrameItems(chain);
+
+        Assert.Equal(0.5 * TimelineBuilder.PixelsPerSecond, result[0].Width, precision: 6);
     }
 }
