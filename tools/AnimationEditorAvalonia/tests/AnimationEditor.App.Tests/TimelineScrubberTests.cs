@@ -68,10 +68,8 @@ public class TimelineScrubberTests
     {
         var ctx = TestHelpers.BuildServices();
         var chain = new AnimationChainSave { Name = "Run" };
-        // Use a long enough frame (0.5s → 60px) so it's above MinCellWidth and the
-        // playhead moves purely at PixelsPerSecond without clamping.
-        chain.Frames.Add(new AnimationFrameSave { TextureName = "a.png", FrameLength = 0.5f, ShapesSave = new ShapesSave() });
-        chain.Frames.Add(new AnimationFrameSave { TextureName = "b.png", FrameLength = 0.5f, ShapesSave = new ShapesSave() });
+        chain.Frames.Add(new AnimationFrameSave { TextureName = "a.png", FrameLength = 0.1f, ShapesSave = new ShapesSave() });
+        chain.Frames.Add(new AnimationFrameSave { TextureName = "b.png", FrameLength = 0.1f, ShapesSave = new ShapesSave() });
         var acls = new AnimationChainListSave();
         acls.AnimationChains.Add(chain);
         ctx.ProjectManager.AnimationChainListSave = acls;
@@ -97,8 +95,8 @@ public class TimelineScrubberTests
             preview.Playback.Play();
             Dispatcher.UIThread.RunJobs();
 
-            // Advance 0.25s into a 0.5s frame → playhead should be at 0.25 * PixelsPerSecond px
-            const double elapsed = 0.25;
+            // Advance 0.05s into a 0.1s frame → playhead should be at 0.05 * PixelsPerSecond px
+            const double elapsed = 0.05;
             preview.Playback.Advance(elapsed);
 
             // ScrubberOffset is updated synchronously from PlaybackTicked — no RunJobs needed
@@ -162,9 +160,8 @@ public class TimelineScrubberTests
     {
         var ctx = TestHelpers.BuildServices();
         var chain = new AnimationChainSave { Name = "Run" };
-        // 0.5s frame → 60px cell, travelWidth=58px. Advancing 0.499s → 59.88px, clamped to 58px.
-        chain.Frames.Add(new AnimationFrameSave { TextureName = "a.png", FrameLength = 0.5f, ShapesSave = new ShapesSave() });
-        chain.Frames.Add(new AnimationFrameSave { TextureName = "b.png", FrameLength = 0.5f, ShapesSave = new ShapesSave() });
+        chain.Frames.Add(new AnimationFrameSave { TextureName = "a.png", FrameLength = 0.1f, ShapesSave = new ShapesSave() });
+        chain.Frames.Add(new AnimationFrameSave { TextureName = "b.png", FrameLength = 0.1f, ShapesSave = new ShapesSave() });
         var acls = new AnimationChainListSave();
         acls.AnimationChains.Add(chain);
         ctx.ProjectManager.AnimationChainListSave = acls;
@@ -189,8 +186,8 @@ public class TimelineScrubberTests
             preview.Playback.Play();
             Dispatcher.UIThread.RunJobs();
 
-            // Advance near the end of the frame — elapsed * PixelsPerSecond would exceed travelWidth
-            preview.Playback.Advance(0.499);
+            // Advance just before the frame boundary — elapsed * PixelsPerSecond would exceed travelWidth
+            preview.Playback.Advance(0.0999);
 
             double travelWidth = items[0].Width - TimelineFrameVm.PlayheadWidth;
             // Offset must not exceed travel width (right edge of playhead == right edge of cell)

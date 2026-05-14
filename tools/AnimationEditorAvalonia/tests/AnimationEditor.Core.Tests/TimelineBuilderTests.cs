@@ -31,15 +31,13 @@ public class TimelineBuilderTests
     [Fact]
     public void BuildFrameItems_WidthsAreProportionalToDuration()
     {
-        // Use frame lengths long enough that proportional width exceeds MinCellWidth.
-        // 0.3s → 36px, 0.6s → 72px (both > 24px MinCellWidth).
         var chain = new AnimationChainSave { Name = "Run" };
-        chain.Frames.Add(new AnimationFrameSave { FrameLength = 0.3f });
-        chain.Frames.Add(new AnimationFrameSave { FrameLength = 0.6f });
+        chain.Frames.Add(new AnimationFrameSave { FrameLength = 0.1f });
+        chain.Frames.Add(new AnimationFrameSave { FrameLength = 0.2f });
 
         var result = TimelineBuilder.BuildFrameItems(chain);
 
-        // A 0.6s frame must be exactly twice as wide as a 0.3s frame (no additive offset).
+        // A 0.2s frame must be exactly twice as wide as a 0.1s frame.
         Assert.Equal(result[0].Width * 2.0, result[1].Width, precision: 6);
     }
 
@@ -68,26 +66,26 @@ public class TimelineBuilderTests
     }
 
     [Fact]
+    public void BuildFrameItems_ShortFrame_UsesProportionalWidthNotMinCellWidth()
+    {
+        // 0.1s → 12px purely proportional. Constant playhead speed requires no clamp on non-zero frames.
+        var chain = new AnimationChainSave { Name = "Run" };
+        chain.Frames.Add(new AnimationFrameSave { FrameLength = 0.1f });
+
+        var result = TimelineBuilder.BuildFrameItems(chain);
+
+        Assert.Equal(0.1 * TimelineBuilder.PixelsPerSecond, result[0].Width, precision: 6);
+        Assert.True(result[0].Width < TimelineBuilder.MinCellWidth);
+    }
+
+    [Fact]
     public void BuildFrameItems_WidthEqualsFrameLengthTimesPixelsPerSecond()
     {
-        // 0.5s → 60px, well above MinCellWidth, so no clamping.
         var chain = new AnimationChainSave { Name = "Run" };
         chain.Frames.Add(new AnimationFrameSave { FrameLength = 0.5f });
 
         var result = TimelineBuilder.BuildFrameItems(chain);
 
         Assert.Equal(0.5 * TimelineBuilder.PixelsPerSecond, result[0].Width, precision: 6);
-    }
-
-    [Fact]
-    public void BuildFrameItems_ShortFrame_ClampsToMinCellWidth()
-    {
-        // 0.1s → 12px proportional, but MinCellWidth=24px wins.
-        var chain = new AnimationChainSave { Name = "Run" };
-        chain.Frames.Add(new AnimationFrameSave { FrameLength = 0.1f });
-
-        var result = TimelineBuilder.BuildFrameItems(chain);
-
-        Assert.Equal(TimelineBuilder.MinCellWidth, result[0].Width);
     }
 }
