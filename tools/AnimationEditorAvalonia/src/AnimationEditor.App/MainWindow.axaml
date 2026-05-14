@@ -171,7 +171,7 @@
         <Grid x:Name="MainContentGrid" ColumnDefinitions="260,4,240,4,*">
 
             <!-- ── Left: Animation tree ── -->
-            <Grid Grid.Column="0" RowDefinitions="Auto,Auto,*,Auto"
+            <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto"
                   Background="{StaticResource BgApp}">
 
                 <!-- ── Tree pane header ── -->
@@ -223,10 +223,12 @@
                     </DockPanel>
                 </Border>
 
-                <!-- Delete chain inline confirm -->
+                <!-- Delete chain confirm — floating overlay, sits on top of the tree -->
                 <Border x:Name="DeleteChainConfirmPanel"
-                        Grid.Row="1"
+                        Grid.Row="0" Grid.RowSpan="3"
+                        ZIndex="10"
                         IsVisible="False"
+                        VerticalAlignment="Top"
                         Background="{StaticResource BgRail}"
                         BorderBrush="{StaticResource LineBrush}"
                         BorderThickness="0,0,0,1"
@@ -245,11 +247,12 @@
                         <TextBlock x:Name="DeleteChainConfirmLabel"
                                    Foreground="{StaticResource InkMid}"
                                    VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
                                    FontSize="11" />
                     </DockPanel>
                 </Border>
 
-                <TreeView x:Name="AnimTree" Grid.Row="2"
+                <TreeView x:Name="AnimTree" Grid.Row="1"
                           Background="{StaticResource BgApp}"
                           SelectionMode="Multiple"
                           ScrollViewer.VerticalScrollBarVisibility="Visible"
@@ -385,7 +388,7 @@
                 </TreeView>
 
                 <!-- ── Add Animation button ── -->
-                <Border Grid.Row="3"
+                <Border Grid.Row="2"
                         BorderBrush="{StaticResource LineBrush}"
                         BorderThickness="0,1,0,0"
                         Background="{StaticResource BgApp}"
