@@ -754,17 +754,14 @@ public partial class MainWindow : Window
         if (idx < 0 || idx >= _timelineFrames.Count)
             return;
 
-        var chain = GetTimelineChain();
-        if (chain is null || idx >= chain.Frames.Count)
-            return;
-
-        double frameDuration = chain.Frames[idx].FrameLength;
-        if (frameDuration <= 0) frameDuration = 0.1;
-
         double elapsed = PreviewCtrl.Playback.FrameElapsed;
-        double ratio = Math.Clamp(elapsed / frameDuration, 0.0, 1.0);
         double travelWidth = Math.Max(0, _timelineFrames[idx].Width - TimelineFrameVm.PlayheadWidth);
-        _timelineFrames[idx].ScrubberOffset = ratio * travelWidth;
+
+        // Move the playhead at a constant PixelsPerSecond rate.
+        // For clamped cells (shorter than natural proportional width) the playhead parks
+        // at the right edge until the frame advances rather than speeding up.
+        double offset = Math.Min(elapsed * _timelineEffectivePps, travelWidth);
+        _timelineFrames[idx].ScrubberOffset = offset;
     }
 
     // ── Editable preview-zoom combo (bottom preview) ─────────────────────────
@@ -834,6 +831,7 @@ public partial class MainWindow : Window
 
     private readonly ObservableCollection<TreeNodeVm> _treeRoots = new();
     private readonly ObservableCollection<TimelineFrameVm> _timelineFrames = new();
+    private double _timelineEffectivePps = TimelineBuilder.PixelsPerSecond;
     private int _currentTimelineFrameIndex = -1;
 
     private void WireTreeView()
@@ -1245,6 +1243,7 @@ public partial class MainWindow : Window
 
         foreach (var item in TimelineBuilder.BuildFrameItems(chain))
             _timelineFrames.Add(item);
+        _timelineEffectivePps = TimelineBuilder.ComputeEffectivePixelsPerSecond(chain);
 
         // Populate frame thumbnails (texture crop, no shapes)
         if (chain is not null)
