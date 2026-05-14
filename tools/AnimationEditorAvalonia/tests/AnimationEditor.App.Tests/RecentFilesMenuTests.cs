@@ -1,3 +1,4 @@
+using System.IO;
 using System.Reflection;
 using AnimationEditor.Core.Models;
 using Avalonia.Controls;
@@ -31,11 +32,12 @@ public class RecentFilesMenuTests
     [AvaloniaFact]
     public void RecentFiles_ShowsAbbreviatedFileNameAsHeader()
     {
+        var fullPath = Path.Combine(Path.GetTempPath(), "Games", "MyProject", "player.achx");
         var (window, appSettings) = CreateWindowWithSettings();
         try
         {
             appSettings.RecentFiles.Clear();
-            appSettings.RecentFiles.Add(@"C:\Games\MyProject\player.achx");
+            appSettings.RecentFiles.Add(fullPath);
             CallRefreshRecentFiles(window);
 
             var menuLoadRecent = window.FindControl<MenuItem>("MenuLoadRecent")!;
@@ -49,7 +51,7 @@ public class RecentFilesMenuTests
     [AvaloniaFact]
     public void RecentFiles_ShowsFullPathAsToolTip()
     {
-        const string fullPath = @"C:\Games\MyProject\player.achx";
+        var fullPath = Path.Combine(Path.GetTempPath(), "Games", "MyProject", "player.achx");
         var (window, appSettings) = CreateWindowWithSettings();
         try
         {
@@ -73,7 +75,7 @@ public class RecentFilesMenuTests
         {
             appSettings.RecentFiles.Clear();
             for (int i = 0; i < 10; i++)
-                appSettings.RecentFiles.Add($@"C:\Games\file{i}.achx");
+                appSettings.RecentFiles.Add(Path.Combine(Path.GetTempPath(), $"file{i}.achx"));
             CallRefreshRecentFiles(window);
 
             var menuLoadRecent = window.FindControl<MenuItem>("MenuLoadRecent")!;
@@ -90,8 +92,8 @@ public class RecentFilesMenuTests
         try
         {
             appSettings.RecentFiles.Clear();
-            appSettings.RecentFiles.Add(@"C:\a.achx");
-            appSettings.RecentFiles.Add(@"C:\b.achx");
+            appSettings.RecentFiles.Add(Path.Combine(Path.GetTempPath(), "a.achx"));
+            appSettings.RecentFiles.Add(Path.Combine(Path.GetTempPath(), "b.achx"));
             CallRefreshRecentFiles(window);
 
             var menuLoadRecent = window.FindControl<MenuItem>("MenuLoadRecent")!;
