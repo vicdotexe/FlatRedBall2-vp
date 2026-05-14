@@ -479,16 +479,17 @@ public partial class MainWindow : Window
         var undoHistory = _undoManager.UndoHistory;
         var redoHistory = _undoManager.RedoHistory;
         var items = new List<Models.HistoryEntryVm>();
-        foreach (var cmd in undoHistory)
+        // Newest undo item at the top, oldest at the bottom
+        foreach (var cmd in undoHistory.Reverse())
             items.Add(new Models.HistoryEntryVm(cmd.Description, "#e6e8ec"));
         foreach (var cmd in redoHistory)
             items.Add(new Models.HistoryEntryVm(cmd.Description, "#6a6e76"));
         HistoryList.ItemsSource = items;
 
-        int currentIndex = undoHistory.Count - 1;
-        HistoryList.SelectedIndex = currentIndex;
-        if (currentIndex >= 0)
-            HistoryList.ScrollIntoView(items[currentIndex]);
+        // Current step is always row 0 (most recent action)
+        HistoryList.SelectedIndex = undoHistory.Count > 0 ? 0 : -1;
+        if (items.Count > 0)
+            HistoryList.ScrollIntoView(items[0]);
 
         HistoryUndoButton.IsEnabled = _undoManager.CanUndo;
         HistoryRedoButton.IsEnabled = _undoManager.CanRedo;
