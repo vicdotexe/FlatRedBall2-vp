@@ -629,9 +629,10 @@ public partial class MainWindow : Window
     private void RefreshRecentFiles()
     {
         MenuLoadRecent.Items.Clear();
-        foreach (var file in _appSettings.RecentFiles)
+        foreach (var file in _appSettings.RecentFiles.Take(5))
         {
-            var item = new MenuItem { Header = file };
+            var item = new MenuItem { Header = System.IO.Path.GetFileName(file) };
+            ToolTip.SetTip(item, file);
             var captured = file;
             item.Click += async (_, _) => await LoadAnimationFileAsync(captured);
             MenuLoadRecent.Items.Add(item);
