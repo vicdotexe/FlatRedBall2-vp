@@ -169,6 +169,7 @@ public partial class MainWindow : Window
         ZoomCombo.SelectionChanged += OnZoomComboSelectionChanged;
         ZoomPlusBtn.Click  += (_, _) => StepZoomPreset(WireframeCtrl.Zoom * 100f, _zoomPresets, +1, p => WireframeCtrl.SetZoomPercent(p));
         ZoomMinusBtn.Click += (_, _) => StepZoomPreset(WireframeCtrl.Zoom * 100f, _zoomPresets, -1, p => WireframeCtrl.SetZoomPercent(p));
+        WireframeCtrl.WheelZoomPresets = _zoomPresets;
 
         // Apply initial grid state
         WireframeCtrl.SetGrid(false, 16);
@@ -257,7 +258,7 @@ public partial class MainWindow : Window
     // writes Text back into the control.
 
     private static readonly int[] _zoomPresets =
-        { 10, 25, 50, 100, 200, 400, 800 };
+        { 5, 10, 16, 25, 33, 50, 66, 75, 100, 150, 200, 300, 400, 800, 1600, 3200 };
     private static readonly string[] _zoomPresetTexts =
         _zoomPresets.Select(p => $"{p}%").ToArray();
 
@@ -726,6 +727,7 @@ public partial class MainWindow : Window
         PreviewZoomCombo.SelectionChanged += OnPreviewZoomComboSelectionChanged;
         PreviewZoomPlusBtn.Click  += (_, _) => StepZoomPreset(PreviewCtrl.Zoom * 100f, _previewZoomPresets, +1, p => PreviewCtrl.SetZoomPercent(p));
         PreviewZoomMinusBtn.Click += (_, _) => StepZoomPreset(PreviewCtrl.Zoom * 100f, _previewZoomPresets, -1, p => PreviewCtrl.SetZoomPercent(p));
+        PreviewCtrl.WheelZoomPresets = _previewZoomPresets;
 
         PreviewCtrl.ZoomChanged += SyncPreviewZoomCombo;
         PreviewCtrl.Playback.FrameIndexChanged += OnPreviewPlaybackFrameIndexChanged;
@@ -766,13 +768,10 @@ public partial class MainWindow : Window
 
     // ── Editable preview-zoom combo (bottom preview) ─────────────────────────
     //
-    // Same editable-AutoCompleteBox pattern as ZoomCombo above. The bottom
-    // preview's wheel zoom uses a 1.25 / 0.8 multiplier so it almost always
-    // lands on a non-preset value — making the preset-snap display from the
-    // pre-fix code straight-up wrong.
+    // Same editable-AutoCompleteBox pattern as ZoomCombo above.
 
     private static readonly int[] _previewZoomPresets =
-        { 10, 25, 50, 100, 200, 400 };
+        { 5, 10, 16, 25, 33, 50, 66, 75, 100, 150, 200, 300, 400, 800, 1600, 3200 };
     private static readonly string[] _previewZoomPresetTexts =
         _previewZoomPresets.Select(p => $"{p}%").ToArray();
 
