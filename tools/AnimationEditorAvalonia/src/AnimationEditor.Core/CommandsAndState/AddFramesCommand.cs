@@ -26,6 +26,7 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
 
         public bool Do()
         {
+            if (_frames.Length == 0) return false;
             foreach (var frame in _frames)
                 _chain.Frames.Add(frame);
             _commands.RefreshTreeNode(_chain);

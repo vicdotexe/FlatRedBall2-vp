@@ -859,5 +859,27 @@ namespace AnimationEditor.Core.CommandsAndState
             if (frame == null) return;
             _undoManager.Execute(new SetFrameTextureNameCommand(frame, frame.TextureName, textureName, this, _events));
         }
+
+        // ── Paste (clipboard → project) ───────────────────────────────────────
+
+        /// <inheritdoc cref="IAppCommands.PasteChains"/>
+        public void PasteChains(IReadOnlyList<AnimationChainSave> chains)
+        {
+            var acls = _pm.AnimationChainListSave;
+            if (acls is null) return;
+            _undoManager.Execute(new PasteChainsCommand(acls, chains, this, _events));
+        }
+
+        /// <inheritdoc cref="IAppCommands.PasteFrames"/>
+        public void PasteFrames(AnimationChainSave chain, IReadOnlyList<AnimationFrameSave> frames) =>
+            _undoManager.Execute(new AddFramesCommand(frames.ToArray(), chain, this, _events));
+
+        /// <inheritdoc cref="IAppCommands.PasteRectangle"/>
+        public void PasteRectangle(AnimationFrameSave frame, AARectSave rectangle) =>
+            _undoManager.Execute(new AddAxisAlignedRectangleCommand(rectangle, frame, this, _events));
+
+        /// <inheritdoc cref="IAppCommands.PasteCircle"/>
+        public void PasteCircle(AnimationFrameSave frame, CircleSave circle) =>
+            _undoManager.Execute(new AddCircleCommand(circle, frame, this, _events));
     }
 }
