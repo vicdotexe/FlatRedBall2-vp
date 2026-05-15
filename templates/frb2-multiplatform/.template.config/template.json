@@ -28,5 +28,22 @@
         }
       ]
     }
-  ]
+  ],
+  "SpecialCustomOperations": {
+    "**/*.cs": {
+      "Operations": [
+        {
+          "Type": "conditional",
+          "Configuration": {
+            "if": [ "//#if" ],
+            "else": [ "//#else" ],
+            "elseif": [ "//#elseif" ],
+            "endif": [ "//#endif" ],
+            "trim": true,
+            "wholeLine": true
+          }
+        }
+      ]
+    }
+  }
 }
