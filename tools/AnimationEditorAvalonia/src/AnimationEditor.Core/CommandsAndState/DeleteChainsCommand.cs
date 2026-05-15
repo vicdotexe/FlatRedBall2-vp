@@ -1,6 +1,7 @@
 using FlatRedBall2.Animation.Content;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace AnimationEditor.Core.CommandsAndState.Commands
 {
@@ -51,12 +52,12 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
             foreach (var (chain, _) in _removed)
                 _acls.AnimationChains.Remove(chain);
 
+            ClearSelectionForRemovedChains();
             _commands.RefreshTreeView();
             _commands.RefreshAnimationFrameDisplay();
             _events.RaiseAnimationChainsChanged();
             _commands.RefreshWireframe();
             _commands.SaveCurrentAnimationChainList();
-            _selectedState.SelectedChain = null;
             return true;
         }
 
@@ -80,12 +81,37 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
         {
             foreach (var (chain, _) in _removed)
                 _acls.AnimationChains.Remove(chain);
+            ClearSelectionForRemovedChains();
             _commands.RefreshTreeView();
             _commands.RefreshAnimationFrameDisplay();
             _events.RaiseAnimationChainsChanged();
             _commands.RefreshWireframe();
             _commands.SaveCurrentAnimationChainList();
-            _selectedState.SelectedChain = null;
+        }
+
+        /// <summary>
+        /// Drops every just-removed chain from the selection. Without this the
+        /// preview keeps rendering an orphaned chain's frames, because
+        /// <see cref="ISelectedState.SelectedChain"/> still points at a chain that
+        /// is no longer in the project. See issue #284.
+        /// </summary>
+        private void ClearSelectionForRemovedChains()
+        {
+            var removedChains = _removed.Select(r => r.Chain).ToHashSet();
+
+            // Drop deleted chains from the multi-selection bag.
+            var nodes = _selectedState.SelectedNodes;
+            if (nodes.Any(n => n is AnimationChainSave c && removedChains.Contains(c)))
+            {
+                _selectedState.SelectedNodes = nodes
+                    .Where(n => n is not AnimationChainSave c || !removedChains.Contains(c))
+                    .ToList();
+            }
+
+            // Clear the primary selection if it pointed at a deleted chain. Setting
+            // SelectedChain = null also clears any frame/rectangle/circle under it.
+            if (_selectedState.SelectedChain is { } selected && removedChains.Contains(selected))
+                _selectedState.SelectedChain = null;
         }
     }
 }

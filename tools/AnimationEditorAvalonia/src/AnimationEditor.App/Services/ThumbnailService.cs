@@ -126,12 +126,24 @@ public sealed class ThumbnailService
         using var canvas = new SKCanvas(thumb);
         canvas.Clear(SKColors.Transparent);
         using var paint  = new SKPaint { Color = SKColors.White };
+
+        bool anyFlip = frame.FlipHorizontal || frame.FlipVertical;
+        if (anyFlip)
+        {
+            canvas.Save();
+            float flipScaleX = frame.FlipHorizontal ? -1f : 1f;
+            float flipScaleY = frame.FlipVertical   ? -1f : 1f;
+            canvas.Scale(flipScaleX, flipScaleY, finalW / 2f, finalH / 2f);
+        }
+
         // Nearest-neighbour ("point") sampling: keeps sprite-sheet art crisp/pixellated
         // instead of the blurry smear linear filtering produces on game art.
         canvas.DrawImage(region,
             SKRect.Create(0, 0, finalW, finalH),
             new SKSamplingOptions(SKFilterMode.Nearest),
             paint);
+
+        if (anyFlip) canvas.Restore();
         return thumb;
     }
 }
