@@ -190,7 +190,7 @@
 
             <!-- ── Left: Animation tree ── -->
             <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto"
-                  Background="{StaticResource BgApp}">
+                  Background="{StaticResource BgCanvas}">
 
                 <!-- ── Tree pane header ── -->
                 <Border Grid.Row="0"
@@ -242,7 +242,7 @@
                 </Border>
 
                 <TreeView x:Name="AnimTree" Grid.Row="1"
-                          Background="{StaticResource BgApp}"
+                          Background="{StaticResource BgCanvas}"
                           SelectionMode="Multiple"
                           ScrollViewer.VerticalScrollBarVisibility="Visible"
                           ScrollViewer.AllowAutoHide="False">
@@ -390,7 +390,7 @@
                 <Border Grid.Row="2"
                         BorderBrush="{StaticResource LineBrush}"
                         BorderThickness="0,1,0,0"
-                        Background="{StaticResource BgApp}"
+                        Background="{StaticResource BgCanvas}"
                         Padding="8,6">
                     <Button x:Name="AddChainBtn"
                             Content="+ Add Animation"
@@ -661,7 +661,7 @@
                         </Border>
                         <!-- frame cells -->
                         <Border Grid.Row="1"
-                                Background="{StaticResource BgRail}"
+                                Background="{StaticResource BgCanvas}"
                                 BorderBrush="{StaticResource LineBrush}"
                                 BorderThickness="0,0,0,0">
                             <ScrollViewer HorizontalScrollBarVisibility="Auto"
