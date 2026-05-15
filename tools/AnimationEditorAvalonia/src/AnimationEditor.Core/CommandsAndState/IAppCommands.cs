@@ -72,6 +72,7 @@ namespace AnimationEditor.Core.CommandsAndState
         Task AskToDeleteRectangles(List<AARectSave> rectangles);
         Task AskToDeleteCircles(List<CircleSave> circles);
         Task AskToDeleteShapes(List<AARectSave> rectangles, List<CircleSave> circles);
+        void DeleteShapes(AnimationFrameSave frame, List<AARectSave> rectangles, List<CircleSave> circles);
         Task AskToDeleteAnimationChains(List<AnimationChainSave> animationChains);
         void DeleteFrames(List<AnimationFrameSave> frames);
         Task AddAnimationChain();
