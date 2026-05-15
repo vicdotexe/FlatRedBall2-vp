@@ -109,7 +109,7 @@ public class HistoryPanelTests
         var acls = new AnimationChainListSave();
         var chain = new AnimationChainSave { Name = "Walk" };
         var ctx = TestHelpers.SetupFreshAcls();
-        var cmd = new AddChainCommand(chain, ctx.Acls, ctx.AppCommands, ctx.ApplicationEvents);
+        var cmd = new AddChainCommand(chain, ctx.Acls, ctx.AppCommands, ctx.ApplicationEvents, ctx.SelectedState);
 
         Assert.Contains("Walk", cmd.Description);
     }
@@ -130,7 +130,7 @@ public class HistoryPanelTests
     {
         var chain = new AnimationChainSave { Name = "Walk" };
         var ctx = TestHelpers.SetupFreshAcls();
-        var cmd = new DeleteChainsCommand(new[] { chain }, ctx.Acls, ctx.AppCommands, ctx.ApplicationEvents);
+        var cmd = new DeleteChainsCommand(new[] { chain }, ctx.Acls, ctx.AppCommands, ctx.ApplicationEvents, ctx.SelectedState);
 
         Assert.Contains("Walk", cmd.Description);
     }
@@ -144,7 +144,7 @@ public class HistoryPanelTests
             new AnimationChainSave { Name = "Run" },
         };
         var ctx = TestHelpers.SetupFreshAcls();
-        var cmd = new DeleteChainsCommand(chains, ctx.Acls, ctx.AppCommands, ctx.ApplicationEvents);
+        var cmd = new DeleteChainsCommand(chains, ctx.Acls, ctx.AppCommands, ctx.ApplicationEvents, ctx.SelectedState);
 
         Assert.Contains("2", cmd.Description);
     }

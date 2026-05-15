@@ -10,6 +10,7 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
         private readonly AnimationChainListSave _acls;
         private readonly IAppCommands _commands;
         private readonly IApplicationEvents _events;
+        private readonly ISelectedState _selectedState;
 
         // Captured by Do(): the chains actually removed, paired with where they were.
         private (AnimationChainSave Chain, int OriginalIndex)[] _removed = [];
@@ -20,12 +21,14 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
             IReadOnlyList<AnimationChainSave> chains,
             AnimationChainListSave acls,
             IAppCommands commands,
-            IApplicationEvents events)
+            IApplicationEvents events,
+            ISelectedState selectedState)
         {
             _chains = chains;
             _acls = acls;
             _commands = commands;
             _events = events;
+            _selectedState = selectedState;
             Description = chains.Count == 1
                 ? $"Delete '{chains[0].Name}'"
                 : $"Delete {chains.Count} Animations";
@@ -53,6 +56,7 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
             _events.RaiseAnimationChainsChanged();
             _commands.RefreshWireframe();
             _commands.SaveCurrentAnimationChainList();
+            _selectedState.SelectedChain = null;
             return true;
         }
 
@@ -69,6 +73,7 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
             _events.RaiseAnimationChainsChanged();
             _commands.RefreshWireframe();
             _commands.SaveCurrentAnimationChainList();
+            _selectedState.SelectedChain = _removed[0].Chain;
         }
 
         public void Redo()
@@ -80,6 +85,7 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
             _events.RaiseAnimationChainsChanged();
             _commands.RefreshWireframe();
             _commands.SaveCurrentAnimationChainList();
+            _selectedState.SelectedChain = null;
         }
     }
 }
