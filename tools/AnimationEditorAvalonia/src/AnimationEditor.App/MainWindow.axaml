@@ -279,13 +279,22 @@
                                     Value="{ReflectionBinding IsExpanded, Mode=TwoWay}" />
                         </Style>
                         <!-- Expand chevron hit area to a full-height square; icon stays 12×12 centered.
-                             IsVisible=True overrides the default TemplateBinding HasItems so the container
-                             always reserves the same horizontal space — preventing a jagged appearance when
-                             some frame nodes have shapes (children) and others don't. -->
+                             Both selectors are required: the plain one sets width/margin for nodes that
+                             have children; the :empty one overrides the Fluent theme's more-specific
+                             rule that hides the container on leaf nodes. Together they ensure every
+                             item reserves the same horizontal space — no jagged alignment when some
+                             frame nodes have shapes and others don't. -->
                         <Style Selector="TreeViewItem /template/ Panel#PART_ExpandCollapseChevronContainer">
                             <Setter Property="Margin" Value="0" />
                             <Setter Property="Width" Value="{DynamicResource TreeViewItemMinHeight}" />
+                        </Style>
+                        <Style Selector="TreeViewItem:empty /template/ Panel#PART_ExpandCollapseChevronContainer">
                             <Setter Property="IsVisible" Value="True" />
+                        </Style>
+                        <!-- Hide the toggle button itself for leaf nodes so the space is reserved
+                             but clicking does nothing (no phantom expand interaction). -->
+                        <Style Selector="TreeViewItem:empty /template/ ToggleButton#PART_ExpandCollapseChevron">
+                            <Setter Property="IsVisible" Value="False" />
                         </Style>
                         <Style Selector="TreeViewItem /template/ ToggleButton#PART_ExpandCollapseChevron">
                             <Setter Property="VerticalAlignment" Value="Stretch" />
