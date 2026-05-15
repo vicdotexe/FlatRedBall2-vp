@@ -360,8 +360,8 @@ public class AppCommandsDeleteAsyncTests
         var frame = chain.Frames[0];
         var rect = new AARectSave { Name = "Hitbox" };
         var circle = new CircleSave { Name = "Hurtbox", Radius = 10 };
-        frame.ShapesSave!.AARectSaves.Add(rect);
-        frame.ShapesSave!.CircleSaves.Add(circle);
+        frame.ShapesSave!.Shapes.Add(rect);
+        frame.ShapesSave!.Shapes.Add(circle);
 
         await ctx.AppCommands.AskToDeleteShapes(
             new List<AARectSave> { rect },
@@ -380,8 +380,8 @@ public class AppCommandsDeleteAsyncTests
         var frame = chain.Frames[0];
         var rect = new AARectSave { Name = "Hitbox" };
         var circle = new CircleSave { Name = "Hurtbox", Radius = 10 };
-        frame.ShapesSave!.AARectSaves.Add(rect);
-        frame.ShapesSave!.CircleSaves.Add(circle);
+        frame.ShapesSave!.Shapes.Add(rect);
+        frame.ShapesSave!.Shapes.Add(circle);
 
         await ctx.AppCommands.AskToDeleteShapes(
             new List<AARectSave> { rect },
@@ -400,8 +400,8 @@ public class AppCommandsDeleteAsyncTests
         var frame = chain.Frames[0];
         var rect = new AARectSave { Name = "Hitbox" };
         var circle = new CircleSave { Name = "Hurtbox", Radius = 10 };
-        frame.ShapesSave!.AARectSaves.Add(rect);
-        frame.ShapesSave!.CircleSaves.Add(circle);
+        frame.ShapesSave!.Shapes.Add(rect);
+        frame.ShapesSave!.Shapes.Add(circle);
 
         await ctx.AppCommands.AskToDeleteShapes(
             new List<AARectSave> { rect },
@@ -431,8 +431,8 @@ public class AppCommandsDeleteAsyncTests
         var frame = chain.Frames[0];
         var rect = new AARectSave { Name = "BodyHitbox" };
         var circle = new CircleSave { Name = "AttackRadius", Radius = 10 };
-        frame.ShapesSave!.AARectSaves.Add(rect);
-        frame.ShapesSave!.CircleSaves.Add(circle);
+        frame.ShapesSave!.Shapes.Add(rect);
+        frame.ShapesSave!.Shapes.Add(circle);
 
         await ctx.AppCommands.AskToDeleteShapes(
             new List<AARectSave> { rect },
