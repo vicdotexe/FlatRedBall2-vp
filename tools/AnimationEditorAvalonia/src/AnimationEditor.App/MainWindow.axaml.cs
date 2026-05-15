@@ -48,10 +48,6 @@ public partial class MainWindow : Window
     private bool _suppressPreviewZoomComboChanged;
     private bool _suppressTreeSelectionHandling;
     private System.Threading.CancellationTokenSource? _toastCts;
-    private List<AnimationChainSave>? _pendingDeleteChains;
-    private List<AARectSave>?      _pendingDeleteShapeRects;
-    private List<CircleSave>?      _pendingDeleteShapeCircles;
-    private AnimationFrameSave?    _pendingDeleteShapeFrame;
 
     private FilePath SettingsFilePath =>
         new FilePath((Path.GetDirectoryName(
@@ -168,25 +164,6 @@ public partial class MainWindow : Window
             _undoManager.Undo();
         };
 
-        DeleteChainConfirmBtn.Click += (_, _) => CommitDeleteChain();
-        DeleteChainCancelBtn.Click  += (_, _) => CancelDeleteChain();
-
-        DeleteShapeConfirmBtn.Click += (_, _) => CommitDeleteShape();
-        DeleteShapeCancelBtn.Click  += (_, _) => CancelDeleteShape();
-
-        PointerPressed += (_, e) =>
-        {
-            if (_pendingDeleteChains is not null &&
-                !DeleteChainConfirmPanel.IsPointerOver)
-            {
-                CancelDeleteChain();
-            }
-            if (_pendingDeleteShapeRects is not null &&
-                !DeleteShapeConfirmPanel.IsPointerOver)
-            {
-                CancelDeleteShape();
-            }
-        };
     }
 
     // ── Wireframe toolbar wiring ──────────────────────────────────────────────
@@ -2115,6 +2092,76 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
+    /// Builds a danger-styled delete confirmation dialog. ENTER confirms (Delete), ESC cancels,
+    /// and closing by any other means resolves <paramref name="tcs"/> to false.
+    /// </summary>
+    internal static Window BuildDeleteConfirmDialog(string message, string title, TaskCompletionSource<bool> tcs)
+    {
+        var dialog = new Window
+        {
+            Title = title,
+            Width = 380,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+
+        var panel = new StackPanel { Margin = new Avalonia.Thickness(20, 16, 20, 16), Spacing = 8 };
+        panel.Children.Add(new TextBlock
+        {
+            Text = message,
+            FontSize = 13,
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = "This action cannot be undone.",
+            FontSize = 11,
+            Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#9098a4"))
+        });
+
+        var deleteBtn = new Button
+        {
+            Content = "Delete",
+            Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#d83a3a")),
+            Foreground = Avalonia.Media.Brushes.White,
+            Padding = new Avalonia.Thickness(16, 6)
+        };
+        var cancelBtn = new Button
+        {
+            Content = "Cancel",
+            Padding = new Avalonia.Thickness(16, 6)
+        };
+
+        deleteBtn.Click += (_, _) => { tcs.TrySetResult(true);  dialog.Close(); };
+        cancelBtn.Click += (_, _) => { tcs.TrySetResult(false); dialog.Close(); };
+
+        var buttons = new StackPanel
+        {
+            Orientation = Avalonia.Layout.Orientation.Horizontal,
+            Spacing = 8,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+            Margin = new Avalonia.Thickness(0, 4, 0, 0)
+        };
+        buttons.Children.Add(cancelBtn);
+        buttons.Children.Add(deleteBtn);
+        panel.Children.Add(buttons);
+
+        dialog.Content = panel;
+        dialog.Closed += (_, _) => tcs.TrySetResult(false);
+
+        WireDialogKeyboard(dialog,
+            onConfirm: () => { tcs.TrySetResult(true);  dialog.Close(); },
+            onCancel:  () => { tcs.TrySetResult(false); dialog.Close(); });
+
+        // Ensure ENTER confirms (Delete) by focusing the delete button last — it overrides
+        // WireDialogKeyboard's Opened handler which would otherwise land on Cancel (first child).
+        dialog.Opened += (_, _) => deleteBtn.Focus();
+
+        return dialog;
+    }
+
+    /// <summary>
     /// Wires ENTER → <paramref name="onConfirm"/> and ESC → <paramref name="onCancel"/>
     /// on a modal dialog. The handler is attached at the window with
     /// <c>handledEventsToo: true</c> so it still fires when a focused input control
@@ -2484,70 +2531,31 @@ public partial class MainWindow : Window
     private void ShowDeleteChainConfirm(AnimationChainSave chain) =>
         ShowDeleteChainConfirm(new List<AnimationChainSave> { chain });
 
-    private void ShowDeleteChainConfirm(List<AnimationChainSave> chains)
+    private async void ShowDeleteChainConfirm(List<AnimationChainSave> chains)
     {
-        _pendingDeleteChains = chains;
-        string label = chains.Count == 1
-            ? $"Delete \"{chains[0].Name}\"?"
+        string msg = chains.Count == 1
+            ? $"Delete animation \"{chains[0].Name}\"? It has {chains[0].Frames.Count} frame(s)."
             : $"Delete {chains.Count} animations?";
-        DeleteChainConfirmLabel.Text = label;
-        DeleteChainConfirmPanel.IsVisible = true;
+        var tcs = new TaskCompletionSource<bool>();
+        var dialog = BuildDeleteConfirmDialog(msg, "Delete Animation", tcs);
+        await dialog.ShowDialog(this);
+        if (await tcs.Task)
+            _appCommands.DeleteAnimationChains(chains);
     }
 
-    private void CommitDeleteChain()
+    private async void ShowDeleteShapeConfirm(AnimationFrameSave frame, List<AARectSave> rects, List<CircleSave> circles)
     {
-        if (_pendingDeleteChains is null) return;
-        List<AnimationChainSave> chains = _pendingDeleteChains;
-        _pendingDeleteChains = null;
-        DeleteChainConfirmPanel.IsVisible = false;
-        _appCommands.DeleteAnimationChains(chains);
-    }
-
-    private void CancelDeleteChain()
-    {
-        _pendingDeleteChains = null;
-        DeleteChainConfirmPanel.IsVisible = false;
-    }
-
-    internal void ShowDeleteChainConfirmForTest(AnimationChainSave chain) =>
-        ShowDeleteChainConfirm(new List<AnimationChainSave> { chain });
-
-    private void ShowDeleteShapeConfirm(AnimationFrameSave frame, List<AARectSave> rects, List<CircleSave> circles)
-    {
-        _pendingDeleteShapeFrame   = frame;
-        _pendingDeleteShapeRects   = rects;
-        _pendingDeleteShapeCircles = circles;
         int total = rects.Count + circles.Count;
-        string label = total == 1
-            ? $"Delete \"{(rects.Count > 0 ? rects[0].Name : circles[0].Name)}\"?"
+        string name = rects.Count > 0 ? rects[0].Name : circles[0].Name;
+        string msg = total == 1
+            ? $"Delete shape \"{name}\"?"
             : $"Delete {total} shape(s)?";
-        DeleteShapeConfirmLabel.Text  = label;
-        DeleteShapeConfirmPanel.IsVisible = true;
+        var tcs = new TaskCompletionSource<bool>();
+        var dialog = BuildDeleteConfirmDialog(msg, "Delete Shape", tcs);
+        await dialog.ShowDialog(this);
+        if (await tcs.Task)
+            _appCommands.DeleteShapes(frame, rects, circles);
     }
-
-    private void CommitDeleteShape()
-    {
-        if (_pendingDeleteShapeRects is null || _pendingDeleteShapeFrame is null) return;
-        var frame   = _pendingDeleteShapeFrame;
-        var rects   = _pendingDeleteShapeRects;
-        var circles = _pendingDeleteShapeCircles ?? new();
-        _pendingDeleteShapeFrame   = null;
-        _pendingDeleteShapeRects   = null;
-        _pendingDeleteShapeCircles = null;
-        DeleteShapeConfirmPanel.IsVisible = false;
-        _appCommands.DeleteShapes(frame, rects, circles);
-    }
-
-    private void CancelDeleteShape()
-    {
-        _pendingDeleteShapeFrame   = null;
-        _pendingDeleteShapeRects   = null;
-        _pendingDeleteShapeCircles = null;
-        DeleteShapeConfirmPanel.IsVisible = false;
-    }
-
-    internal void ShowDeleteShapeConfirmForTest(AnimationFrameSave frame, List<AARectSave> rects, List<CircleSave> circles) =>
-        ShowDeleteShapeConfirm(frame, rects, circles);
 
     /// <summary>Test hook — invokes <see cref="HandleDelete"/> as if the Delete key were pressed.</summary>
     internal void HandleDeleteForTest() => HandleDelete();
