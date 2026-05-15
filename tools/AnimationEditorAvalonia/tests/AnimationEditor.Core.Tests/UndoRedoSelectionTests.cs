@@ -58,7 +58,7 @@ public class UndoRedoSelectionTests
         chain.Frames.Add(frame);
 
         ctx.AppCommands.AddCircle(frame);
-        var circle = frame.ShapesSave!.CircleSaves[0];
+        var circle = frame.ShapesSave!.CircleSaves.First();
         ctx.UndoManager.Undo();
 
         ctx.UndoManager.Redo();
@@ -120,7 +120,7 @@ public class UndoRedoSelectionTests
         chain.Frames.Add(frame);
 
         ctx.AppCommands.AddAxisAlignedRectangle(frame);
-        var rect = frame.ShapesSave!.AARectSaves[0];
+        var rect = frame.ShapesSave!.AARectSaves.First();
         ctx.UndoManager.Undo();
 
         ctx.UndoManager.Redo();
@@ -180,7 +180,7 @@ public class UndoRedoSelectionTests
         chain.Frames.Add(frame);
         ctx.AppCommands.AddCircle(frame);
         ctx.UndoManager.Clear();
-        var circle = frame.ShapesSave!.CircleSaves[0];
+        var circle = frame.ShapesSave!.CircleSaves.First();
 
         ctx.AppCommands.DeleteCircle(circle, frame);
         ctx.UndoManager.Undo();
@@ -198,7 +198,7 @@ public class UndoRedoSelectionTests
         chain.Frames.Add(frame);
         ctx.AppCommands.AddCircle(frame);
         ctx.UndoManager.Clear();
-        var circle = frame.ShapesSave!.CircleSaves[0];
+        var circle = frame.ShapesSave!.CircleSaves.First();
 
         ctx.AppCommands.DeleteCircle(circle, frame);
         ctx.UndoManager.Undo();
@@ -277,7 +277,7 @@ public class UndoRedoSelectionTests
         chain.Frames.Add(frame);
         ctx.AppCommands.AddAxisAlignedRectangle(frame);
         ctx.UndoManager.Clear();
-        var rect = frame.ShapesSave!.AARectSaves[0];
+        var rect = frame.ShapesSave!.AARectSaves.First();
 
         ctx.AppCommands.DeleteAxisAlignedRectangle(rect, frame);
         ctx.UndoManager.Undo();
@@ -295,7 +295,7 @@ public class UndoRedoSelectionTests
         chain.Frames.Add(frame);
         ctx.AppCommands.AddAxisAlignedRectangle(frame);
         ctx.UndoManager.Clear();
-        var rect = frame.ShapesSave!.AARectSaves[0];
+        var rect = frame.ShapesSave!.AARectSaves.First();
 
         ctx.AppCommands.DeleteAxisAlignedRectangle(rect, frame);
         ctx.UndoManager.Undo();
