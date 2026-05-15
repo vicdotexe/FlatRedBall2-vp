@@ -49,9 +49,10 @@ public partial class MainWindow : Window
     private bool _suppressTreeSelectionHandling;
     private System.Threading.CancellationTokenSource? _toastCts;
 
+    // AppContext.BaseDirectory works under single-file publish; Assembly.Location is empty there (IL3000).
+    // Path.Combine handles the platform-correct separator (was a hardcoded "\\" — would break on macOS/Linux).
     private FilePath SettingsFilePath =>
-        new FilePath((Path.GetDirectoryName(
-            System.Reflection.Assembly.GetExecutingAssembly().Location) ?? string.Empty) + "\\AESettings.json");
+        new FilePath(Path.Combine(AppContext.BaseDirectory, "AESettings.json"));
 
     public MainWindow(
         IProjectManager projectManager,

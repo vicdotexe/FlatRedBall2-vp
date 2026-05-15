@@ -16,6 +16,21 @@ Each sample is a complete runnable game built on the engine — open the source 
 | [PlatformKing](samples/PlatformKing/) | Platformer | [▶ Play in browser](https://vchelaru.github.io/FlatRedBall2/PlatformKing/) |
 | [Solitaire](samples/Solitaire/) | Klondike solitaire | [▶ Play in browser](https://vchelaru.github.io/FlatRedBall2/Solitaire/) |
 
+## Tools
+
+**Animation Editor** — author and preview sprite animation chains (`.achx`). Self-contained downloads (no .NET install required):
+
+| Platform | Download |
+|---|---|
+| Windows (x64) | [AnimationEditor-win-x64.zip](https://github.com/vchelaru/FlatRedBall2/releases/latest/download/AnimationEditor-win-x64.zip) |
+| macOS (Apple Silicon) | [AnimationEditor-osx-arm64.zip](https://github.com/vchelaru/FlatRedBall2/releases/latest/download/AnimationEditor-osx-arm64.zip) |
+| macOS (Intel) | [AnimationEditor-osx-x64.zip](https://github.com/vchelaru/FlatRedBall2/releases/latest/download/AnimationEditor-osx-x64.zip) |
+| Linux (x64) | [AnimationEditor-linux-x64.tar.gz](https://github.com/vchelaru/FlatRedBall2/releases/latest/download/AnimationEditor-linux-x64.tar.gz) |
+
+The links above always resolve to the latest published release. Older versions are on the [Releases page](https://github.com/vchelaru/FlatRedBall2/releases).
+
+Binaries are unsigned. Windows SmartScreen will warn on first run ("More info" → "Run anyway"); macOS Gatekeeper will refuse to open directly — right-click the executable, choose Open, then confirm.
+
 ## Features
 
 - **Screens & Entities** — structured game object model with lifecycle hooks (`CustomInitialize`, `CustomActivity`, `CustomDestroy`)
