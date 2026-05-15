@@ -40,20 +40,27 @@ public sealed class ThumbnailService
     /// Returns the cached decode of <paramref name="path"/>, decoding on first access.
     /// Returns <c>null</c> for a null/empty path or a file that fails to decode (the
     /// failure is cached too, so a missing texture is not retried every frame).
+    /// <para>
+    /// The cache key is always stored with forward slashes so it matches the normalized
+    /// paths returned by <see cref="ResolveTexturePath"/> and removed by
+    /// <see cref="InvalidatePath"/>. This prevents stale bitmaps when the caller supplies
+    /// a Windows-style backslash path (e.g. from a drag-drop on an unsaved project).
+    /// </para>
     /// </summary>
     public SKBitmap? GetBitmap(string? path)
     {
         if (string.IsNullOrEmpty(path)) return null;
-        if (BitmapCache.TryGetValue(path, out var cached)) return cached;
+        var key = path.Replace('\\', '/');
+        if (BitmapCache.TryGetValue(key, out var cached)) return cached;
         try
         {
             var bm = SKBitmap.Decode(path);
-            BitmapCache[path] = bm;
+            BitmapCache[key] = bm;
             return bm;
         }
         catch
         {
-            BitmapCache[path] = null;
+            BitmapCache[key] = null;
             return null;
         }
     }
@@ -68,8 +75,13 @@ public sealed class ThumbnailService
         if (frame is null || string.IsNullOrEmpty(frame.TextureName)) return null;
 
         // Absolute path (e.g. drag-dropped textures before an ACHX file is saved).
+        // Normalize to forward slashes so the returned path is a consistent cache key
+        // regardless of whether the caller used backslashes (native Windows drag-drop path).
         if (Path.IsPathRooted(frame.TextureName))
-            return File.Exists(frame.TextureName) ? frame.TextureName : null;
+        {
+            var normalized = frame.TextureName.Replace('\\', '/');
+            return File.Exists(frame.TextureName) ? normalized : null;
+        }
 
         // Relative path: requires a saved ACHX to derive the base folder.
         if (string.IsNullOrEmpty(_projectManager.FileName))
