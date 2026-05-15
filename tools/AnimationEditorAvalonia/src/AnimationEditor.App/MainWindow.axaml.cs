@@ -140,7 +140,7 @@ public partial class MainWindow : Window
         _appCommands.RebuildTreeViewRequested           += () => Dispatcher.UIThread.InvokeAsync(RebuildTreeView);
         _appCommands.RefreshChainNodeRequested          += c  => Dispatcher.UIThread.InvokeAsync(() => RefreshChainNode(c));
         _appCommands.RefreshFrameNodeRequested          += f  => Dispatcher.UIThread.InvokeAsync(() => RefreshFrameNode(f));
-        _appCommands.RefreshAnimationFrameDisplayRequested += () => { };
+        _appCommands.RefreshAnimationFrameDisplayRequested += () => PreviewCtrl.InvalidateVisual();
         // RefreshWireframeRequested is handled by WireframeControl directly
 
         _events.CurrentFileChanged     += path => Dispatcher.UIThread.InvokeAsync(() =>
