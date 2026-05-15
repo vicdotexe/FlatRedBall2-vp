@@ -19,11 +19,13 @@ namespace AnimationEditor.App.Tests;
 public class ThumbnailServiceTests
 {
     /// <summary>A frame whose UV region is the given rectangle of the source (defaults to the whole sheet).</summary>
-    private static AnimationFrameSave Frame(float left = 0f, float top = 0f, float right = 1f, float bottom = 1f)
+    private static AnimationFrameSave Frame(float left = 0f, float top = 0f, float right = 1f, float bottom = 1f,
+        bool flipH = false, bool flipV = false)
         => new()
         {
             LeftCoordinate  = left,  TopCoordinate    = top,
             RightCoordinate = right, BottomCoordinate = bottom,
+            FlipHorizontal  = flipH, FlipVertical     = flipV,
         };
 
     /// <summary>A sprite sheet whose left half is <paramref name="left"/> and right half <paramref name="right"/>.</summary>
@@ -92,5 +94,50 @@ public class ThumbnailServiceTests
                 Assert.True(pureRed || pureBlue,
                     $"Pixel ({x},{y}) = {p} — point sampling should leave a hard seam, not a blended pixel.");
             }
+    }
+
+    [Fact]
+    public void RenderFrameThumbnail_FlipHorizontal_MirrorsImageHorizontally()
+    {
+        // Left half red, right half blue. With FlipHorizontal=true the right side of the
+        // thumbnail must be red and the left side blue — opposite of the unflipped crop.
+        using var source = SplitSheet(16, 8, SKColors.Red, SKColors.Blue);
+
+        using var thumb = ThumbnailService.RenderFrameThumbnail(
+            source, Frame(flipH: true), 16, 8);
+
+        Assert.NotNull(thumb);
+        // Leftmost pixel should be blue (was originally on the right).
+        var leftPx = thumb!.GetPixel(0, 4);
+        Assert.True(leftPx.Blue > leftPx.Red,
+            $"Left edge pixel {leftPx} should be blue after horizontal flip.");
+        // Rightmost pixel should be red (was originally on the left).
+        var rightPx = thumb.GetPixel(thumb.Width - 1, 4);
+        Assert.True(rightPx.Red > rightPx.Blue,
+            $"Right edge pixel {rightPx} should be red after horizontal flip.");
+    }
+
+    [Fact]
+    public void RenderFrameThumbnail_FlipVertical_MirrorsImageVertically()
+    {
+        // Top half red, bottom half blue. With FlipVertical=true the bottom must be red and
+        // the top must be blue.
+        using var source = new SKBitmap(8, 16);
+        for (int y = 0; y < 16; y++)
+            for (int x = 0; x < 8; x++)
+                source.SetPixel(x, y, y < 8 ? SKColors.Red : SKColors.Blue);
+
+        using var thumb = ThumbnailService.RenderFrameThumbnail(
+            source, Frame(flipV: true), 8, 16);
+
+        Assert.NotNull(thumb);
+        // Top pixel should be blue (was originally at the bottom).
+        var topPx = thumb!.GetPixel(4, 0);
+        Assert.True(topPx.Blue > topPx.Red,
+            $"Top edge pixel {topPx} should be blue after vertical flip.");
+        // Bottom pixel should be red (was originally at the top).
+        var bottomPx = thumb.GetPixel(4, thumb.Height - 1);
+        Assert.True(bottomPx.Red > bottomPx.Blue,
+            $"Bottom edge pixel {bottomPx} should be red after vertical flip.");
     }
 }
