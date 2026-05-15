@@ -485,6 +485,47 @@ public partial class MainWindow : Window
 
 
 
+    private void RefreshHistoryPanel()
+    {
+        var undoHistory = _undoManager.UndoHistory;
+        var redoHistory = _undoManager.RedoHistory;
+        var items = new List<Models.HistoryEntryVm>();
+        // Newest undo item at the top, oldest at the bottom
+        foreach (var cmd in undoHistory.Reverse())
+            items.Add(new Models.HistoryEntryVm(cmd.Description, "#e6e8ec"));
+        foreach (var cmd in redoHistory)
+            items.Add(new Models.HistoryEntryVm(cmd.Description, "#6a6e76"));
+        HistoryList.ItemsSource = items;
+
+        // Current step is always row 0 (most recent action)
+        HistoryList.SelectedIndex = undoHistory.Count > 0 ? 0 : -1;
+        if (items.Count > 0)
+            HistoryList.ScrollIntoView(items[0]);
+
+        HistoryUndoButton.IsEnabled = _undoManager.CanUndo;
+        HistoryRedoButton.IsEnabled = _undoManager.CanRedo;
+    }
+
+    private void SetHistoryVisible(bool visible)
+    {
+        HistorySplitter.IsVisible = visible;
+        HistorySectionGrid.IsVisible = visible;
+        if (visible)
+        {
+            // Share space: inspector content gets 2/3, history list gets 1/3
+            InspectorColumnGrid.RowDefinitions[1].Height = new GridLength(2, GridUnitType.Star);
+            InspectorColumnGrid.RowDefinitions[2].Height = new GridLength(4);
+            InspectorColumnGrid.RowDefinitions[3].Height = new GridLength(1, GridUnitType.Star);
+        }
+        else
+        {
+            InspectorColumnGrid.RowDefinitions[1].Height = new GridLength(1, GridUnitType.Star);
+            InspectorColumnGrid.RowDefinitions[2].Height = new GridLength(0);
+            InspectorColumnGrid.RowDefinitions[3].Height = new GridLength(0);
+        }
+        MenuShowHistory.IsEnabled = !visible;
+    }
+
     // ── Texture combo helpers ─────────────────────────────────────────────────
 
     /// <summary>Rebuild the texture dropdown from all frames in the loaded .achx.</summary>
@@ -632,7 +673,15 @@ public partial class MainWindow : Window
         {
             MenuUndo.IsEnabled = _undoManager.CanUndo;
             MenuRedo.IsEnabled = _undoManager.CanRedo;
+            RefreshHistoryPanel();
         };
+        RefreshHistoryPanel();
+
+        HistoryUndoButton.Click  += (_, _) => _undoManager.Undo();
+        HistoryRedoButton.Click  += (_, _) => _undoManager.Redo();
+        HistoryCloseButton.Click += (_, _) => SetHistoryVisible(false);
+        MenuShowHistory.Click    += (_, _) => SetHistoryVisible(true);
+        MenuShowHistory.IsEnabled = false;
 
         RefreshRecentFiles();
     }
@@ -2312,6 +2361,7 @@ public partial class MainWindow : Window
             foreach (var pasted in frames)
                 pasted.ShapesSave ??= new ShapesSave();
 
+            FramePasteLogic.AssignUniqueNames(targetChain.Frames, frames);
             _appCommands.PasteFrames(targetChain, frames);
             _selectedState.SelectedFrame = frames[^1];
             _appCommands.RefreshWireframe();
