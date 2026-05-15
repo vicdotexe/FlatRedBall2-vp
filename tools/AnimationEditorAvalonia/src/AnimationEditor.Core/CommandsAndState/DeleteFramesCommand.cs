@@ -10,6 +10,7 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
         private readonly AnimationChainSave _chain;
         private readonly IAppCommands _commands;
         private readonly IApplicationEvents _events;
+        private readonly ISelectedState _selectedState;
 
         // Captured by Do(): the frames actually removed, paired with where they were.
         private (AnimationFrameSave Frame, int OriginalIndex)[] _removed = [];
@@ -20,12 +21,14 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
             IReadOnlyList<AnimationFrameSave> frames,
             AnimationChainSave chain,
             IAppCommands commands,
-            IApplicationEvents events)
+            IApplicationEvents events,
+            ISelectedState selectedState)
         {
             _frames = frames;
             _chain = chain;
             _commands = commands;
             _events = events;
+            _selectedState = selectedState;
             Description = frames.Count == 1 ? "Delete Frame" : $"Delete {frames.Count} Frames";
         }
 
@@ -50,6 +53,7 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
             _commands.RefreshWireframe();
             _events.RaiseAnimationChainsChanged();
             _commands.SaveCurrentAnimationChainList();
+            _selectedState.SelectedFrame = null;
             return true;
         }
 
@@ -64,6 +68,7 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
             _commands.RefreshWireframe();
             _events.RaiseAnimationChainsChanged();
             _commands.SaveCurrentAnimationChainList();
+            _selectedState.SelectedFrame = _removed[0].Frame;
         }
 
         public void Redo()
@@ -74,6 +79,7 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
             _commands.RefreshWireframe();
             _events.RaiseAnimationChainsChanged();
             _commands.SaveCurrentAnimationChainList();
+            _selectedState.SelectedFrame = null;
         }
     }
 }

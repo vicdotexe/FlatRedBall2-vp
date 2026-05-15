@@ -8,16 +8,20 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
         private readonly AnimationFrameSave _frame;
         private readonly IAppCommands _commands;
         private readonly IApplicationEvents _events;
+        private readonly ISelectedState _selectedState;
+        private readonly AARectSave? _preAddRect;
 
         public string Description => "Add Rectangle";
 
         public AddAxisAlignedRectangleCommand(AARectSave rect, AnimationFrameSave frame,
-            IAppCommands commands, IApplicationEvents events)
+            IAppCommands commands, IApplicationEvents events, ISelectedState selectedState)
         {
             _rect = rect;
             _frame = frame;
             _commands = commands;
             _events = events;
+            _selectedState = selectedState;
+            _preAddRect = selectedState.SelectedRectangle;
         }
 
         public bool Do()
@@ -27,6 +31,7 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
             _commands.RefreshAnimationFrameDisplay();
             _events.RaiseAnimationChainsChanged();
             _commands.SaveCurrentAnimationChainList();
+            _selectedState.SelectedRectangle = _rect;
             return true;
         }
 
@@ -37,6 +42,7 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
             _commands.RefreshAnimationFrameDisplay();
             _events.RaiseAnimationChainsChanged();
             _commands.SaveCurrentAnimationChainList();
+            _selectedState.SelectedRectangle = _preAddRect;
         }
     }
 }

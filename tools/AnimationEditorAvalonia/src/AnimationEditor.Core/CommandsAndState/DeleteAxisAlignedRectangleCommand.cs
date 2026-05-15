@@ -9,6 +9,7 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
         private readonly AnimationFrameSave _frame;
         private readonly IAppCommands _commands;
         private readonly IApplicationEvents _events;
+        private readonly ISelectedState _selectedState;
 
         private int _originalIndex = -1;  // captured by Do()
 
@@ -18,12 +19,14 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
             AARectSave rect,
             AnimationFrameSave frame,
             IAppCommands commands,
-            IApplicationEvents events)
+            IApplicationEvents events,
+            ISelectedState selectedState)
         {
             _rect = rect;
             _frame = frame;
             _commands = commands;
             _events = events;
+            _selectedState = selectedState;
             Description = $"Delete Rectangle '{rect.Name}'";
         }
 
@@ -37,6 +40,7 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
             _commands.RefreshAnimationFrameDisplay();
             _events.RaiseAnimationChainsChanged();
             _commands.SaveCurrentAnimationChainList();
+            _selectedState.SelectedRectangle = null;
             return true;
         }
 
@@ -48,6 +52,7 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
             _commands.RefreshAnimationFrameDisplay();
             _events.RaiseAnimationChainsChanged();
             _commands.SaveCurrentAnimationChainList();
+            _selectedState.SelectedRectangle = _rect;
         }
 
         public void Redo()
@@ -57,6 +62,7 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
             _commands.RefreshAnimationFrameDisplay();
             _events.RaiseAnimationChainsChanged();
             _commands.SaveCurrentAnimationChainList();
+            _selectedState.SelectedRectangle = null;
         }
     }
 }

@@ -260,7 +260,7 @@ namespace AnimationEditor.Core.CommandsAndState
             var acls = _pm.AnimationChainListSave;
             if (acls == null) return;
 
-            _undoManager.Execute(new DeleteChainsCommand(animationChains, acls, this, _events));
+            _undoManager.Execute(new DeleteChainsCommand(animationChains, acls, this, _events, _selectedState));
         }
 
         public void AddAxisAlignedRectangle(AnimationFrameSave frame)
@@ -274,8 +274,7 @@ namespace AnimationEditor.Core.CommandsAndState
             };
 
             ApplyRectangleMatch(rectangleSave, frame);
-            _undoManager.Execute(new AddAxisAlignedRectangleCommand(rectangleSave, frame, this, _events));
-            _selectedState.SelectedRectangle = rectangleSave;
+            _undoManager.Execute(new AddAxisAlignedRectangleCommand(rectangleSave, frame, this, _events, _selectedState));
         }
 
         public void AddCircle(AnimationFrameSave frame)
@@ -288,8 +287,7 @@ namespace AnimationEditor.Core.CommandsAndState
             };
 
             ApplyCircleMatch(circleSave, frame);
-            _undoManager.Execute(new AddCircleCommand(circleSave, frame, this, _events));
-            _selectedState.SelectedCircle = circleSave;
+            _undoManager.Execute(new AddCircleCommand(circleSave, frame, this, _events, _selectedState));
         }
 
         /// <summary>
@@ -330,12 +328,12 @@ namespace AnimationEditor.Core.CommandsAndState
 
         public void DeleteCircle(CircleSave circle, AnimationFrameSave owner)
         {
-            _undoManager.Execute(new DeleteCircleCommand(circle, owner, this, _events));
+            _undoManager.Execute(new DeleteCircleCommand(circle, owner, this, _events, _selectedState));
         }
 
         public void DeleteAxisAlignedRectangle(AARectSave rectangle, AnimationFrameSave owner)
         {
-            _undoManager.Execute(new DeleteAxisAlignedRectangleCommand(rectangle, owner, this, _events));
+            _undoManager.Execute(new DeleteAxisAlignedRectangleCommand(rectangle, owner, this, _events, _selectedState));
         }
 
         public async Task AskToDeleteRectangles(List<AARectSave> rectangles)
@@ -351,7 +349,7 @@ namespace AnimationEditor.Core.CommandsAndState
                 {
                     var frame = _objectFinder.GetAnimationFrameContaining(rectangle);
                     if (frame != null)
-                        commands.Add(new DeleteAxisAlignedRectangleCommand(rectangle, frame, this, _events));
+                        commands.Add(new DeleteAxisAlignedRectangleCommand(rectangle, frame, this, _events, _selectedState));
                 }
                 if (commands.Count > 0)
                 {
@@ -376,7 +374,7 @@ namespace AnimationEditor.Core.CommandsAndState
                 {
                     var frame = _objectFinder.GetAnimationFrameContaining(circle);
                     if (frame != null)
-                        commands.Add(new DeleteCircleCommand(circle, frame, this, _events));
+                        commands.Add(new DeleteCircleCommand(circle, frame, this, _events, _selectedState));
                 }
                 if (commands.Count > 0)
                 {
@@ -410,9 +408,9 @@ namespace AnimationEditor.Core.CommandsAndState
         {
             var commands = new List<IUndoableCommand>();
             foreach (var rect in rectangles.ToArray())
-                commands.Add(new DeleteAxisAlignedRectangleCommand(rect, frame, this, _events));
+                commands.Add(new DeleteAxisAlignedRectangleCommand(rect, frame, this, _events, _selectedState));
             foreach (var circle in circles.ToArray())
-                commands.Add(new DeleteCircleCommand(circle, frame, this, _events));
+                commands.Add(new DeleteCircleCommand(circle, frame, this, _events, _selectedState));
             if (commands.Count > 0)
                 _undoManager.Execute(new CompositeCommand(commands));
         }
@@ -437,7 +435,7 @@ namespace AnimationEditor.Core.CommandsAndState
                 string label = validFrames.Count == 1
                     ? $"Frame {chain.Frames.IndexOf(validFrames[0]) + 1}"
                     : $"{validFrames.Count} frames";
-                _undoManager.Execute(new DeleteFramesCommand(frames, chain, this, _events));
+                _undoManager.Execute(new DeleteFramesCommand(frames, chain, this, _events, _selectedState));
                 if (validFrames.Count > 0)
                     FramesDeleted?.Invoke(label);
             }
@@ -482,8 +480,7 @@ namespace AnimationEditor.Core.CommandsAndState
 
             name = StringFunctions.MakeStringUnique(name, acls.AnimationChains.Select(c => c.Name).ToList());
             var chain = new AnimationChainSave { Name = name };
-            _undoManager.Execute(new AddChainCommand(chain, acls, this, _events));
-            _selectedState.SelectedChain = chain;
+            _undoManager.Execute(new AddChainCommand(chain, acls, this, _events, _selectedState));
             return chain;
         }
 
@@ -516,8 +513,7 @@ namespace AnimationEditor.Core.CommandsAndState
                 FrameLength      = 0.1f,
                 ShapesSave = new FlatRedBall2.Animation.Content.ShapesSave()
             };
-            _undoManager.Execute(new AddFrameCommand(frame, chain, this, _events));
-            _selectedState.SelectedFrame = frame;
+            _undoManager.Execute(new AddFrameCommand(frame, chain, this, _events, _selectedState));
         }
 
         public void MoveChain(AnimationChainSave chain, int delta)
@@ -725,8 +721,7 @@ namespace AnimationEditor.Core.CommandsAndState
                 copy.Frames.Add(fCopy);
             }
 
-            _undoManager.Execute(new AddChainCommand(copy, acls, this, _events));
-            _selectedState.SelectedChain = copy;
+            _undoManager.Execute(new AddChainCommand(copy, acls, this, _events, _selectedState));
             return copy;
         }
 
@@ -849,8 +844,7 @@ namespace AnimationEditor.Core.CommandsAndState
             var added = result.Frames.ToArray();
             if (added.Length > 0)
             {
-                _undoManager.Execute(new AddFramesCommand(added, chain, this, _events));
-                _selectedState.SelectedFrame = added[^1];
+                _undoManager.Execute(new AddFramesCommand(added, chain, this, _events, _selectedState));
             }
 
             return result.ExceededTextureBounds;
@@ -944,8 +938,7 @@ namespace AnimationEditor.Core.CommandsAndState
                 ShapesSave = new FlatRedBall2.Animation.Content.ShapesSave()
             };
 
-            _undoManager.Execute(new AddFrameCommand(frame, chain, this, _events));
-            _selectedState.SelectedFrame = frame;
+            _undoManager.Execute(new AddFrameCommand(frame, chain, this, _events, _selectedState));
         }
 
         // ── Texture assignment (WF10b — write direction) ─────────────────────────
@@ -970,19 +963,19 @@ namespace AnimationEditor.Core.CommandsAndState
         {
             var acls = _pm.AnimationChainListSave;
             if (acls is null) return;
-            _undoManager.Execute(new PasteChainsCommand(acls, chains, this, _events));
+            _undoManager.Execute(new PasteChainsCommand(acls, chains, this, _events, _selectedState));
         }
 
         /// <inheritdoc cref="IAppCommands.PasteFrames"/>
         public void PasteFrames(AnimationChainSave chain, IReadOnlyList<AnimationFrameSave> frames) =>
-            _undoManager.Execute(new AddFramesCommand(frames.ToArray(), chain, this, _events));
+            _undoManager.Execute(new AddFramesCommand(frames.ToArray(), chain, this, _events, _selectedState));
 
         /// <inheritdoc cref="IAppCommands.PasteRectangle"/>
         public void PasteRectangle(AnimationFrameSave frame, AARectSave rectangle) =>
-            _undoManager.Execute(new AddAxisAlignedRectangleCommand(rectangle, frame, this, _events));
+            _undoManager.Execute(new AddAxisAlignedRectangleCommand(rectangle, frame, this, _events, _selectedState));
 
         /// <inheritdoc cref="IAppCommands.PasteCircle"/>
         public void PasteCircle(AnimationFrameSave frame, CircleSave circle) =>
-            _undoManager.Execute(new AddCircleCommand(circle, frame, this, _events));
+            _undoManager.Execute(new AddCircleCommand(circle, frame, this, _events, _selectedState));
     }
 }
