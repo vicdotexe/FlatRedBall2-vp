@@ -2447,6 +2447,10 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 int delta = e.Key == Key.Up ? -1 : +1;
                 _appCommands.HandleReorder(delta);
+                if (_selectedState.SelectedFrame is { HasCustomName: false })
+                    ShowStatusMessage("Frame labels updated to reflect new positions");
+                if (_selectedState.SelectedFrame is { HasCustomName: false })
+                    ShowStatusMessage("Frame labels updated to reflect new positions  ·  F2 to assign a custom name");
             }
         }), RoutingStrategies.Tunnel);
     }
