@@ -118,6 +118,9 @@ namespace AnimationEditor.Core.CommandsAndState
         /// <inheritdoc cref="IAppCommands.LoadFailed"/>
         public event Action<string, Exception>? LoadFailed;
 
+        /// <inheritdoc cref="IAppCommands.HotReloadFailed"/>
+        public event Action<string, string>? HotReloadFailed;
+
         // ── Open workflow ─────────────────────────────────────────────────────────
 
         /// <inheritdoc cref="IAppCommands.OpenAchxWorkflowAsync"/>
@@ -1019,7 +1022,7 @@ namespace AnimationEditor.Core.CommandsAndState
             }
             catch (Exception ex)
             {
-                LoadFailed?.Invoke(path, ex);
+                HotReloadFailed?.Invoke(path, ex.Message);
                 return;
             }
 

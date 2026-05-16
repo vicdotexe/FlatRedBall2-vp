@@ -44,6 +44,14 @@ namespace AnimationEditor.Core.CommandsAndState
         /// </summary>
         event Action<string, Exception>? LoadFailed;
 
+        /// <summary>
+        /// Fired when <see cref="ReloadAchxFromDisk"/> detects a mangled file (bad XML,
+        /// Git conflict markers, etc.). The first argument is the file path; the second is
+        /// a user-readable reason. Project state is left unchanged and the undo stack is
+        /// not cleared. Use this to surface a toast rather than a blocking error dialog.
+        /// </summary>
+        event Action<string, string>? HotReloadFailed;
+
         // ── Methods ───────────────────────────────────────────────────────────
 
         /// <summary>
@@ -56,6 +64,7 @@ namespace AnimationEditor.Core.CommandsAndState
         /// </summary>
         Task OpenAchxWorkflowAsync(string path);
         void LoadAnimationChain(string fileName);
+
         void RefreshTreeNode(AnimationChainSave animationChain);
         void RefreshTreeNode(AnimationFrameSave animationFrame);
         void RefreshAnimationFrameDisplay();
