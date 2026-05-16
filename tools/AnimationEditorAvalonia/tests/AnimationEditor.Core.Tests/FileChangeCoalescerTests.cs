@@ -131,12 +131,14 @@ public class FileChangeCoalescerTests
     [Fact]
     public void Cooldown_PathSeparatorMismatch_StillDiscarded()
     {
+        // Intentionally use both separator styles for the same logical path to verify
+        // the coalescer normalizes them before comparing.
+        const string forwardSlash = "tmp/animations/asd.achx";   // forward slashes (e.g. from FileName on Windows via Avalonia)
+        var backSlash = forwardSlash.Replace('/', '\\');           // backslashes (e.g. from FSW on Windows)
         var c = Make(debounceMs: 50, cooldownMs: 500);
-        c.RecordOwnSave("D:/Downloads/asd.achx", 0);           // forward slashes (from FileName)
-        c.Record(@"D:\Downloads\asd.achx", WatcherChangeType.Modified, 10); // backslashes (from FSW)
-        // The coalescer receives normalized paths from HotReloadWatcher, but verify the
-        // coalescer itself is also resilient to this — if callers normalize, this passes.
-        // This test documents the contract: same logical path must not fire.
+        c.RecordOwnSave(forwardSlash, 0);
+        c.Record(backSlash, WatcherChangeType.Modified, 10);
+        // The coalescer normalizes both to forward slashes — same logical path must not fire.
         var result = c.Flush(100);
         Assert.Empty(result);
     }
