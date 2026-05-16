@@ -1062,6 +1062,12 @@
                              BorderThickness="1,0,0,0"
                              Padding="0"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
+                                <Setter Property="MinHeight" Value="0" />
+                                <Setter Property="Padding" Value="0" />
+                            </Style>
+                        </ListBox.Styles>
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="appModels:HistoryEntryVm">
                                 <TextBlock Text="{Binding Description}"
