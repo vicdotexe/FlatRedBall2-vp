@@ -34,14 +34,15 @@ public class AppCommandsHotReloadTests
         ctx.AppCommands.HotReloadWatcher = spy;
         ctx.ProjectManager.FileName = null;
 
+        var pngPath = Path.Combine(Path.GetTempPath(), "Sprites", "hero.png");
         var chain = new AnimationChainSave { Name = "Walk" };
-        chain.Frames.Add(TestHelpers.MakeFrame(@"C:\Sprites\hero.png"));
+        chain.Frames.Add(TestHelpers.MakeFrame(pngPath));
         ctx.Acls.AnimationChains.Add(chain);
 
         ctx.AppCommands.SyncHotReloadWatcher();
 
         Assert.NotNull(spy.LastStartPngPaths);
-        Assert.Contains(@"C:\Sprites\hero.png", spy.LastStartPngPaths!,
+        Assert.Contains(pngPath, spy.LastStartPngPaths!,
             StringComparer.OrdinalIgnoreCase);
     }
 
@@ -69,11 +70,12 @@ public class AppCommandsHotReloadTests
         var ctx = TestHelpers.SetupFreshAcls();
         var spy = new SpyHotReloadWatcher();
         ctx.AppCommands.HotReloadWatcher = spy;
-        ctx.ProjectManager.FileName = @"C:\proj\anim.achx";
+        var achxPath = Path.Combine(Path.GetTempPath(), "proj", "anim.achx");
+        ctx.ProjectManager.FileName = achxPath;
 
         ctx.AppCommands.SyncHotReloadWatcher();
 
-        Assert.Equal(@"C:\proj\anim.achx", spy.LastStartAchxPath);
+        Assert.Equal(achxPath, spy.LastStartAchxPath);
     }
 
     [Fact]
@@ -82,7 +84,8 @@ public class AppCommandsHotReloadTests
         var ctx = TestHelpers.SetupFreshAcls();
         var spy = new SpyHotReloadWatcher();
         ctx.AppCommands.HotReloadWatcher = spy;
-        ctx.ProjectManager.FileName = @"C:\proj\anim.achx";
+        var achxPath = Path.Combine(Path.GetTempPath(), "proj", "anim.achx");
+        ctx.ProjectManager.FileName = achxPath;
 
         var chain = new AnimationChainSave { Name = "Run" };
         chain.Frames.Add(TestHelpers.MakeFrame("sprites/run.png"));
@@ -91,7 +94,7 @@ public class AppCommandsHotReloadTests
         ctx.AppCommands.SyncHotReloadWatcher();
 
         Assert.NotNull(spy.LastStartPngPaths);
-        var expectedAbs = System.IO.Path.Combine(@"C:\proj", "sprites/run.png");
+        var expectedAbs = Path.Combine(Path.GetDirectoryName(achxPath)!, "sprites/run.png");
         Assert.Contains(expectedAbs, spy.LastStartPngPaths!,
             StringComparer.OrdinalIgnoreCase);
     }
