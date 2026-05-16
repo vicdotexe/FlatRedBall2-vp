@@ -233,7 +233,15 @@ public static class TreeBuilder
             {
                 for (int j = i + 1; j < children.Count; j++)
                     if (ReferenceEquals(children[j].Data, target))
-                    { children.Move(j, i); break; }
+                    {
+                        // Use RemoveAt+Insert instead of Move to avoid triggering
+                        // Avalonia's Move-action CollectionChanged path, which can
+                        // cause SelectionChanged to fire and corrupt tree state.
+                        var nodeVm = children[j];
+                        children.RemoveAt(j);
+                        children.Insert(i, nodeVm);
+                        break;
+                    }
             }
             children[i].Header = BuildFrameHeader(target, i);
             children[i].Meta   = $"{target.FrameLength:0.00}s";

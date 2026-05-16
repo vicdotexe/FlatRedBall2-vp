@@ -1230,18 +1230,27 @@ public partial class MainWindow : Window
 
     private void RefreshChainNode(AnimationChainSave chain)
     {
-        var node = FindChainNode(chain);
-        if (node is null)
+        _suppressTreeSelectionHandling = true;
+        try
         {
-            _treeRoots.Add(TreeBuilder.BuildChainNode(chain));
+            var node = FindChainNode(chain);
+            if (node is null)
+            {
+                _treeRoots.Add(TreeBuilder.BuildChainNode(chain));
+            }
+            else
+            {
+                node.Header = chain.Name;
+                node.Meta   = $"{chain.Frames.Count} fr";
+                TreeBuilder.SyncFramesInto(node, chain.Frames);
+            }
+            RefreshTreeThumbnails();
+            SyncTreeSelection();
         }
-        else
+        finally
         {
-            node.Header = chain.Name;
-            node.Meta   = $"{chain.Frames.Count} fr";
-            TreeBuilder.SyncFramesInto(node, chain.Frames);
+            _suppressTreeSelectionHandling = false;
         }
-        RefreshTreeThumbnails();
     }
 
     private void RefreshFrameNode(AnimationFrameSave frame)
