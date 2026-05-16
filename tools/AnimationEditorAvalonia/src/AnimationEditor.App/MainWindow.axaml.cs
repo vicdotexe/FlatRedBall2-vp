@@ -2429,24 +2429,21 @@ public partial class MainWindow : Window
             else if (e.Key == Key.F2)
             {
                 e.Handled = true;
-                if (AnimTree.IsKeyboardFocusWithin &&
-                    AnimTree.SelectedItem is TreeNodeVm vm)
+                // Prefer the tree's SelectedItem, fall back to _selectedState when the tree
+                // has temporarily lost focus (e.g. immediately after ALT+arrow reorder, where
+                // focus shifts before our Background-priority re-focus post runs).
+                var vm = AnimTree.SelectedItem as TreeNodeVm
+                      ?? (_selectedState.SelectedFrame is { } sf
+                              ? TreeBuilder.FindNodeForData(_treeRoots, sf) : null)
+                      ?? (_selectedState.SelectedChain is { } sc
+                              ? TreeBuilder.FindNodeForData(_treeRoots, sc) : null);
+
+                if (vm is not null)
                 {
                     if (vm.Data is AnimationChainSave chain)
                         BeginInlineRename(vm, chain.Name);
                     else if (vm.Data is AnimationFrameSave frame)
                         BeginInlineRename(vm, frame.HasCustomName ? frame.Name : string.Empty);
-                }
-                else if (AnimTree.IsKeyboardFocusWithin &&
-                         _selectedState.SelectedFrame is { } fallbackFrame)
-                {
-                    // Avalonia's TreeView can lose SelectedItem after an ObservableCollection
-                    // Move (e.g. ALT+arrow reorder).  Fall back to the selected state to keep
-                    // frame rename working after reorder.
-                    var fallbackVm = TreeBuilder.FindNodeForData(_treeRoots, fallbackFrame);
-                    if (fallbackVm is not null)
-                        BeginInlineRename(fallbackVm,
-                            fallbackFrame.HasCustomName ? fallbackFrame.Name : string.Empty);
                 }
                 else
                     WireframeCtrl.ToggleDebugMode();
