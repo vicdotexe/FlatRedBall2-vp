@@ -1,6 +1,7 @@
 ﻿using AnimationEditor.Core;
 using AnimationEditor.Core.CommandsAndState;
 using AnimationEditor.Core.CommandsAndState.Commands;
+using AnimationEditor.Core.Data;
 using AnimationEditor.Core.DragDrop;
 using AnimationEditor.Core.HotReload;
 using AnimationEditor.Core.IO;
@@ -48,6 +49,7 @@ public partial class MainWindow : Window
     private bool _suppressZoomComboChanged;
     private bool _suppressPreviewZoomComboChanged;
     private bool _suppressTreeSelectionHandling;
+    private bool _suppressCompanionSave;
     private System.Threading.CancellationTokenSource? _toastCts;
 
     // AppContext.BaseDirectory works under single-file publish; Assembly.Location is empty there (IL3000).
@@ -183,6 +185,8 @@ public partial class MainWindow : Window
         _events.AchxReloadedFromDisk += path =>
             Dispatcher.UIThread.InvokeAsync(() =>
                 ShowToast($"Reloaded {System.IO.Path.GetFileName(path)}"));
+
+        _ioManager.SettingsLoaded += s => Dispatcher.UIThread.InvokeAsync(() => ApplyCompanionSettings(s));
     }
 
     // ── Wireframe toolbar wiring ──────────────────────────────────────────────
@@ -235,6 +239,7 @@ public partial class MainWindow : Window
         WireframeCtrl.SetGrid(
             SnapToGridCheck.IsChecked == true,
             GetGridSizeFromInput());
+        SaveCompanionFile();
     }
 
     private int GetGridSizeFromInput()
@@ -259,6 +264,7 @@ public partial class MainWindow : Window
         GridSizeInput.Text = size.ToString();
         if (SnapToGridCheck.IsChecked == true)
             WireframeCtrl.SetGrid(true, size);
+        SaveCompanionFile();
     }
 
     private void OnGridSizePlusBtnClick(object? sender, RoutedEventArgs e)
@@ -267,6 +273,7 @@ public partial class MainWindow : Window
         GridSizeInput.Text = size.ToString();
         if (SnapToGridCheck.IsChecked == true)
             WireframeCtrl.SetGrid(true, size);
+        SaveCompanionFile();
     }
 
     private void OnGridSizeMinusBtnClick(object? sender, RoutedEventArgs e)
@@ -275,6 +282,7 @@ public partial class MainWindow : Window
         GridSizeInput.Text = size.ToString();
         if (SnapToGridCheck.IsChecked == true)
             WireframeCtrl.SetGrid(true, size);
+        SaveCompanionFile();
     }
 
     // ── Editable zoom combo (top wireframe) ──────────────────────────────────
@@ -345,7 +353,8 @@ public partial class MainWindow : Window
         WireframeCtrl.ChainRegionChanged     += OnChainRegionChanged;
         WireframeCtrl.FrameLiveUpdated       += OnFrameLiveUpdated;
         WireframeCtrl.FrameCreatedFromRegion += OnFrameCreatedFromRegion;
-        WireframeCtrl.ZoomChanged            += SyncZoomCombo;
+        WireframeCtrl.ZoomChanged            += zoomPct => { SyncZoomCombo(zoomPct); SaveCompanionFile(); };
+        WireframeCtrl.PanChanged             += (_, _) => SaveCompanionFile();
     }
 
     private void OnChainRegionChanged(AnimationChainSave chain)
@@ -408,6 +417,7 @@ public partial class MainWindow : Window
         if (!string.IsNullOrEmpty(_projectManager.FileName))
         {
             _appCommands.SaveCurrentAnimationChainList();
+            SaveCompanionFile();
             UpdateTitle();
         }
 
@@ -429,6 +439,80 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.InvokeAsync(RefreshPropertyPanel);
         // Refresh timeline strip
         Dispatcher.UIThread.InvokeAsync(RefreshTimelineStrip);
+    }
+
+    // ── Companion file (.aeproperties) ────────────────────────────────────────
+
+    private AESettingsSave BuildCompanionSettings() => new AESettingsSave
+    {
+        SnapToGrid           = SnapToGridCheck.IsChecked == true,
+        GridSize             = GetGridSizeFromInput(),
+        WireframeZoomPercent = (int)MathF.Round(WireframeCtrl.Zoom * 100f),
+        PreviewZoomPercent   = (int)MathF.Round(PreviewCtrl.Zoom * 100f),
+        WireframePanX        = WireframeCtrl.CameraState.PanX,
+        WireframePanY        = WireframeCtrl.CameraState.PanY,
+        PreviewPanX          = PreviewCtrl.PanOffset.X,
+        PreviewPanY          = PreviewCtrl.PanOffset.Y,
+        OffsetMultiplier     = _appState.OffsetMultiplier,
+        ExpandedNodes        = TreeBuilder.GetExpandedChainNames(_treeRoots).ToList(),
+        HorizontalGuides     = PreviewCtrl.HGuides.ToList(),
+        VerticalGuides       = PreviewCtrl.VGuides.ToList(),
+    };
+
+    private void SaveCompanionFile()
+    {
+        if (_suppressCompanionSave) return;
+        if (string.IsNullOrEmpty(_projectManager.FileName)) return;
+        _ioManager.SaveCompanionFileFor(new FilePath(_projectManager.FileName), BuildCompanionSettings());
+    }
+
+    private void ApplyCompanionSettings(AESettingsSave settings)
+    {
+        _suppressCompanionSave = true;
+        try
+        {
+            SnapToGridCheck.IsChecked = settings.SnapToGrid;
+            GridSizeInput.Text        = settings.GridSize.ToString();
+            WireframeCtrl.SetGrid(settings.SnapToGrid, settings.GridSize);
+
+            WireframeCtrl.SetZoomPercent(settings.WireframeZoomPercent);
+            PreviewCtrl.SetZoomPercent(settings.PreviewZoomPercent);
+
+            WireframeCtrl.SetCamera(settings.WireframePanX, settings.WireframePanY, WireframeCtrl.CameraState.Zoom);
+            PreviewCtrl.SetPan(settings.PreviewPanX, settings.PreviewPanY);
+
+            var expandedSet = settings.ExpandedNodes.ToHashSet();
+            foreach (var node in _treeRoots)
+            {
+                if (node.Data is AnimationChainSave chain)
+                    node.IsExpanded = expandedSet.Contains(chain.Name);
+            }
+
+            PreviewCtrl.SetGuides(settings.HorizontalGuides, settings.VerticalGuides);
+        }
+        finally
+        {
+            _suppressCompanionSave = false;
+        }
+    }
+
+    private void WireTreeRootsCompanionSave()
+    {
+        _treeRoots.CollectionChanged += (_, args) =>
+        {
+            if (args.NewItems != null)
+                foreach (TreeNodeVm vm in args.NewItems)
+                    vm.PropertyChanged += OnTreeNodeIsExpandedChanged;
+            if (args.OldItems != null)
+                foreach (TreeNodeVm vm in args.OldItems)
+                    vm.PropertyChanged -= OnTreeNodeIsExpandedChanged;
+        };
+    }
+
+    private void OnTreeNodeIsExpandedChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(TreeNodeVm.IsExpanded))
+            SaveCompanionFile();
     }
 
     // ── Status bar ────────────────────────────────────────────────────────────
@@ -823,7 +907,8 @@ public partial class MainWindow : Window
         PreviewZoomMinusBtn.Click += (_, _) => StepZoomPreset(PreviewCtrl.Zoom * 100f, _previewZoomPresets, -1, p => PreviewCtrl.SetZoomPercent(p));
         PreviewCtrl.WheelZoomPresets = _previewZoomPresets;
 
-        PreviewCtrl.ZoomChanged += SyncPreviewZoomCombo;
+        PreviewCtrl.ZoomChanged += zoomPct => { SyncPreviewZoomCombo(zoomPct); SaveCompanionFile(); };
+        PreviewCtrl.PanChanged  += (_, _) => SaveCompanionFile();
         PreviewCtrl.Playback.FrameIndexChanged += OnPreviewPlaybackFrameIndexChanged;
         PreviewCtrl.Playback.PlaybackTicked += OnPlaybackTicked;
     }
@@ -978,6 +1063,8 @@ public partial class MainWindow : Window
             InputElement.LostFocusEvent,
             OnInlineRenameLostFocus,
             RoutingStrategies.Bubble);
+
+        WireTreeRootsCompanionSave();
     }
 
     private void SetAllExpanded(bool expanded)

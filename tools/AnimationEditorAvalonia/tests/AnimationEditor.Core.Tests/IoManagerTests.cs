@@ -139,6 +139,36 @@ public class IoManagerTests
     }
 
     [Fact]
+    public void SaveAndLoad_PreservesWireframeZoomPercent()
+    {
+        var ctx = TestHelpers.SetupFreshAcls();
+        using var dir = new TestHelpers.TempDir();
+        var achxPath = new FilePath(dir.Path + "/test.achx");
+        AESettingsSave? loaded = null;
+        ctx.IoManager.SettingsLoaded += s => loaded = s;
+
+        ctx.IoManager.SaveCompanionFileFor(achxPath, new AESettingsSave { WireframeZoomPercent = 200 });
+        ctx.IoManager.LoadAndApplyCompanionFileFor(achxPath.FullPath);
+
+        Assert.Equal(200, loaded?.WireframeZoomPercent);
+    }
+
+    [Fact]
+    public void SaveAndLoad_PreservesPreviewZoomPercent()
+    {
+        var ctx = TestHelpers.SetupFreshAcls();
+        using var dir = new TestHelpers.TempDir();
+        var achxPath = new FilePath(dir.Path + "/test.achx");
+        AESettingsSave? loaded = null;
+        ctx.IoManager.SettingsLoaded += s => loaded = s;
+
+        ctx.IoManager.SaveCompanionFileFor(achxPath, new AESettingsSave { PreviewZoomPercent = 150 });
+        ctx.IoManager.LoadAndApplyCompanionFileFor(achxPath.FullPath);
+
+        Assert.Equal(150, loaded?.PreviewZoomPercent);
+    }
+
+    [Fact]
     public void SaveCompanionFileFor_WhenDirectoryDoesNotExist_FiresSaveFailed()
     {
         var ctx = TestHelpers.SetupFreshAcls();
