@@ -1947,20 +1947,15 @@ public partial class MainWindow : Window
         if (_suppressPropRefresh) return;
         var frame = _selectedState.SelectedFrame;
         if (frame is null || !PropFrameLen.Value.HasValue) return;
-        frame.FrameLength = (float)PropFrameLen.Value.Value;
-        _appCommands.RefreshTreeNode(frame);
-        _events.RaiseAnimationChainsChanged();
+        _appCommands.SetFrameLength(frame, (float)PropFrameLen.Value.Value);
     }
 
     private void ApplyFrameRelative()
     {
         if (_suppressPropRefresh) return;
         var frame = _selectedState.SelectedFrame;
-        if (frame is null) return;
-        if (PropRelX.Value.HasValue) frame.RelativeX = (float)PropRelX.Value.Value;
-        if (PropRelY.Value.HasValue) frame.RelativeY = (float)PropRelY.Value.Value;
-        _events.RaiseAnimationChainsChanged();
-        _appCommands.RefreshWireframe();
+        if (frame is null || !PropRelX.Value.HasValue || !PropRelY.Value.HasValue) return;
+        _appCommands.SetFrameRelative(frame, (float)PropRelX.Value.Value, (float)PropRelY.Value.Value);
     }
 
     private void ApplyFramePixelCoords()
@@ -1972,13 +1967,10 @@ public partial class MainWindow : Window
         if (bmpW <= 0 || bmpH <= 0) return;
         if (!PropPixelX.Value.HasValue || !PropPixelY.Value.HasValue ||
             !PropPixelW.Value.HasValue || !PropPixelH.Value.HasValue) return;
-
-        PixelFrameEditor.SetX(frame,      (int)PropPixelX.Value.Value, bmpW);
-        PixelFrameEditor.SetY(frame,      (int)PropPixelY.Value.Value, bmpH);
-        PixelFrameEditor.SetWidth(frame,  (int)PropPixelW.Value.Value, bmpW);
-        PixelFrameEditor.SetHeight(frame, (int)PropPixelH.Value.Value, bmpH);
-        _events.RaiseAnimationChainsChanged();
-        WireframeCtrl.RefreshFrames();
+        _appCommands.SetFramePixelRegion(frame,
+            (int)PropPixelX.Value.Value, (int)PropPixelY.Value.Value,
+            (int)PropPixelW.Value.Value, (int)PropPixelH.Value.Value,
+            bmpW, bmpH);
     }
 
 
@@ -1986,31 +1978,26 @@ public partial class MainWindow : Window
     {
         if (_suppressPropRefresh) return;
         var rect = _selectedState.SelectedRectangle;
-        if (rect is null) return;
-        rect.Name = PropRectName.Text ?? "";
-        if (PropRectX.Value.HasValue)      rect.X      = (float)PropRectX.Value.Value;
-        if (PropRectY.Value.HasValue)      rect.Y      = (float)PropRectY.Value.Value;
-        if (PropRectScaleX.Value.HasValue) rect.ScaleX = (float)PropRectScaleX.Value.Value;
-        if (PropRectScaleY.Value.HasValue) rect.ScaleY = (float)PropRectScaleY.Value.Value;
-        _events.RaiseAnimationChainsChanged();
-        _appCommands.RefreshWireframe();
+        if (rect is null || !PropRectX.Value.HasValue || !PropRectY.Value.HasValue ||
+            !PropRectScaleX.Value.HasValue || !PropRectScaleY.Value.HasValue) return;
         var frame = _selectedState.SelectedFrame;
-        if (frame is not null) _appCommands.RefreshTreeNode(frame);
+        _appCommands.SetRectProps(frame, rect,
+            PropRectName.Text ?? "",
+            (float)PropRectX.Value.Value, (float)PropRectY.Value.Value,
+            (float)PropRectScaleX.Value.Value, (float)PropRectScaleY.Value.Value);
     }
 
     private void ApplyCircleProps()
     {
         if (_suppressPropRefresh) return;
         var circ = _selectedState.SelectedCircle;
-        if (circ is null) return;
-        circ.Name = PropCircleName.Text ?? "";
-        if (PropCircleX.Value.HasValue)      circ.X      = (float)PropCircleX.Value.Value;
-        if (PropCircleY.Value.HasValue)      circ.Y      = (float)PropCircleY.Value.Value;
-        if (PropCircleRadius.Value.HasValue) circ.Radius = (float)PropCircleRadius.Value.Value;
-        _events.RaiseAnimationChainsChanged();
-        _appCommands.RefreshWireframe();
+        if (circ is null || !PropCircleX.Value.HasValue || !PropCircleY.Value.HasValue ||
+            !PropCircleRadius.Value.HasValue) return;
         var frame = _selectedState.SelectedFrame;
-        if (frame is not null) _appCommands.RefreshTreeNode(frame);
+        _appCommands.SetCircleProps(frame, circ,
+            PropCircleName.Text ?? "",
+            (float)PropCircleX.Value.Value, (float)PropCircleY.Value.Value,
+            (float)PropCircleRadius.Value.Value);
     }
 
     // ── Playback controls wiring ──────────────────────────────────────────────

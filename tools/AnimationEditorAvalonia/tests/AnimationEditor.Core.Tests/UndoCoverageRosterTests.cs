@@ -94,6 +94,11 @@ public class UndoCoverageRosterTests
         [nameof(IAppCommands.AddFrameFromPixelBounds)]      = Category.MutatingUndoable,
         [nameof(IAppCommands.SetFrameTextureName)]          = Category.MutatingUndoable,
         [nameof(IAppCommands.SetAllFramesTextureName)]      = Category.MutatingUndoable,
+        [nameof(IAppCommands.SetFrameLength)]               = Category.MutatingUndoable,
+        [nameof(IAppCommands.SetFrameRelative)]             = Category.MutatingUndoable,
+        [nameof(IAppCommands.SetFramePixelRegion)]          = Category.MutatingUndoable,
+        [nameof(IAppCommands.SetRectProps)]                 = Category.MutatingUndoable,
+        [nameof(IAppCommands.SetCircleProps)]               = Category.MutatingUndoable,
         [nameof(IAppCommands.PasteChains)]                  = Category.MutatingUndoable,
         [nameof(IAppCommands.PasteFrames)]                  = Category.MutatingUndoable,
         [nameof(IAppCommands.PasteRectangle)]               = Category.MutatingUndoable,
@@ -256,6 +261,16 @@ public class UndoCoverageRosterTests
             ctx => Sync(() => ctx.AppCommands.SetFrameTextureName(Zebra(ctx).Frames[0], "set.png")));
         yield return Row(nameof(IAppCommands.SetAllFramesTextureName),
             ctx => Sync(() => ctx.AppCommands.SetAllFramesTextureName(Zebra(ctx), "bulk.png")));
+        yield return Row(nameof(IAppCommands.SetFrameLength),
+            ctx => Sync(() => ctx.AppCommands.SetFrameLength(Zebra(ctx).Frames[0], 0.99f)));
+        yield return Row(nameof(IAppCommands.SetFrameRelative),
+            ctx => Sync(() => ctx.AppCommands.SetFrameRelative(Zebra(ctx).Frames[0], 99f, 88f)));
+        yield return Row(nameof(IAppCommands.SetFramePixelRegion),
+            ctx => Sync(() => ctx.AppCommands.SetFramePixelRegion(Zebra(ctx).Frames[0], 4, 8, 12, 16, 64, 64)));
+        yield return Row(nameof(IAppCommands.SetRectProps),
+            ctx => Sync(() => ctx.AppCommands.SetRectProps(Zebra(ctx).Frames[0], Rect(ctx), "Renamed", 5f, 6f, 7f, 8f)));
+        yield return Row(nameof(IAppCommands.SetCircleProps),
+            ctx => Sync(() => ctx.AppCommands.SetCircleProps(Zebra(ctx).Frames[0], Circle(ctx), "Renamed", 5f, 6f, 9f)));
         yield return Row(nameof(IAppCommands.PasteChains),
             ctx => Sync(() => ctx.AppCommands.PasteChains(
                 new List<AnimationChainSave> { new() { Name = "Pasted" } })));

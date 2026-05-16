@@ -979,6 +979,36 @@ namespace AnimationEditor.Core.CommandsAndState
             _undoManager.Execute(new CompositeCommand(cmds, "Set All Frame Textures"));
         }
 
+        public void SetFrameLength(AnimationFrameSave frame, float newLength) =>
+            _undoManager.Execute(new BulkFrameEditCommand(
+                [frame], () => frame.FrameLength = newLength,
+                this, _events, false, "Set Frame Length"));
+
+        public void SetFrameRelative(AnimationFrameSave frame, float newRelX, float newRelY) =>
+            _undoManager.Execute(new BulkFrameEditCommand(
+                [frame], () => { frame.RelativeX = newRelX; frame.RelativeY = newRelY; },
+                this, _events, true, "Set Frame Offset"));
+
+        public void SetFramePixelRegion(AnimationFrameSave frame,
+            int pixelX, int pixelY, int pixelW, int pixelH, int bmpW, int bmpH) =>
+            _undoManager.Execute(new BulkFrameEditCommand(
+                [frame], () =>
+                {
+                    PixelFrameEditor.SetX(frame, pixelX, bmpW);
+                    PixelFrameEditor.SetY(frame, pixelY, bmpH);
+                    PixelFrameEditor.SetWidth(frame, pixelW, bmpW);
+                    PixelFrameEditor.SetHeight(frame, pixelH, bmpH);
+                },
+                this, _events, true, "Edit Frame Region"));
+
+        public void SetRectProps(AnimationFrameSave? frame, AARectSave rect,
+            string name, float x, float y, float scaleX, float scaleY) =>
+            _undoManager.Execute(SetShapePropsCommand.ForRect(frame, rect, name, x, y, scaleX, scaleY, this, _events));
+
+        public void SetCircleProps(AnimationFrameSave? frame, CircleSave circ,
+            string name, float x, float y, float radius) =>
+            _undoManager.Execute(SetShapePropsCommand.ForCircle(frame, circ, name, x, y, radius, this, _events));
+
         // ── Paste (clipboard → project) ───────────────────────────────────────
 
         /// <inheritdoc cref="IAppCommands.PasteChains"/>
