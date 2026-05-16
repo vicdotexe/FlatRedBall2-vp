@@ -2469,6 +2469,9 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 int delta = e.Key == Key.Up ? -1 : +1;
                 _appCommands.HandleReorder(delta);
+                // Restore focus to the tree — reorder can cause Avalonia to shift focus
+                // away, which would make F2 fall through to WireframeCtrl.ToggleDebugMode.
+                Dispatcher.UIThread.Post(() => AnimTree.Focus(), DispatcherPriority.Background);
                 if (_selectedState.SelectedFrame is { HasCustomName: false })
                     ShowStatusMessage("Frame labels updated to reflect new positions  ·  F2 to assign a custom name");
             }
