@@ -29,8 +29,9 @@ public class CommandLineArgParserTests
     [Fact]
     public void AchxArg_ReturnsPath()
     {
-        string? result = CommandLineArgParser.ParseFileArgument([@"C:\projects\anim.achx"]);
-        Assert.Equal(@"C:\projects\anim.achx", result);
+        var path = TestPaths.Abs("projects", "anim.achx");
+        string? result = CommandLineArgParser.ParseFileArgument([path]);
+        Assert.Equal(path, result);
     }
 
     [Fact]
@@ -43,9 +44,11 @@ public class CommandLineArgParserTests
     [Fact]
     public void MultipleArgs_ReturnsFirstAchx()
     {
+        var first  = TestPaths.Abs("first.achx");
+        var second = TestPaths.Abs("second.achx");
         string? result = CommandLineArgParser.ParseFileArgument(
-            ["--verbose", @"C:\first.achx", @"C:\second.achx"]);
-        Assert.Equal(@"C:\first.achx", result);
+            ["--verbose", first, second]);
+        Assert.Equal(first, result);
     }
 
     [Fact]

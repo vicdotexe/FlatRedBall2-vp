@@ -48,3 +48,27 @@ The AnimationEditor app is still running. MSBuild cannot replace the executable 
    ```
 
 Once the process is gone, re-run `dotnet build` / `dotnet test` and it will succeed immediately.
+
+---
+
+## Writing Tests: Cross-Platform Absolute Paths
+
+**Never use hardcoded Windows paths** (`@"C:\..."`, `@"D:\..."`, etc.) in test files. Tests run on both Windows and Linux CI runners; Windows paths cause `FileNotFoundException` or path-comparison failures on Linux.
+
+Use the `TestPaths` helper class instead:
+
+```csharp
+// Good — resolves to C:\TestRoot\... on Windows, /TestRoot/... on Linux
+TestPaths.Abs("textures", "sprite.png")
+
+// For paths that need a distinct drive/root from Abs()
+TestPaths.AltAbs("Downloads", "capybara.png")
+
+// For a directory path (appends trailing separator)
+TestPaths.AbsDir("project", "textures")
+
+// For paths that must not be writable (write-failure tests)
+TestPaths.InvalidPath("recovery.achx")
+```
+
+`TestPaths` is defined in each test project's root (e.g., `AnimationEditor.Core.Tests/TestPaths.cs`). Add `AbsDir` / `InvalidPath` to `AnimationEditor.App.Tests/TestPaths.cs` if needed there too.

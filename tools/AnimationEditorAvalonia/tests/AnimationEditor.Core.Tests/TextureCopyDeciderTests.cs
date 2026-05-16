@@ -5,12 +5,10 @@ namespace AnimationEditor.Core.Tests;
 
 public class TextureCopyDeciderTests
 {
-    // Use fixed Windows-style absolute paths so tests are path-separator agnostic
-    // (Path.DirectorySeparatorChar is '\' on Windows, which is what the CI runs).
-    private static readonly string Folder  = @"C:\project\Content";
-    private static readonly string Inside  = @"C:\project\Content\hero.png";
-    private static readonly string SubDir  = @"C:\project\Content\Textures\run.png";
-    private static readonly string Outside = @"C:\other\assets\enemy.png";
+    private static readonly string Folder  = TestPaths.Abs("project", "Content");
+    private static readonly string Inside  = TestPaths.Abs("project", "Content", "hero.png");
+    private static readonly string SubDir  = TestPaths.Abs("project", "Content", "Textures", "run.png");
+    private static readonly string Outside = TestPaths.Abs("other", "assets", "enemy.png");
 
     // ── Null / empty texture path ─────────────────────────────────────────────
 
@@ -44,7 +42,7 @@ public class TextureCopyDeciderTests
 
     [Fact]
     public void FolderWithTrailingSeparator_TextureInside_ReturnsFalse()
-        => Assert.False(TextureCopyDecider.ShouldPromptToCopy(Inside, Folder + @"\"));
+        => Assert.False(TextureCopyDecider.ShouldPromptToCopy(Inside, Folder + Path.DirectorySeparatorChar));
 
     // ── Texture outside project folder ────────────────────────────────────────
 
@@ -55,8 +53,8 @@ public class TextureCopyDeciderTests
     [Fact]
     public void TextureWithSamePrefix_ButNotSubPath_ReturnsTrue()
     {
-        // "C:\projectX\..." starts with "C:\project" but is NOT inside "C:\project\"
-        string notInside = @"C:\projectExtra\Content\hero.png";
+        // "...projectExtra\..." starts with "...project" but is NOT inside "...project\"
+        string notInside = TestPaths.Abs("projectExtra", "Content", "hero.png");
         Assert.True(TextureCopyDecider.ShouldPromptToCopy(notInside, Folder));
     }
 

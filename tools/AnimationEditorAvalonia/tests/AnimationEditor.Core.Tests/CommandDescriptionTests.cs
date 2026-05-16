@@ -117,7 +117,7 @@ public class CommandDescriptionTests
     {
         var frame = new AnimationFrameSave();
         var cmd = new SetFrameTextureNameCommand(frame,
-            oldName: null, newName: @"C:\textures\sprite.png",
+            oldName: null, newName: TestPaths.Abs("textures", "sprite.png"),
             commands: null!, events: null!);
 
         Assert.Equal("Set Texture: sprite.png", cmd.Description);
@@ -128,7 +128,7 @@ public class CommandDescriptionTests
     {
         var frame = new AnimationFrameSave();
         var cmd = new SetFrameTextureNameCommand(frame,
-            oldName: @"C:\textures\old.png", newName: null,
+            oldName: TestPaths.Abs("textures", "old.png"), newName: null,
             commands: null!, events: null!);
 
         Assert.Equal("Set Texture: old.png", cmd.Description);

@@ -26,7 +26,7 @@ public class AppCommandsNewFileTests
     [Fact]
     public void NewFile_ClearsFileName()
     {
-        ctx.ProjectManager.FileName = @"C:\some\file.achx";
+        ctx.ProjectManager.FileName = TestPaths.Abs("some", "file.achx");
 
         ctx.AppCommands.NewFile();
 

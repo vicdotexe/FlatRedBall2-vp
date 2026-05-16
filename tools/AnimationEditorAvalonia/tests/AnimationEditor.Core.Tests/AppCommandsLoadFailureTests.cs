@@ -23,7 +23,7 @@ public class AppCommandsLoadFailureTests : IDisposable
         Exception? capturedEx = null;
         ctx.AppCommands.LoadFailed += (path, ex) => { capturedPath = path; capturedEx = ex; };
 
-        ctx.AppCommands.LoadAnimationChain(@"C:\does\not\exist.achx");
+        ctx.AppCommands.LoadAnimationChain(TestPaths.Abs("does", "not", "exist.achx"));
 
         Assert.NotNull(capturedPath);
         Assert.NotNull(capturedEx);
@@ -36,7 +36,7 @@ public class AppCommandsLoadFailureTests : IDisposable
         int fireCount = 0;
         ctx.AppCommands.LoadFailed += (_, __) => fireCount++;
 
-        ctx.AppCommands.LoadAnimationChain(@"C:\does\not\exist.achx");
+        ctx.AppCommands.LoadAnimationChain(TestPaths.Abs("does", "not", "exist.achx"));
 
         Assert.Equal(1, fireCount);
     }
@@ -48,7 +48,7 @@ public class AppCommandsLoadFailureTests : IDisposable
         bool fired = false;
         ctx.AppCommands.RebuildTreeViewRequested += () => fired = true;
 
-        ctx.AppCommands.LoadAnimationChain(@"C:\does\not\exist.achx");
+        ctx.AppCommands.LoadAnimationChain(TestPaths.Abs("does", "not", "exist.achx"));
 
         Assert.False(fired);
     }
@@ -60,7 +60,7 @@ public class AppCommandsLoadFailureTests : IDisposable
         bool fired = false;
         ctx.AppCommands.RefreshWireframeRequested += () => fired = true;
 
-        ctx.AppCommands.LoadAnimationChain(@"C:\does\not\exist.achx");
+        ctx.AppCommands.LoadAnimationChain(TestPaths.Abs("does", "not", "exist.achx"));
 
         Assert.False(fired);
     }
@@ -72,7 +72,7 @@ public class AppCommandsLoadFailureTests : IDisposable
         var sentinel = new AnimationChainListSave();
         ctx.ProjectManager.AnimationChainListSave = sentinel;
 
-        ctx.AppCommands.LoadAnimationChain(@"C:\does\not\exist.achx");
+        ctx.AppCommands.LoadAnimationChain(TestPaths.Abs("does", "not", "exist.achx"));
 
         Assert.Same(sentinel, ctx.ProjectManager.AnimationChainListSave);
     }

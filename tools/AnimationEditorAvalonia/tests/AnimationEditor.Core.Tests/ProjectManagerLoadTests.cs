@@ -20,7 +20,7 @@ public class ProjectManagerLoadTests : IDisposable
         var pm = new ProjectManager();
 
         Assert.Throws<FileNotFoundException>(
-            () => pm.LoadAnimationChain(new FilePath(@"C:\does\not\exist.achx")));
+            () => pm.LoadAnimationChain(new FilePath(TestPaths.Abs("does", "not", "exist.achx"))));
     }
 
     [Fact]
@@ -29,7 +29,7 @@ public class ProjectManagerLoadTests : IDisposable
         var pm = new ProjectManager();
         pm.AnimationChainListSave = null;
 
-        try { pm.LoadAnimationChain(new FilePath(@"C:\does\not\exist.achx")); }
+        try { pm.LoadAnimationChain(new FilePath(TestPaths.Abs("does", "not", "exist.achx"))); }
         catch (FileNotFoundException) { }
 
         Assert.Null(pm.AnimationChainListSave);
