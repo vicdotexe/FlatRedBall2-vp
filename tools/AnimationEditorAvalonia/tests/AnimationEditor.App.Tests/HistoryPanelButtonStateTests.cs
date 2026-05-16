@@ -1,7 +1,10 @@
+using System.Collections.Generic;
+using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using AnimationEditor.Core.CommandsAndState.Commands;
+using AnimationEditor.App.Models;
 using FlatRedBall2.Animation.Content;
 using Xunit;
 
@@ -151,11 +154,42 @@ public class HistoryPanelButtonStateTests
         finally { window.Close(); }
     }
 
+    // ── History list ordering ─────────────────────────────────────────────────
+
+    [AvaloniaFact]
+    public void HistoryList_UndoneItemStaysAtTop_NotMovedToBottom()
+    {
+        var (window, ctx) = CreateWindow();
+        try
+        {
+            ctx.UndoManager.Record(new StubCmd("A"));
+            ctx.UndoManager.Record(new StubCmd("B"));
+            ctx.UndoManager.Undo(); // B → redo stack
+            Dispatcher.UIThread.RunJobs();
+
+            var list = window.FindControl<ListBox>("HistoryList")!;
+            var items = ((IEnumerable<HistoryEntryVm>)list.ItemsSource!).ToList();
+
+            // B was undone; it must appear at row 0 (top), not at the bottom
+            Assert.Equal(2, items.Count);
+            Assert.Equal("B", items[0].Description);
+            Assert.Equal("A", items[1].Description);
+
+            // B is dimmed (redo item), A is bright (applied item)
+            Assert.Equal("#6a6e76", items[0].Foreground);
+            Assert.Equal("#e6e8ec", items[1].Foreground);
+
+            // Selection sits on A (the most recently applied command)
+            Assert.Equal(1, list.SelectedIndex);
+        }
+        finally { window.Close(); }
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private sealed class StubCmd : IUndoableCommand
+    private sealed class StubCmd(string description = "Stub") : IUndoableCommand
     {
-        public string Description => "Stub";
+        public string Description => description;
         public bool Do() => true;
         public void Undo() { }
     }

@@ -487,16 +487,20 @@ public partial class MainWindow : Window
         var undoHistory = _undoManager.UndoHistory;
         var redoHistory = _undoManager.RedoHistory;
         var items = new List<Models.HistoryEntryVm>();
-        // Newest undo item at the top, oldest at the bottom
-        foreach (var cmd in undoHistory.Reverse())
-            items.Add(new Models.HistoryEntryVm(cmd.Description, "#e6e8ec"));
+        // Redo items at the top (dimmed) — they keep their position when undone
         foreach (var cmd in redoHistory)
             items.Add(new Models.HistoryEntryVm(cmd.Description, "#6a6e76"));
+        // Undo items below, newest first, bright
+        foreach (var cmd in undoHistory.Reverse())
+            items.Add(new Models.HistoryEntryVm(cmd.Description, "#e6e8ec"));
         HistoryList.ItemsSource = items;
 
-        // Current step is always row 0 (most recent action)
-        HistoryList.SelectedIndex = undoHistory.Count > 0 ? 0 : -1;
-        if (items.Count > 0)
+        // Select the most recent applied command (first undo item)
+        int selectedIndex = undoHistory.Count > 0 ? redoHistory.Count : -1;
+        HistoryList.SelectedIndex = selectedIndex;
+        if (selectedIndex >= 0)
+            HistoryList.ScrollIntoView(items[selectedIndex]);
+        else if (items.Count > 0)
             HistoryList.ScrollIntoView(items[0]);
 
         HistoryUndoButton.IsEnabled = _undoManager.CanUndo;

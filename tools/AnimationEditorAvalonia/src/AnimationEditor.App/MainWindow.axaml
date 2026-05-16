@@ -1066,6 +1066,8 @@
                             <Style Selector="ListBoxItem">
                                 <Setter Property="MinHeight" Value="0" />
                                 <Setter Property="Padding" Value="0" />
+                                <!-- Selection tracks current undo position; user clicks must not change it -->
+                                <Setter Property="IsHitTestVisible" Value="False" />
                             </Style>
                         </ListBox.Styles>
                         <ListBox.ItemTemplate>
