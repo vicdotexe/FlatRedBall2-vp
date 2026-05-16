@@ -83,7 +83,7 @@ public class IoManagerRecoveryTests : IDisposable
     [Fact]
     public void WriteRecoveryFile_WhenPathIsInvalid_DoesNotThrow()
     {
-        ctx.IoManager.RecoveryFilePath = "Z:\\NonExistentDrive\\recovery.achx";
+        ctx.IoManager.RecoveryFilePath = TestPaths.InvalidPath("recovery.achx");
         ctx.ProjectManager.AnimationChainListSave = new AnimationChainListSave();
 
         var ex = Record.Exception(() => ctx.IoManager.WriteRecoveryFile(ctx.ProjectManager.AnimationChainListSave));
@@ -94,7 +94,7 @@ public class IoManagerRecoveryTests : IDisposable
     [Fact]
     public void WriteRecoveryFile_WhenPathIsInvalid_FiresSaveFailed()
     {
-        ctx.IoManager.RecoveryFilePath = "Z:\\NonExistentDrive\\recovery.achx";
+        ctx.IoManager.RecoveryFilePath = TestPaths.InvalidPath("recovery.achx");
         ctx.ProjectManager.AnimationChainListSave = new AnimationChainListSave();
         Exception? caught = null;
         ctx.IoManager.SaveFailed += (_, e) => caught = e;
