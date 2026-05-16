@@ -1376,4 +1376,102 @@ public class WireframePanZoomTests
         }
         finally { Directory.Delete(dir, true); }
     }
+
+    // ── Bottom-right zoom pan-centering bug (#341) ────────────────────────────
+
+    /// <summary>
+    /// Regression guard for the "sprite stuck near top-left after zooming from
+    /// bottom-right corner" pan-centering bug (#341).
+    ///
+    /// Root cause: after multiple zoom-in steps with the pivot at the bottom-right
+    /// corner, <c>ZoomToward</c> computes a very negative <c>rawPanX</c>.  The #319
+    /// guard clamped <c>_panX = 0</c>, erasing the effective-padding buffer.  With
+    /// <c>_panX = 0</c> and a small image the sprite's centre maps to a negative
+    /// scroll offset — unreachable because scroll ≥ 0 — so the user cannot pan the
+    /// sprite to the viewport centre.
+    ///
+    /// Fix: clamp to <c>epX</c> (effective-padding X) instead of 0, preserving the
+    /// left-side buffer so the sprite is always pannable to the viewport centre.
+    /// </summary>
+    [AvaloniaFact]
+    public void ZoomFromBottomRight_MultipleTimes_SpritePannableToCenter()
+    {
+        var ctx = ResetSingletons();
+        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            // 32×32 sprite — small enough that rawPanX becomes negative after ~5
+            // bottom-right zoom steps, reliably triggering the clamped branch.
+            var texPath = WriteSolidPng(dir, "small32.png", size: 32);
+
+            var window = ctx.CreateMainWindow();
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+
+            var ctrl = FindCtrl<WireframeControl>(window, "WireframeCtrl");
+            var sv   = FindCtrl<ScrollViewer>(window, "WireframeScrollViewer");
+
+            ctrl.LoadTexture(texPath);
+            Dispatcher.UIThread.RunJobs();
+
+            // Start from 100 % zoom for a deterministic initial state.
+            ctrl.SetZoomPercent(100);
+            Dispatcher.UIThread.RunJobs();
+
+            float vpW = (float)sv.Viewport.Width;
+            float vpH = (float)sv.Viewport.Height;
+
+            // Simulate 8 wheel-zoom-in notches from the bottom-right corner.
+            // rawPanX goes negative after ~5 steps, triggering the _panX clamp.
+            float pivotX = vpW - 10f;
+            float pivotY = vpH - 10f;
+            for (int i = 0; i < 8; i++)
+                ctrl.SimulateWheelZoom(pivotX, pivotY, 1.25f);
+
+            Dispatcher.UIThread.RunJobs();
+
+            var (panX, _, zoom) = ctrl.CameraState;
+
+            // ── Assert 1: PanX must be > 0 (effective-padding buffer preserved) ──
+            // Bug:  _panX was clamped to 0, erasing the left-side buffer.
+            // Fix:  _panX is clamped to epX > 0.
+            Assert.True(panX > 0,
+                $"After 8 bottom-right zoom steps PanX must be > 0 (effective-padding " +
+                $"buffer preserved); got panX={panX:F1}. " +
+                "Indicates _panX was clamped to 0 instead of epX — sprite stuck (#341).");
+
+            // ── Assert 2: sprite centre must be reachable by a rightward pan ──
+            // centreScroll = (image centre in content space) − (viewport half-width)
+            // Bug  (panX = 0):   centreScroll ≈ −305 → impossible (scroll ≥ 0)
+            // Fix  (panX = epX): centreScroll ≈ +49  → reachable
+            float imageCentreX  = panX + 32f * zoom / 2f;
+            float centreScroll  = imageCentreX - vpW / 2f;
+            Assert.True(centreScroll > 0f,
+                $"Sprite centre (content={imageCentreX:F1}) must lie beyond viewport " +
+                $"half-width ({vpW / 2f:F1}) so it can be panned to centre " +
+                $"(required scroll={centreScroll:F1}). " +
+                "With panX=0 (bug) this scroll is negative and unreachable (#341).");
+
+            // ── Assert 3: executing the rightward pan actually decreases scroll ──
+            double scrollBefore = sv.Offset.X;
+            const float panAmt = 50f;
+            if (scrollBefore >= panAmt)
+            {
+                ctrl.SimulatePanStart(vpW / 2f, vpH / 2f);
+                ctrl.SimulatePanMove(vpW / 2f + panAmt, vpH / 2f);
+                ctrl.SimulatePanEnd();
+                Dispatcher.UIThread.RunJobs();
+
+                double scrollAfter = sv.Offset.X;
+                Assert.True(Math.Abs(scrollBefore - scrollAfter - panAmt) < 5.0,
+                    $"Rightward pan of {panAmt}px must decrease scroll by ~{panAmt}px; " +
+                    $"before={scrollBefore:F1} after={scrollAfter:F1} " +
+                    $"delta={scrollBefore - scrollAfter:F1}. Sprite is stuck (#341).");
+            }
+
+            window.Close();
+        }
+        finally { Directory.Delete(dir, true); }
+    }
 }

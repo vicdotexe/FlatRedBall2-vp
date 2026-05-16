@@ -1791,27 +1791,31 @@ public class WireframeControl : Control
             float newScrollY = Math.Min(rawScrollY, maxScrollY);
 
             // _panX absorbs the clamped overflow so the cursor pivot is preserved.
-            // When zooming toward blank space far from the image the raw value can go
-            // negative, placing the sprite to the left of scroll-origin-0.  Since scroll
-            // cannot go below 0, a negative _panX makes the image permanently unreachable
-            // (#319).  Clamp to 0 and pull newScrollX back so the image right/bottom edge
-            // stays visible at the post-zoom viewport position.
+            // When zooming toward blank space far from the image, the overflow
+            // (rawScrollX − maxScrollX) can reduce rawPanX below the threshold needed
+            // to pan/centre the sprite.
+            //
+            // The minimum panX that still allows centering is:
+            //   minPanX = max(0, vpW/2 − imgW*zoom/2)
+            // (centreScroll = panX + imgW*zoom/2 − vpW/2 ≥ 0 requires panX ≥ minPanX)
+            //
+            // When rawPanX falls below this threshold (including going negative as in #319),
+            // clamp to epX instead of 0.  Using 0 (#319 original fix) erased the
+            // effective-padding buffer, making the sprite's centre map to a negative scroll
+            // offset that is unreachable, so the user could no longer pan to centre (#341).
+            // Using epX restores the padding and ensures centreScroll > 0.
             float rawPanX = overflowX ? epX - (rawScrollX - newScrollX) : newPanX - scrollX;
             float rawPanY = overflowY ? epY - (rawScrollY - newScrollY) : newPanY - scrollY;
 
-            if (overflowX && _bitmap != null && rawPanX < 0f)
-            {
-                _panX      = 0f;
-                newScrollX = Math.Max(0f, Math.Min(newScrollX, _bitmap.Width  * _zoom - 1f));
-            }
-            else { _panX = rawPanX; }
+            float minPanX = overflowX && _bitmap != null
+                ? Math.Max(0f, (float)vp.Width  / 2f - _bitmap.Width  * _zoom / 2f)
+                : 0f;
+            float minPanY = overflowY && _bitmap != null
+                ? Math.Max(0f, (float)vp.Height / 2f - _bitmap.Height * _zoom / 2f)
+                : 0f;
 
-            if (overflowY && _bitmap != null && rawPanY < 0f)
-            {
-                _panY      = 0f;
-                newScrollY = Math.Max(0f, Math.Min(newScrollY, _bitmap.Height * _zoom - 1f));
-            }
-            else { _panY = rawPanY; }
+            _panX = rawPanX < minPanX ? epX : rawPanX;
+            _panY = rawPanY < minPanY ? epY : rawPanY;
 
             DebugLog("ZOOM_TOWARD",
                 $"factor={factor:F3} pivot=({sx:F1},{sy:F1}) zoom={oldZoom:F3}→{_zoom:F3} " +
