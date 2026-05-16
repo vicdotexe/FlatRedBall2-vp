@@ -481,10 +481,25 @@ public partial class MainWindow : Window
             firstUndo = false;
         }
         HistoryList.ItemsSource = items;
-        HistoryScrollViewer.Offset = new Avalonia.Vector(0, 0);
+        int currentIndex = redoHistory.Count;
+        ScrollHistoryToCurrent(currentIndex, items.Count);
 
         HistoryUndoButton.IsEnabled = _undoManager.CanUndo;
         HistoryRedoButton.IsEnabled = _undoManager.CanRedo;
+    }
+
+    private void ScrollHistoryToCurrent(int currentIndex, int totalCount)
+    {
+        if (totalCount == 0) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            double extent   = HistoryScrollViewer.Extent.Height;
+            double viewport = HistoryScrollViewer.Viewport.Height;
+            double newOffset = Helpers.HistoryScrollHelper.ComputeScrollOffset(
+                currentIndex, totalCount, extent, viewport,
+                HistoryScrollViewer.Offset.Y) ?? HistoryScrollViewer.Offset.Y;
+            HistoryScrollViewer.Offset = new Avalonia.Vector(0, newOffset);
+        }, Avalonia.Threading.DispatcherPriority.Render);
     }
 
     private void SetHistoryVisible(bool visible)
