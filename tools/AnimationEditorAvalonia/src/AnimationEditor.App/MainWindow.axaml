@@ -144,8 +144,7 @@
                            FontSize="12"
                            LineHeight="16"
                            Foreground="{StaticResource InkMid}"
-                           IsVisible="False"
-                           Cursor="Hand">
+                           IsVisible="False">
                     <TextBlock.ContextMenu>
                         <ContextMenu>
                             <MenuItem Header="Open Containing Folder"
