@@ -28,14 +28,14 @@ namespace FlatRedBall2;
 /// and its entities are destroyed before the new screen's <see cref="CustomInitialize"/> runs.
 /// </para>
 /// </summary>
-public class Screen
+public class Screen : ILifecycleEvents
 {
-    private readonly List<Entity> _entities = new();
-    private readonly List<ICollisionRelationship> _collisionRelationships = new();
+    private readonly EntityManager _entityManager = new();
+    private readonly CollisionSystem _collisionSystem = new();
     private readonly List<GumRenderable> _gumRenderables = new();
 
     /// <summary>All entities currently managed by this screen (registered via Factory or <see cref="Register"/>).</summary>
-    public IReadOnlyList<Entity> Entities => _entities;
+    public IReadOnlyList<Entity> Entities => _entityManager.Entities;
 
     internal readonly CancellationTokenSource _cts = new();
 
@@ -129,7 +129,7 @@ public class Screen
         set
         {
             _layer = value;
-            foreach (var entity in _entities)
+            foreach (var entity in _entityManager.Entities)
                 entity.Layer = value;
             foreach (var renderable in _renderList)
                 renderable.Layer = value;
@@ -196,7 +196,7 @@ public class Screen
     {
         entity.Engine = Engine;
         entity._onDestroy = () => RemoveEntity(entity);
-        _entities.Add(entity);
+        _entityManager.Register(entity);
         foreach (var child in entity.Children)
         {
             if (child is IRenderable renderable)
@@ -219,7 +219,7 @@ public class Screen
         foreach (var mapLayer in map.Layers)
             Add(mapLayer, layer);
         if (!_lazySpawnSources.Contains(map))
-            _lazySpawnSources.Add(map);
+            _lazySpawnSources.Register(map);
     }
 
     /// <summary>
@@ -234,7 +234,7 @@ public class Screen
         _renderList.Add(mapLayer.Renderable);
     }
 
-    private readonly List<TileMap> _lazySpawnSources = new();
+    private readonly ScreenRegistry<TileMap> _lazySpawnSources = new();
     private SpawnBounds[]? _lazySpawnRectBuffer;
 
     /// <summary>
@@ -441,6 +441,21 @@ public class Screen
 
     // Lifecycle
 
+    /// <summary>Raised after <see cref="CustomInitialize"/> completes. Fired by the engine when the screen activates.</summary>
+    public event Action? Initialized;
+
+    /// <summary>Raised after each <see cref="CustomActivity"/> call.</summary>
+    public event Action? Updated;
+
+    /// <summary>Raised after <see cref="CustomDestroy"/> completes, before entities and content are torn down.</summary>
+    public event Action? Destroyed;
+
+    // Called by FlatRedBallService after screen.CustomInitialize().
+    internal void InvokeInitialized() => Initialized?.Invoke();
+
+    // Called by FlatRedBallService after CurrentScreen.CustomDestroy().
+    internal void InvokeDestroyed() => Destroyed?.Invoke();
+
     /// <summary>
     /// Override to initialize the screen — create entities, set up factories, configure the camera,
     /// load content. Called by the engine when the screen activates.
@@ -552,14 +567,14 @@ public class Screen
 
     // Content watching
 
-    private readonly List<ContentWatcher> _contentWatchers = new();
-    private readonly List<ContentDirectoryWatcher> _contentDirectoryWatchers = new();
+    private readonly ScreenRegistry<ContentWatcher> _contentWatchers = new();
+    private readonly ScreenRegistry<ContentDirectoryWatcher> _contentDirectoryWatchers = new();
 
     /// <summary>All <see cref="ContentWatcher"/>s registered against this screen.</summary>
-    public IReadOnlyList<ContentWatcher> ContentWatchers => _contentWatchers;
+    public IReadOnlyList<ContentWatcher> ContentWatchers => _contentWatchers.Items;
 
     /// <summary>All <see cref="ContentDirectoryWatcher"/>s registered against this screen.</summary>
-    public IReadOnlyList<ContentDirectoryWatcher> ContentDirectoryWatchers => _contentDirectoryWatchers;
+    public IReadOnlyList<ContentDirectoryWatcher> ContentDirectoryWatchers => _contentDirectoryWatchers.Items;
 
     /// <summary>
     /// Watches a single content file for changes. Resolves <paramref name="sourcePath"/> against
@@ -642,7 +657,7 @@ public class Screen
         if (sourceAbsolutePath != null && destinationAbsolutePath != null)
             copy = () => CopyFileIfNeeded(sourceAbsolutePath, destinationAbsolutePath);
         var watcher = new ContentWatcher(source, onChanged, copy);
-        _contentWatchers.Add(watcher);
+        _contentWatchers.Register(watcher);
         return watcher;
     }
 
@@ -751,7 +766,7 @@ public class Screen
         if (destinationAbsoluteRoot != null)
             watcher.AutoReloadAction = relPath =>
                 Engine.Content.TryReload(Path.Combine(destinationAbsoluteRoot, relPath));
-        _contentDirectoryWatchers.Add(watcher);
+        _contentDirectoryWatchers.Register(watcher);
         return watcher;
     }
 
@@ -804,11 +819,10 @@ public class Screen
     /// <remarks>
     /// Quick overload guide:
     /// <para>- Two groups: <c>AddCollisionRelationship&lt;A, B&gt;(listA, listB)</c></para>
-    /// <para>- Self-collision: <c>AddCollisionRelationship&lt;A&gt;(list)</c></para>
+    /// <para>- Self-collision: <c>AddSelfCollisionRelationship&lt;A&gt;(list)</c></para>
     /// <para>- Tiles: <c>AddCollisionRelationship(entities, tiles)</c> (no explicit type args)</para>
-    /// Common mistake: <c>AddCollisionRelationship&lt;Enemy&gt;(_enemies, _players)</c>.
-    /// With one type argument, the compiler chooses the self-collision overload,
-    /// so the second argument is invalid for that method.
+    /// Common mistake: calling <c>AddCollisionRelationship&lt;Enemy&gt;(...)</c> for self-collision.
+    /// Self-collision now has an explicit API: <c>AddSelfCollisionRelationship&lt;Enemy&gt;(list)</c>.
     /// </remarks>
     /// <summary>
     /// Registers a collision relationship between a single entity and a group of entities.
@@ -819,7 +833,7 @@ public class Screen
         where B : ICollidable
     {
         var rel = new CollisionRelationship<A, B>(listA, listB);
-        _collisionRelationships.Add(rel);
+        _collisionSystem.Add(rel);
         return rel;
     }
 
@@ -832,7 +846,7 @@ public class Screen
         where B : ICollidable
     {
         var rel = new CollisionRelationship<A, B>(new[] { single }, list);
-        _collisionRelationships.Add(rel);
+        _collisionSystem.Add(rel);
         return rel;
     }
 
@@ -841,11 +855,11 @@ public class Screen
     /// is tested each frame. Equivalent to passing the same list for both arguments, but
     /// clearer at the call site.
     /// </summary>
-    public CollisionRelationship<A, A> AddCollisionRelationship<A>(IReadOnlyList<A> list)
+    public CollisionRelationship<A, A> AddSelfCollisionRelationship<A>(IReadOnlyList<A> list)
         where A : ICollidable
     {
         var rel = new CollisionRelationship<A, A>(list, list);
-        _collisionRelationships.Add(rel);
+        _collisionSystem.Add(rel);
         return rel;
     }
 
@@ -858,7 +872,7 @@ public class Screen
         where TGeometry : ICollidable
     {
         var rel = new CollisionRelationship<A, TGeometry>(entities, new[] { staticGeometry });
-        _collisionRelationships.Add(rel);
+        _collisionSystem.Add(rel);
         return rel;
     }
 
@@ -873,7 +887,7 @@ public class Screen
         where A : ICollidable
     {
         var rel = new CollisionRelationship<A, Collision.TileShapes>(entities, new[] { tiles });
-        _collisionRelationships.Add(rel);
+        _collisionSystem.Add(rel);
         return rel;
     }
 
@@ -895,27 +909,43 @@ public class Screen
         if (IsPaused)
         {
             // While paused: only entities with PauseMode.Always tick physics + CustomActivity.
-            // Collision, lazy-spawn, partition sort, tweens, sprite animation, and fire-and-forget
-            // lifetimes all stay frozen — those are deeper changes deferred for now.
+            // Collision, lazy-spawn, partition sort, and fire-and-forget lifetimes stay frozen.
+            // Tweens and sprite animations may opt in via ShouldAdvanceOnPause /
+            // ShouldAnimationAdvanceOnPause.
             long tPaused = System.Diagnostics.Stopwatch.GetTimestamp();
-            for (int i = _entities.Count - 1; i >= 0; i--)
+            for (int i = _entityManager.Entities.Count - 1; i >= 0; i--)
             {
-                if (i >= _entities.Count) continue;
-                var entity = _entities[i];
+                if (i >= _entityManager.Entities.Count) continue;
+                var entity = _entityManager.Entities[i];
                 if (entity.PauseMode != PauseMode.Always) continue;
                 entity.PhysicsUpdate(frameTime);
-                if (i >= _entities.Count) continue;
-                _entities[i].CustomActivity(frameTime);
+                if (i >= _entityManager.Entities.Count) continue;
+                entity.CustomActivity(frameTime);
+                entity.InvokeUpdated();
             }
             if (engine != null)
                 engine._frameProfile.ActivityMs = ProfileClock.Ms(tPaused, System.Diagnostics.Stopwatch.GetTimestamp());
+
+            // Opt-in screen tweens — run even while paused when ShouldAdvanceOnPause is true.
+            if (ShouldAdvanceTweens && _tweens.ShouldAdvanceOnPause)
+                _tweens.Update(frameTime.DeltaSeconds);
+
+            // Opt-in sprite animations — run even while paused per-sprite.
+            double animDtPaused = frameTime.DeltaSeconds;
+            for (int i = _renderList.Count - 1; i >= 0; i--)
+            {
+                if (i >= _renderList.Count) continue;
+                if (_renderList[i] is Sprite sprite && sprite.ShouldAnimationAdvanceOnPause)
+                    sprite.AnimateSelf(animDtPaused);
+            }
         }
         else
         {
             // 1. Physics pass
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
-            foreach (var entity in _entities)
-                entity.PhysicsUpdate(frameTime);
+            var entities = _entityManager.Entities;
+            for (int i = 0; i < entities.Count; i++)
+                entities[i].PhysicsUpdate(frameTime);
 
             for (int i = 0; i < Cameras.Count; i++)
                 Cameras[i].PhysicsUpdate(frameTime.DeltaSeconds);
@@ -948,13 +978,12 @@ public class Screen
 
             // 2. Collision phase
             long t3 = System.Diagnostics.Stopwatch.GetTimestamp();
-            foreach (var rel in _collisionRelationships)
-                rel.RunCollisions();
+            _collisionSystem.RunAllCollisions();
             if (engine != null)
                 engine._frameProfile.CollisionMs = ProfileClock.Ms(t3, System.Diagnostics.Stopwatch.GetTimestamp());
 
             // Loops 2.5, 3, 4 fire user callbacks (tween Ended, CustomActivity, AnimationFinished)
-            // that may Destroy entities — mutating _entities and _renderList. Reverse-for with a
+            // that may Destroy entities — mutating the entity list and _renderList. Reverse-for with a
             // bounds check tolerates mutation without allocating. Forward foreach would throw;
             // snapshot-via-new-List is forbidden here (per-frame hotpath — see engine-tdd skill).
 
@@ -964,10 +993,10 @@ public class Screen
             if (ShouldAdvanceTweens)
             {
                 float dt = frameTime.DeltaSeconds;
-                for (int i = _entities.Count - 1; i >= 0; i--)
+                for (int i = _entityManager.Entities.Count - 1; i >= 0; i--)
                 {
-                    if (i >= _entities.Count) continue;
-                    var entity = _entities[i];
+                    if (i >= _entityManager.Entities.Count) continue;
+                    var entity = _entityManager.Entities[i];
                     if (entity.ShouldAdvanceTweens)
                         entity._tweens.Update(dt);
                 }
@@ -978,10 +1007,12 @@ public class Screen
 
             // 3. Entity CustomActivity — runs first (context-free; works regardless of screen)
             long t5 = System.Diagnostics.Stopwatch.GetTimestamp();
-            for (int i = _entities.Count - 1; i >= 0; i--)
+            for (int i = _entityManager.Entities.Count - 1; i >= 0; i--)
             {
-                if (i >= _entities.Count) continue;
-                _entities[i].CustomActivity(frameTime);
+                if (i >= _entityManager.Entities.Count) continue;
+                var ent = _entityManager.Entities[i];
+                ent.CustomActivity(frameTime);
+                ent.InvokeUpdated();
             }
 
             // 4. Animate sprites
@@ -1016,6 +1047,7 @@ public class Screen
         // 5. Screen CustomActivity — always runs so pause menu logic can respond to input
         long t6 = System.Diagnostics.Stopwatch.GetTimestamp();
         CustomActivity(frameTime);
+        Updated?.Invoke();
         if (engine != null)
             engine._frameProfile.ActivityMs += ProfileClock.Ms(t6, System.Diagnostics.Stopwatch.GetTimestamp());
     }
@@ -1084,7 +1116,7 @@ public class Screen
         currentBatch?.End(spriteBatch);
     }
 
-    // Fire-and-forget timed lifetimes — tracked alongside _entities and ticked in Update.
+    // Fire-and-forget timed lifetimes — tracked alongside entities and ticked in Update.
     // Parallel-list (rather than a per-entity field) so the texture-overload helper can attach
     // a duration without touching the Entity API surface or burdening every entity with a timer.
     private readonly List<(Entity entity, float remaining)> _fireAndForgetLifetimes = new();
@@ -1133,8 +1165,8 @@ public class Screen
     }
 
     // Internal entity registration used by Factory
-    internal void AddEntity(Entity entity) => _entities.Add(entity);
-    internal void RemoveEntity(Entity entity) => _entities.Remove(entity);
+    internal void AddEntity(Entity entity) => _entityManager.Register(entity);
+    internal void RemoveEntity(Entity entity) => _entityManager.Unregister(entity);
 
     internal void SortRenderList()
     {

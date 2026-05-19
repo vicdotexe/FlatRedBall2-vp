@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using FlatRedBall2.Math;
 using Gum.Forms.Controls;
 using Gum.Wireframe;
 using MonoGameGum.GueDeriving;
@@ -186,11 +187,12 @@ public class Camera
 
     internal void PhysicsUpdate(float dt)
     {
-        float halfDt2 = 0.5f * dt * dt;
-        X += VelocityX * dt + AccelerationX * halfDt2;
-        Y += VelocityY * dt + AccelerationY * halfDt2;
-        VelocityX += AccelerationX * dt;
-        VelocityY += AccelerationY * dt;
+        var pos = new NumericsVector2(X, Y);
+        var vel = new NumericsVector2(VelocityX, VelocityY);
+        var acc = new NumericsVector2(AccelerationX, AccelerationY);
+        KinematicIntegrator.Integrate(ref pos, ref vel, acc, drag: 0f, dt);
+        X = pos.X; Y = pos.Y;
+        VelocityX = vel.X; VelocityY = vel.Y;
     }
 
     /// <summary>

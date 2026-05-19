@@ -36,7 +36,7 @@ namespace FlatRedBall2;
 /// after resetting engine-owned state and invoking <see cref="Reset"/>.
 /// </para>
 /// </summary>
-public class Entity : ICollidable, IAttachable
+public class Entity : ICollidable, IAttachable, ILifecycleEvents
 {
     private readonly List<IAttachable> _children = new();
     private readonly List<ICollidable> _shapes = new();
@@ -291,6 +291,12 @@ public class Entity : ICollidable, IAttachable
     // children, shapes, or Gum visuals — those are reused on recycle.
     internal bool _isPooled;
 
+    /// <summary>Raised after <see cref="CustomInitialize"/> completes. Fired by <see cref="Factory{T}.Create()"/>.</summary>
+    public event Action? Initialized;
+
+    /// <summary>Raised after each <see cref="CustomActivity"/> call.</summary>
+    public event Action? Updated;
+
     /// <summary>
     /// Raised at the end of <see cref="Destroy"/>, after <see cref="CustomDestroy"/>, child
     /// teardown, and factory/screen unregistration have completed. The entity is fully torn
@@ -298,6 +304,12 @@ public class Entity : ICollidable, IAttachable
     /// needs to re-arm when a tracked entity dies).
     /// </summary>
     public event Action? Destroyed;
+
+    // Internal accessor — Factory<T> calls this after CustomInitialize to fire the Initialized event.
+    internal void InvokeInitialized() => Initialized?.Invoke();
+
+    // Internal accessor — Screen calls this after CustomActivity to fire the Updated event.
+    internal void InvokeUpdated() => Updated?.Invoke();
 
     // Internal access to shapes for collision
     internal IReadOnlyList<ICollidable> Shapes => _shapes;
@@ -471,12 +483,14 @@ public class Entity : ICollidable, IAttachable
         LastReposition = Vector2.Zero;
         LastPosition = new Vector2(Position.X, Position.Y);
         float dt = frameTime.DeltaSeconds;
-        float halfDt2 = 0.5f * dt * dt;
 
-        Position += Velocity * dt + Acceleration * halfDt2;
-        Velocity += Acceleration * dt;
-        Velocity -= Velocity * (Drag * dt);
-        Rotation += RotationVelocity * dt;
+        KinematicIntegrator.Integrate(ref Position, ref Velocity, Acceleration, Drag, dt);
+
+        var rot = Rotation.Radians;
+        var rotVel = RotationVelocity.Radians;
+        KinematicIntegrator.IntegrateRotation(ref rot, ref rotVel, rotationAcceleration: 0f, dt);
+        Rotation = Angle.FromRadians(rot);
+        // rotVel unchanged when rotationAcceleration == 0
     }
 
     // Lifecycle
@@ -736,38 +750,19 @@ public class Entity : ICollidable, IAttachable
 
         if (other is Entity otherEntity)
         {
-            float totalMass = thisMass + otherMass;
-            if (totalMass == 0) return;
+            ImpulseCalculator.ComputeDynamicImpulseDeltas(
+                Velocity, otherEntity.Velocity, normal,
+                thisMass, otherMass, elasticity,
+                out var thisDelta, out var otherDelta);
 
-            float thisRatio = otherMass == 0 ? 1f : otherMass / totalMass;
-            float otherRatio = thisMass == 0 ? 0f : thisMass / totalMass;
-
-            // Project relative velocity onto the collision normal.
-            // Negative means 'this' is moving into 'other'.
-            float relVelAlongNormal = Vector2.Dot(Velocity - otherEntity.Velocity, normal);
-
-            // Skip if already separating — prevents double-bouncing on the same frame.
-            if (relVelAlongNormal >= 0) return;
-
-            float impulse = -(1f + elasticity) * relVelAlongNormal;
-
-            Velocity += impulse * thisRatio * normal;
+            Velocity += thisDelta;
             if (otherMass != 0)
-                otherEntity.Velocity -= impulse * otherRatio * normal;
+                otherEntity.Velocity += otherDelta;
         }
         else
         {
             // Static geometry (e.g. TileShapes) — treat other as immovable with zero velocity.
-            float totalMass = thisMass + otherMass;
-            if (totalMass == 0) return;
-
-            float thisRatio = otherMass == 0 ? 1f : otherMass / totalMass;
-            float relVelAlongNormal = Vector2.Dot(Velocity, normal);
-
-            if (relVelAlongNormal >= 0) return;
-
-            float impulse = -(1f + elasticity) * relVelAlongNormal;
-            Velocity += impulse * thisRatio * normal;
+            Velocity += ImpulseCalculator.ComputeStaticImpulseDelta(Velocity, normal, thisMass, otherMass, elasticity);
         }
     }
 
@@ -776,15 +771,7 @@ public class Entity : ICollidable, IAttachable
     // of AdjustVelocityFromSeparation but against a pre-chosen axis-aligned normal.
     private void ApplyOneSidedAxisImpulse(Vector2 normal, float thisMass, float otherMass, float elasticity)
     {
-        float totalMass = thisMass + otherMass;
-        if (totalMass == 0f) return;
-
-        float thisRatio = otherMass == 0f ? 1f : otherMass / totalMass;
-        float relVelAlongNormal = Vector2.Dot(Velocity, normal);
-        if (relVelAlongNormal >= 0f) return;
-
-        float impulse = -(1f + elasticity) * relVelAlongNormal;
-        Velocity += impulse * thisRatio * normal;
+        Velocity += ImpulseCalculator.ComputeStaticImpulseDelta(Velocity, normal, thisMass, otherMass, elasticity);
     }
 
     // Recursively yields the primitive shapes (Circle, AARect, Polygon) reachable
