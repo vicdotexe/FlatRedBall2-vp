@@ -3,6 +3,14 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
+    <!-- Rename the executable to "AnimationEditor" so the macOS Dock label reads
+         "AnimationEditor" instead of "AnimationEditor.App". The Dock reads
+         NSRunningApplication.localizedName, which is derived from the executable
+         filename. Spaces are not valid in avares:// URI authority, so the best
+         we can achieve for an unpackaged dotnet run is the dash-free camel-case name.
+         The human-readable "Animation Editor" label is used for bundled .app
+         distribution via CFBundleName / CFBundleDisplayName in Info.plist. -->
+    <AssemblyName>AnimationEditor</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <!-- MainWindow is DI-only; runtime XAML instantiation is intentionally not supported -->
@@ -18,9 +26,11 @@
     <Content Include="Assets\icons\AppIcon.icns" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <!-- CFBundleIconFile tells the macOS runtime which .icns to use for the Dock and Finder. -->
+  <!-- CFBundleIconFile tells the macOS runtime which .icns to use for the Dock and Finder.
+       CFBundleName sets the human-readable app name for bundled distribution. -->
   <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('osx'))">
     <CFBundleIconFile>AppIcon</CFBundleIconFile>
+    <CFBundleName>Animation Editor</CFBundleName>
   </PropertyGroup>
 
   <ItemGroup>

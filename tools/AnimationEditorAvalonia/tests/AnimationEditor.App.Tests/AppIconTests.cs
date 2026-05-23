@@ -13,7 +13,7 @@ namespace AnimationEditor.App.Tests;
 /// </summary>
 public class AppIconTests
 {
-    private const string IconUri = "avares://AnimationEditor.App/Assets/icons/achx-icon-256.png";
+    private const string IconUri = "avares://AnimationEditor/Assets/icons/achx-icon-256.png";
 
     /// <summary>
     /// The icon asset must exist and be decodable as a bitmap. This is the resource that

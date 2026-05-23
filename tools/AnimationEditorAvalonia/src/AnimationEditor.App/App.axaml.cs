@@ -46,7 +46,7 @@ public partial class App : Application
     private static void SetMacOSDockIcon()
     {
         using var stream = AssetLoader.Open(
-            new Uri("avares://AnimationEditor.App/Assets/icons/achx-icon-256.png"));
+            new Uri("avares://AnimationEditor/Assets/icons/achx-icon-256.png"));
         using var ms = new MemoryStream();
         stream.CopyTo(ms);
         MacOSDockIcon.Set(ms.ToArray());
@@ -55,7 +55,7 @@ public partial class App : Application
     private static WindowIcon LoadAppIcon()
     {
         using var stream = AssetLoader.Open(
-            new Uri("avares://AnimationEditor.App/Assets/icons/achx-icon-256.png"));
+            new Uri("avares://AnimationEditor/Assets/icons/achx-icon-256.png"));
         return new WindowIcon(new Bitmap(stream));
     }
 
