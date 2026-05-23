@@ -54,4 +54,42 @@
   <ItemGroup>
     <InternalsVisibleTo Include="AnimationEditor.App.Tests" />
   </ItemGroup>
+
+  <!--
+    macOS app bundle for development. Creates AnimationEditor.app/ in the build
+    output so that `open bin/…/AnimationEditor.app` launches with the Dock label
+    "Animation Editor" (from CFBundleDisplayName in Info.plist) instead of the
+    raw executable filename "AnimationEditor".
+
+    The executable inside the bundle is a relative symlink pointing back to the
+    real binary in the build output directory. .NET resolves symlinks when
+    locating sibling DLLs, so the runtime finds all assemblies correctly.
+
+    Usage on macOS:
+        dotnet build   (or dotnet run for quick iteration — Dock shows "AnimationEditor")
+        open tools/AnimationEditorAvalonia/src/AnimationEditor.App/bin/Debug/net10.0/AnimationEditor.app
+  -->
+  <Target Name="CreateMacOSDevBundle" AfterTargets="Build"
+          Condition="$([MSBuild]::IsOSPlatform('osx'))">
+    <PropertyGroup>
+      <!-- $(OutDir) is the fully-qualified output directory; safer than relative $(OutputPath). -->
+      <_BundleDir>$(OutDir)AnimationEditor.app</_BundleDir>
+      <_BundleMacOS>$(_BundleDir)/Contents/MacOS</_BundleMacOS>
+      <_BundleResources>$(_BundleDir)/Contents/Resources</_BundleResources>
+    </PropertyGroup>
+
+    <MakeDir Directories="$(_BundleMacOS);$(_BundleResources)" />
+
+    <!-- Relative symlink: Contents/MacOS/AnimationEditor → ../../../AnimationEditor -->
+    <Exec Command="ln -sf ../../../$(AssemblyName) $(_BundleMacOS)/$(AssemblyName)" />
+
+    <!-- Copy the .icns from source (not output) so the icon is always present even on clean builds. -->
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)Assets/icons/AppIcon.icns"
+          DestinationFolder="$(_BundleResources)"
+          SkipUnchangedFiles="true" />
+
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)macos/Info.plist"
+          DestinationFiles="$(_BundleDir)/Contents/Info.plist"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>
