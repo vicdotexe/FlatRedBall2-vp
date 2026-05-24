@@ -132,7 +132,7 @@ public partial class MainWindow : Window
         TabStrip.Children.Clear();
 
         var tabs = _tabManager.Tabs;
-        TabBarBorder.IsVisible = tabs.Count > 0;
+        TabBarBorder.IsVisible = tabs.Count > 1;
 
         foreach (var tab in tabs)
         {
@@ -191,10 +191,10 @@ public partial class MainWindow : Window
             row.Children.Add(closeBtn);
             tabBorder.Child = row;
 
-            // Pointer handling: left-click activates, drag reorders, right-click shows context
-            // menu, middle-click closes.  Pointer capture is deferred until the drag threshold
-            // is exceeded so that the close button (✕) still receives its own Click event on
-            // short presses.
+            // Pointer handling: immediate pointer-capture on press (so PointerMoved fires even
+            // when the cursor moves over other tabs).  Activation is deferred to PointerReleased
+            // so that RebuildTabStrip is never called while a drag is in-flight.
+            // Close-button presses are excluded from capture by checking args.Source.
             tabBorder.PointerPressed += (_, args) =>
             {
                 var pt = args.GetCurrentPoint(tabBorder);
@@ -223,7 +223,12 @@ public partial class MainWindow : Window
 
                 if (pt.Properties.IsLeftButtonPressed)
                 {
-                    _ = ActivateTabAsync(captured);
+                    // Skip close-button presses so Button.Click still fires normally.
+                    if (args.Source is Button) return;
+
+                    // Capture immediately so PointerMoved always arrives here even when the
+                    // cursor moves across other tabs.  Activation happens on release.
+                    args.Pointer.Capture(tabBorder);
                     _dragTab = captured;
                     _dragStartX = args.GetPosition(TabStrip).X;
                     _isDragging = false;
@@ -235,11 +240,11 @@ public partial class MainWindow : Window
             {
                 if (_dragTab != captured) return;
                 double x = args.GetPosition(TabStrip).X;
-                if (!_isDragging && Math.Abs(x - _dragStartX) > 4)
+                if (!_isDragging && Math.Abs(x - _dragStartX) > 5)
                 {
                     _isDragging = true;
-                    args.Pointer.Capture(tabBorder);
-                    tabBorder.Cursor = new Cursor(StandardCursorType.SizeWestEast);
+                    tabBorder.Cursor = new Cursor(StandardCursorType.DragMove);
+                    tabBorder.Opacity = 0.65;
                 }
             };
 
@@ -254,13 +259,22 @@ public partial class MainWindow : Window
                     return;
                 }
 
-                if (_dragTab == captured && _isDragging && uk == PointerUpdateKind.LeftButtonReleased)
+                if (_dragTab != captured || uk != PointerUpdateKind.LeftButtonReleased)
+                    return;
+
+                args.Pointer.Capture(null);
+                tabBorder.Cursor = new Cursor(StandardCursorType.Hand);
+                tabBorder.Opacity = 1.0;
+
+                if (_isDragging)
                 {
-                    args.Pointer.Capture(null);
-                    tabBorder.Cursor = new Cursor(StandardCursorType.Hand);
                     int targetIdx = ComputeTabIndexAt(args.GetPosition(TabStrip).X);
                     _tabManager.Move(captured.Path, targetIdx);
                     RebuildTabStrip();
+                }
+                else
+                {
+                    _ = ActivateTabAsync(captured);
                 }
 
                 _dragTab = null;
