@@ -51,6 +51,7 @@ public partial class MainWindow : Window
     private double _dragStartX;
     private bool _isDragging;
     private Border? _ghostBorder;
+    private int _untitledCounter;
     private bool _suppressPropRefresh;
     private bool _suppressTextureComboChanged;
     private bool _suppressZoomComboChanged;
@@ -329,7 +330,7 @@ public partial class MainWindow : Window
         _tabManager.Activate(tab.Path);
         // Bypass LoadAnimationFileAsync so we don't hit the short-circuit that skips
         // the file load when the path is already the active tab.
-        if (string.IsNullOrEmpty(tab.Path.Original))
+        if (IsUntitledTab(tab))
         {
             // Untitled tab — reset to a blank editor; there is no on-disk file to reload.
             _projectManager.AnimationChainListSave = new AnimationChainListSave();
@@ -362,9 +363,21 @@ public partial class MainWindow : Window
         {
             // Use OpenAchxWorkflowAsync directly — bypasses EnsureCurrentEditorContentHasTab
             // so the just-closed file is not accidentally re-registered as a background tab.
-            if (!string.IsNullOrEmpty(next.Path.Original))
+            if (!IsUntitledTab(next))
                 _ = _appCommands.OpenAchxWorkflowAsync(next.Path.FullPath)
                     .ContinueWith(_ => Dispatcher.UIThread.InvokeAsync(RebuildTabStrip));
+            else
+            {
+                // Switching to an Untitled tab — reset to a blank editor.
+                _projectManager.AnimationChainListSave = new AnimationChainListSave();
+                _projectManager.FileName = null;
+                _selectedState.Reset();
+                _undoManager.Clear();
+                RefreshTreeView();
+                UpdateTitle();
+                UpdateStatusBar();
+                RebuildTabStrip();
+            }
         }
         else
         {
@@ -381,8 +394,13 @@ public partial class MainWindow : Window
 
     private void SaveTabsToSettings()
     {
-        _appSettings.OpenTabPaths = _tabManager.OpenTabPaths.ToList();
-        _appSettings.ActiveTabPath = _tabManager.ActiveTab?.Path.FullPath;
+        // Exclude unsaved (sentinel) Untitled tabs — they have no on-disk path to restore.
+        _appSettings.OpenTabPaths = _tabManager.OpenTabPaths
+            .Where(p => !IsUntitledSentinel(p))
+            .ToList();
+        _appSettings.ActiveTabPath = IsUntitledTab(_tabManager.ActiveTab)
+            ? null
+            : _tabManager.ActiveTab?.Path.FullPath;
         SaveSettingsFile();
     }
 
@@ -1158,11 +1176,22 @@ public partial class MainWindow : Window
 
     private void OnNewClick(object? sender, RoutedEventArgs e)
     {
+        // Register the currently-open file (if any) as a tab before we clear it.
+        EnsureCurrentEditorContentHasTab();
+
         _projectManager.AnimationChainListSave = new AnimationChainListSave();
         _projectManager.FileName = null;
         _selectedState.Reset();
         _undoManager.Clear();
         RefreshTreeView();
+
+        // Open a new numbered Untitled tab and activate it.
+        var displayName = TabManager.ComputeUntitledDisplayName(
+            _tabManager.Tabs.Select(t => t.DisplayName).ToList());
+        var sentinelPath = new FilePath(NewUntitledSentinelPath());
+        _tabManager.OpenOrFocus(sentinelPath, displayName);
+        RebuildTabStrip();
+
         _ = _appCommands.SaveCurrentAnimationChainListAsync();
     }
 
@@ -2570,8 +2599,10 @@ public partial class MainWindow : Window
         else if (_tabManager.Tabs.Count == 0 &&
                  _projectManager.AnimationChainListSave?.AnimationChains.Count > 0)
         {
-            // Unsaved new file with content — register an Untitled placeholder tab.
-            _tabManager.RegisterBackground(new FilePath(null!), "Untitled");
+            // Unsaved new file with content — register a numbered Untitled placeholder tab.
+            var displayName = TabManager.ComputeUntitledDisplayName(
+                _tabManager.Tabs.Select(t => t.DisplayName).ToList());
+            _tabManager.RegisterBackground(new FilePath(NewUntitledSentinelPath()), displayName);
         }
     }
 
@@ -2592,6 +2623,20 @@ public partial class MainWindow : Window
         return Math.Max(0, children.Count - 1);
     }
 
+    // Sentinel paths use the prefix "__untitled__:" so they are distinguishable from real
+    // on-disk paths and are unique per new-file action within this window session.
+    private const string UntitledSentinelPrefix = "__untitled__:";
+
+    private static bool IsUntitledSentinel(string? path) =>
+        path?.StartsWith(UntitledSentinelPrefix, StringComparison.Ordinal) == true;
+
+    private static bool IsUntitledTab(TabEntry? tab) =>
+        tab != null &&
+        (string.IsNullOrEmpty(tab.Path.Original) || IsUntitledSentinel(tab.Path.Original));
+
+    private string NewUntitledSentinelPath() =>
+        $"{UntitledSentinelPrefix}{++_untitledCounter}";
+
     /// <summary>
     /// Closes <paramref name="tab"/> in this window and opens it in a brand-new,
     /// fully-independent <see cref="MainWindow"/> instance.
@@ -2599,7 +2644,7 @@ public partial class MainWindow : Window
     /// </summary>
     private void DetachTab(TabEntry tab)
     {
-        if (string.IsNullOrEmpty(tab.Path.Original)) return;
+        if (IsUntitledTab(tab)) return;
         var filePath = tab.Path.FullPath;
         CloseTab(tab);
         var window = App.CreateDetachedWindow();

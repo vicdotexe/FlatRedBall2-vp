@@ -34,24 +34,49 @@ namespace AnimationEditor.Core.Models
         /// </summary>
         public event Action<TabEntry?>? ActiveChanged;
 
-        /// <summary>
-        /// Opens <paramref name="path"/> as a new tab, or focuses its existing tab if it is
-        /// already open. The <see cref="ActiveTab"/> is updated in either case.
-        /// </summary>
-        public TabOpenResult OpenOrFocus(FilePath path)
+    /// <summary>
+    /// Opens <paramref name="path"/> as a new tab with an optional display-name override,
+    /// or focuses its existing tab if it is already open.
+    /// </summary>
+    public TabOpenResult OpenOrFocus(FilePath path, string? displayNameOverride)
+    {
+        var existing = FindTab(path);
+        if (existing != null)
         {
-            var existing = FindTab(path);
-            if (existing != null)
-            {
-                SetActive(existing);
-                return TabOpenResult.Focused;
-            }
-
-            var entry = new TabEntry(path);
-            _tabs.Add(entry);
-            SetActive(entry);
-            return TabOpenResult.Opened;
+            SetActive(existing);
+            return TabOpenResult.Focused;
         }
+
+        var entry = new TabEntry(path, displayNameOverride);
+        _tabs.Add(entry);
+        SetActive(entry);
+        return TabOpenResult.Opened;
+    }
+
+    /// <summary>
+    /// Opens <paramref name="path"/> as a new tab, or focuses its existing tab if it is
+    /// already open. The <see cref="ActiveTab"/> is updated in either case.
+    /// </summary>
+    public TabOpenResult OpenOrFocus(FilePath path) => OpenOrFocus(path, null);
+
+    /// <summary>
+    /// Computes the next unique "Untitled" display name given the set of names already in
+    /// use.  Returns <c>"Untitled"</c> if available, then <c>"Untitled (1)"</c>,
+    /// <c>"Untitled (2)"</c>, etc.
+    /// </summary>
+    public static string ComputeUntitledDisplayName(IReadOnlyList<string> existingDisplayNames)
+    {
+        const string baseName = "Untitled";
+        if (!existingDisplayNames.Contains(baseName))
+            return baseName;
+        for (int i = 1; ; i++)
+        {
+            var candidate = $"{baseName} ({i})";
+            if (!existingDisplayNames.Contains(candidate))
+                return candidate;
+        }
+    }
+
 
         /// <summary>
         /// Activates the tab for <paramref name="path"/>. No-op if the path is not open.

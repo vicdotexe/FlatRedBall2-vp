@@ -48,6 +48,79 @@ public class TabManagerTests
     }
 
     [Fact]
+    public void OpenOrFocus_WithDisplayName_SetsDisplayName()
+    {
+        var tm = new TabManager();
+
+        tm.OpenOrFocus(P("__untitled__:1"), "Untitled");
+
+        Assert.Equal("Untitled", tm.ActiveTab!.DisplayName);
+    }
+
+    [Fact]
+    public void OpenOrFocus_WithDisplayName_DuplicatePath_ReturnsFocused()
+    {
+        var tm = new TabManager();
+        tm.OpenOrFocus(P("__untitled__:1"), "Untitled");
+
+        var result = tm.OpenOrFocus(P("__untitled__:1"), "Untitled");
+
+        Assert.Equal(TabOpenResult.Focused, result);
+        Assert.Single(tm.Tabs);
+    }
+
+    [Fact]
+    public void OpenOrFocus_TwoUntitledSentinels_CreatesTwoTabs()
+    {
+        var tm = new TabManager();
+
+        tm.OpenOrFocus(P("__untitled__:1"), "Untitled");
+        tm.OpenOrFocus(P("__untitled__:2"), "Untitled (1)");
+
+        Assert.Equal(2, tm.Tabs.Count);
+    }
+
+    // ── ComputeUntitledDisplayName ─────────────────────────────────────────────
+
+    [Fact]
+    public void ComputeUntitledDisplayName_NoExisting_ReturnsUntitled()
+    {
+        var result = TabManager.ComputeUntitledDisplayName(new List<string>());
+
+        Assert.Equal("Untitled", result);
+    }
+
+    [Fact]
+    public void ComputeUntitledDisplayName_UntitledTaken_ReturnsUntitled1()
+    {
+        var result = TabManager.ComputeUntitledDisplayName(new List<string> { "Untitled" });
+
+        Assert.Equal("Untitled (1)", result);
+    }
+
+    [Fact]
+    public void ComputeUntitledDisplayName_UntitledAnd1Taken_ReturnsUntitled2()
+    {
+        var names = new List<string> { "Untitled", "Untitled (1)" };
+
+        var result = TabManager.ComputeUntitledDisplayName(names);
+
+        Assert.Equal("Untitled (2)", result);
+    }
+
+    [Fact]
+    public void ComputeUntitledDisplayName_GapInSequence_SkipsGap()
+    {
+        // "Untitled (1)" is taken but "Untitled (2)" is not — but first gap after base is (1).
+        var names = new List<string> { "Untitled", "Untitled (2)" };
+
+        var result = TabManager.ComputeUntitledDisplayName(names);
+
+        Assert.Equal("Untitled (1)", result);
+    }
+
+
+    [Fact]
     public void OpenOrFocus_SecondFile_SetsSecondAsActive()
     {
         var tm = new TabManager();
