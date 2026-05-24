@@ -20,28 +20,15 @@ If the user chooses **mode 2 or 3**, follow the steps below to create the projec
 
 ---
 
-## Step 1 — Locate gumcli.exe
+## Step 1 — Install gumcli
 
-gumcli is not yet published as a dotnet tool. <!-- TODO: add `dotnet tool install` instructions once published -->
-
-Find it via a relative path from the FlatRedBall2 git root:
+gumcli ships as a .NET global tool ([docs](https://docs.flatredball.com/gum/cli/cli)). Install once per machine:
 
 ```bash
-# Get the git root of the current repo
-GIT_ROOT=$(git rev-parse --show-toplevel)
-
-# gumcli lives in the sibling Gum repo
-GUMCLI="$GIT_ROOT/../Gum/Tools/Gum.Cli/bin/Debug/net8.0/gumcli.exe"
+dotnet tool install -g GumCli
 ```
 
-Verify it exists before proceeding:
-```bash
-if [ ! -f "$GUMCLI" ]; then
-  echo "gumcli.exe not found at $GUMCLI"
-  echo "Clone https://github.com/vchelaru/Gum next to FlatRedBall2 and build Gum.Cli."
-  exit 1
-fi
-```
+After install, invoke as `gumcli` from any terminal. Upgrade with `dotnet tool update -g GumCli`.
 
 ---
 
@@ -50,7 +37,7 @@ fi
 Run from the game/sample project directory:
 
 ```bash
-"$GUMCLI" new Content/GumProject/GumProject.gumx
+gumcli new Content/GumProject/GumProject.gumx
 ```
 
 This creates:
@@ -100,7 +87,7 @@ This convention applies to screens and any components that would otherwise confl
 **Do not manually create `ProjectCodeSettings.codsj`** — run `codegen-init` once to auto-detect the `.csproj` and generate it:
 
 ```bash
-"$GUMCLI" codegen-init Content/GumProject/GumProject.gumx
+gumcli codegen-init Content/GumProject/GumProject.gumx
 ```
 
 This sets `CodeProjectRoot`, `RootNamespace`, and `OutputLibrary` automatically. Only needed once per project.
@@ -108,13 +95,13 @@ This sets `CodeProjectRoot`, `RootNamespace`, and `OutputLibrary` automatically.
 Then run codegen after any edits to Gum XML files:
 
 ```bash
-"$GUMCLI" codegen Content/GumProject/GumProject.gumx
+gumcli codegen Content/GumProject/GumProject.gumx
 ```
 
 Or generate a specific element only:
 
 ```bash
-"$GUMCLI" codegen Content/GumProject/GumProject.gumx --element MainMenuScreenGum
+gumcli codegen Content/GumProject/GumProject.gumx --element MainMenuScreenGum
 ```
 
 Exit codes: `0` = success, `1` = elements blocked by errors, `2` = load/config failure.
@@ -132,7 +119,7 @@ Exit codes: `0` = success, `1` = elements blocked by errors, `2` = load/config f
 If the project uses custom bitmap fonts (Text elements with a Font variable set), generate the missing `.fnt` and `.png` files with:
 
 ```bash
-"$GUMCLI" fonts Content/GumProject/GumProject.gumx
+gumcli fonts Content/GumProject/GumProject.gumx
 ```
 
 - **Windows-only** — bmfont.exe does not run on Linux/macOS. On non-Windows the command exits with code `2`.
@@ -151,7 +138,7 @@ After running codegen, the standard controls (`ButtonStandard`, `TextBox`, `Chec
 After creation, check for errors:
 
 ```bash
-"$GUMCLI" check Content/GumProject/GumProject.gumx
+gumcli check Content/GumProject/GumProject.gumx
 ```
 
 Exit code `0` = no errors. Fix any reported errors before continuing.
