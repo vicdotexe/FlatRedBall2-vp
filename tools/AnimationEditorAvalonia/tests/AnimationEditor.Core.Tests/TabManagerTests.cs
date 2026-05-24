@@ -409,4 +409,116 @@ public class TabManagerTests
 
         Assert.Equal("Untitled", entry.DisplayName);
     }
+
+    // ── Move ─────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Move_FirstToLast_ReordersCorrectly()
+    {
+        var tm = new TabManager();
+        tm.OpenOrFocus(P(@"C:\a.achx"));
+        tm.OpenOrFocus(P(@"C:\b.achx"));
+        tm.OpenOrFocus(P(@"C:\c.achx"));
+
+        tm.Move(P(@"C:\a.achx"), 2);
+
+        Assert.Equal("a.achx", tm.Tabs[2].Path.NoPath);
+        Assert.Equal("b.achx", tm.Tabs[0].Path.NoPath);
+        Assert.Equal("c.achx", tm.Tabs[1].Path.NoPath);
+    }
+
+    [Fact]
+    public void Move_LastToFirst_ReordersCorrectly()
+    {
+        var tm = new TabManager();
+        tm.OpenOrFocus(P(@"C:\a.achx"));
+        tm.OpenOrFocus(P(@"C:\b.achx"));
+        tm.OpenOrFocus(P(@"C:\c.achx"));
+
+        tm.Move(P(@"C:\c.achx"), 0);
+
+        Assert.Equal("c.achx", tm.Tabs[0].Path.NoPath);
+        Assert.Equal("a.achx", tm.Tabs[1].Path.NoPath);
+        Assert.Equal("b.achx", tm.Tabs[2].Path.NoPath);
+    }
+
+    [Fact]
+    public void Move_MiddleToEnd_ReordersCorrectly()
+    {
+        var tm = new TabManager();
+        tm.OpenOrFocus(P(@"C:\a.achx"));
+        tm.OpenOrFocus(P(@"C:\b.achx"));
+        tm.OpenOrFocus(P(@"C:\c.achx"));
+
+        tm.Move(P(@"C:\b.achx"), 2);
+
+        Assert.Equal("a.achx", tm.Tabs[0].Path.NoPath);
+        Assert.Equal("c.achx", tm.Tabs[1].Path.NoPath);
+        Assert.Equal("b.achx", tm.Tabs[2].Path.NoPath);
+    }
+
+    [Fact]
+    public void Move_SameIndex_IsNoOp()
+    {
+        var tm = new TabManager();
+        tm.OpenOrFocus(P(@"C:\a.achx"));
+        tm.OpenOrFocus(P(@"C:\b.achx"));
+
+        tm.Move(P(@"C:\a.achx"), 0);
+
+        Assert.Equal("a.achx", tm.Tabs[0].Path.NoPath);
+        Assert.Equal("b.achx", tm.Tabs[1].Path.NoPath);
+    }
+
+    [Fact]
+    public void Move_NegativeIndex_ClampsToZero()
+    {
+        var tm = new TabManager();
+        tm.OpenOrFocus(P(@"C:\a.achx"));
+        tm.OpenOrFocus(P(@"C:\b.achx"));
+        tm.OpenOrFocus(P(@"C:\c.achx"));
+
+        tm.Move(P(@"C:\c.achx"), -5);
+
+        Assert.Equal("c.achx", tm.Tabs[0].Path.NoPath);
+    }
+
+    [Fact]
+    public void Move_IndexBeyondEnd_ClampsToLast()
+    {
+        var tm = new TabManager();
+        tm.OpenOrFocus(P(@"C:\a.achx"));
+        tm.OpenOrFocus(P(@"C:\b.achx"));
+        tm.OpenOrFocus(P(@"C:\c.achx"));
+
+        tm.Move(P(@"C:\a.achx"), 99);
+
+        Assert.Equal("a.achx", tm.Tabs[2].Path.NoPath);
+    }
+
+    [Fact]
+    public void Move_UnknownPath_IsNoOp()
+    {
+        var tm = new TabManager();
+        tm.OpenOrFocus(P(@"C:\a.achx"));
+        tm.OpenOrFocus(P(@"C:\b.achx"));
+
+        tm.Move(P(@"C:\nonexistent.achx"), 0); // must not throw
+
+        Assert.Equal(2, tm.Tabs.Count);
+        Assert.Equal("a.achx", tm.Tabs[0].Path.NoPath);
+    }
+
+    [Fact]
+    public void Move_DoesNotChangeActiveTab()
+    {
+        var tm = new TabManager();
+        tm.OpenOrFocus(P(@"C:\a.achx"));
+        tm.OpenOrFocus(P(@"C:\b.achx"));
+        tm.OpenOrFocus(P(@"C:\c.achx")); // c is active
+
+        tm.Move(P(@"C:\a.achx"), 2);
+
+        Assert.Equal(P(@"C:\c.achx"), tm.ActiveTab!.Path);
+    }
 }

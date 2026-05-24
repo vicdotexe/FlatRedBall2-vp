@@ -129,6 +129,22 @@ namespace AnimationEditor.Core.Models
             _tabs.Insert(0, new TabEntry(path, displayNameOverride));
         }
 
+        /// <summary>
+        /// Moves the tab for <paramref name="path"/> to <paramref name="newIndex"/>, clamped
+        /// to [0, Count-1]. No-op if <paramref name="path"/> is not tracked or is already at
+        /// the target index. Does not change <see cref="ActiveTab"/>.
+        /// </summary>
+        public void Move(FilePath path, int newIndex)
+        {
+            var tab = FindTab(path);
+            if (tab == null) return;
+            int current = _tabs.IndexOf(tab);
+            int target = Math.Clamp(newIndex, 0, _tabs.Count - 1);
+            if (current == target) return;
+            _tabs.RemoveAt(current);
+            _tabs.Insert(target, tab);
+        }
+
         // ── Private helpers ───────────────────────────────────────────────────
 
         private TabEntry? FindTab(FilePath path) =>

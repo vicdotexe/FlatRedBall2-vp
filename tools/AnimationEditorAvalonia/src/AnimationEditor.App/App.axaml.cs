@@ -122,6 +122,14 @@ public partial class App : Application
 
     private static ICommand Cmd(Action action) => new RelayCommand(action);
 
+    internal static MainWindow CreateDetachedWindow()
+    {
+        var services = BuildServices();
+        var window = services.GetRequiredService<MainWindow>();
+        window.Icon = LoadAppIcon();
+        return window;
+    }
+
     private static ServiceProvider BuildServices()
     {
         var sc = new ServiceCollection();

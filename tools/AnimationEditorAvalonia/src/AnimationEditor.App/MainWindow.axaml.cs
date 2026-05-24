@@ -45,6 +45,11 @@ public partial class MainWindow : Window
 
     private AppSettingsModel _appSettings = new();
     private readonly TabManager _tabManager = new();
+
+    // ── Tab drag state ────────────────────────────────────────────────────────
+    private TabEntry? _dragTab;
+    private double _dragStartX;
+    private bool _isDragging;
     private bool _suppressPropRefresh;
     private bool _suppressTextureComboChanged;
     private bool _suppressZoomComboChanged;
@@ -186,25 +191,80 @@ public partial class MainWindow : Window
             row.Children.Add(closeBtn);
             tabBorder.Child = row;
 
-            // Click on the tab label/body activates it
+            // Pointer handling: left-click activates, drag reorders, right-click shows context
+            // menu, middle-click closes.  Pointer capture is deferred until the drag threshold
+            // is exceeded so that the close button (✕) still receives its own Click event on
+            // short presses.
             tabBorder.PointerPressed += (_, args) =>
             {
-                if (args.GetCurrentPoint(tabBorder).Properties.IsLeftButtonPressed)
+                var pt = args.GetCurrentPoint(tabBorder);
+                if (pt.Properties.IsRightButtonPressed)
+                {
+                    var menu = new ContextMenu
+                    {
+                        Items =
+                        {
+                            new MenuItem
+                            {
+                                Header = "Detach to New Window",
+                                Command = new RelayCommand(() => DetachTab(captured)),
+                            },
+                            new MenuItem
+                            {
+                                Header = "Close Tab",
+                                Command = new RelayCommand(() => CloseTab(captured)),
+                            },
+                        },
+                    };
+                    menu.Open(tabBorder);
+                    args.Handled = true;
+                    return;
+                }
+
+                if (pt.Properties.IsLeftButtonPressed)
                 {
                     _ = ActivateTabAsync(captured);
+                    _dragTab = captured;
+                    _dragStartX = args.GetPosition(TabStrip).X;
+                    _isDragging = false;
                     args.Handled = true;
                 }
             };
 
-            // Middle-click closes the tab
+            tabBorder.PointerMoved += (_, args) =>
+            {
+                if (_dragTab != captured) return;
+                double x = args.GetPosition(TabStrip).X;
+                if (!_isDragging && Math.Abs(x - _dragStartX) > 4)
+                {
+                    _isDragging = true;
+                    args.Pointer.Capture(tabBorder);
+                    tabBorder.Cursor = new Cursor(StandardCursorType.SizeWestEast);
+                }
+            };
+
             tabBorder.PointerReleased += (_, args) =>
             {
-                if (args.GetCurrentPoint(tabBorder).Properties.PointerUpdateKind ==
-                    PointerUpdateKind.MiddleButtonReleased)
+                var uk = args.GetCurrentPoint(tabBorder).Properties.PointerUpdateKind;
+
+                if (uk == PointerUpdateKind.MiddleButtonReleased)
                 {
                     CloseTab(captured);
                     args.Handled = true;
+                    return;
                 }
+
+                if (_dragTab == captured && _isDragging && uk == PointerUpdateKind.LeftButtonReleased)
+                {
+                    args.Pointer.Capture(null);
+                    tabBorder.Cursor = new Cursor(StandardCursorType.Hand);
+                    int targetIdx = ComputeTabIndexAt(args.GetPosition(TabStrip).X);
+                    _tabManager.Move(captured.Path, targetIdx);
+                    RebuildTabStrip();
+                }
+
+                _dragTab = null;
+                _isDragging = false;
             };
 
             TabStrip.Children.Add(tabBorder);
@@ -2426,7 +2486,14 @@ public partial class MainWindow : Window
 
         if (result == TabOpenResult.Focused)
         {
-            // File is already loaded in the editor — just rebuild the tab strip to highlight it.
+            // The tab is already registered and now active in TabManager, but the editor
+            // may still be displaying a different tab's content (e.g. user was on tab 1
+            // and re-opened tab 2's file via File > Open).  Load the file to ensure the
+            // panels and previews reflect the focused tab.
+            bool alreadyShown = string.Equals(_projectManager.FileName, fileName,
+                StringComparison.OrdinalIgnoreCase);
+            if (!alreadyShown && !string.IsNullOrEmpty(fileName))
+                await _appCommands.OpenAchxWorkflowAsync(fileName);
             RebuildTabStrip();
             return;
         }
@@ -2455,6 +2522,38 @@ public partial class MainWindow : Window
             // Unsaved new file with content — register an Untitled placeholder tab.
             _tabManager.RegisterBackground(new FilePath(null!), "Untitled");
         }
+    }
+
+    /// <summary>
+    /// Returns the tab index that corresponds to the given X coordinate (in the TabStrip
+    /// StackPanel's local coordinate space).  Finds the first tab whose centre is to the
+    /// right of <paramref name="xInTabStrip"/>; if none, returns the last tab index.
+    /// </summary>
+    private int ComputeTabIndexAt(double xInTabStrip)
+    {
+        var children = TabStrip.Children;
+        for (int i = 0; i < children.Count; i++)
+        {
+            var b = children[i].Bounds;
+            if (xInTabStrip < b.Left + b.Width / 2.0)
+                return i;
+        }
+        return Math.Max(0, children.Count - 1);
+    }
+
+    /// <summary>
+    /// Closes <paramref name="tab"/> in this window and opens it in a brand-new,
+    /// fully-independent <see cref="MainWindow"/> instance.
+    /// No-op for Untitled (unsaved) tabs — there is no file to move.
+    /// </summary>
+    private void DetachTab(TabEntry tab)
+    {
+        if (string.IsNullOrEmpty(tab.Path.Original)) return;
+        var filePath = tab.Path.FullPath;
+        CloseTab(tab);
+        var window = App.CreateDetachedWindow();
+        window.Show();
+        _ = window.OpenFileAsTab(filePath);
     }
 
     private void UpdateTitle()
