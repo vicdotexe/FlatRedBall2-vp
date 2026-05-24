@@ -79,6 +79,10 @@ public partial class MainWindow : Window
         _thumbnailService = thumbnailService;
 
         InitializeComponent();
+
+        if (OperatingSystem.IsMacOS())
+            ApplyMacOSWindowChrome();
+
         InitToast();
         PropertyChanged += (_, e) => { if (e.Property == OffScreenMarginProperty) Padding = OffScreenMargin; };
         WireframeCtrl.AttachScrollViewer(WireframeScrollViewer);
@@ -696,6 +700,26 @@ public partial class MainWindow : Window
     }
 
     // ── Custom title bar ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Switches to native macOS window decorations (traffic-light buttons on the left)
+    /// and hides the custom title bar and resize grips, which are only needed on
+    /// Windows/Linux where <c>WindowDecorations="None"</c> is in effect.
+    /// macOS handles window resizing natively when <c>WindowDecorations.Full</c> is active.
+    /// </summary>
+    private void ApplyMacOSWindowChrome()
+    {
+        WindowDecorations = WindowDecorations.Full;
+        TitleBarBorder.IsVisible = false;
+        GripN.IsVisible  = false;
+        GripS.IsVisible  = false;
+        GripW.IsVisible  = false;
+        GripE.IsVisible  = false;
+        GripNW.IsVisible = false;
+        GripNE.IsVisible = false;
+        GripSW.IsVisible = false;
+        GripSE.IsVisible = false;
+    }
 
     private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
     {
