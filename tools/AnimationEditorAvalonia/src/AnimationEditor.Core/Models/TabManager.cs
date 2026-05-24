@@ -114,6 +114,23 @@ namespace AnimationEditor.Core.Models
 
         // ── Private helpers ───────────────────────────────────────────────────
 
+        /// <summary>
+        /// Adds <paramref name="path"/> as a tab at position 0 without making it active
+        /// and without raising <see cref="ActiveChanged"/>. Intended for preserving the
+        /// currently open file as the first tab before a different file is opened.
+        /// Does nothing if <paramref name="path"/> is already tracked.
+        /// </summary>
+        /// <param name="displayNameOverride">
+        /// Tab label override — use <c>"Untitled"</c> for unsaved files with no on-disk path.
+        /// </param>
+        public void RegisterBackground(FilePath path, string? displayNameOverride = null)
+        {
+            if (FindTab(path) != null) return;
+            _tabs.Insert(0, new TabEntry(path, displayNameOverride));
+        }
+
+        // ── Private helpers ───────────────────────────────────────────────────
+
         private TabEntry? FindTab(FilePath path) =>
             _tabs.FirstOrDefault(t => t.Path == path);
 

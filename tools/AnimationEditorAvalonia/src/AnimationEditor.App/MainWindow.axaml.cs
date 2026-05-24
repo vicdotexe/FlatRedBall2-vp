@@ -218,7 +218,21 @@ public partial class MainWindow : Window
         _tabManager.Activate(tab.Path);
         // Bypass LoadAnimationFileAsync so we don't hit the short-circuit that skips
         // the file load when the path is already the active tab.
-        await _appCommands.OpenAchxWorkflowAsync(tab.Path.FullPath);
+        if (string.IsNullOrEmpty(tab.Path.Original))
+        {
+            // Untitled tab — reset to a blank editor; there is no on-disk file to reload.
+            _projectManager.AnimationChainListSave = new AnimationChainListSave();
+            _projectManager.FileName = null;
+            _selectedState.Reset();
+            _undoManager.Clear();
+            RefreshTreeView();
+            UpdateTitle();
+            UpdateStatusBar();
+        }
+        else
+        {
+            await _appCommands.OpenAchxWorkflowAsync(tab.Path.FullPath);
+        }
         RebuildTabStrip();
     }
 
@@ -234,7 +248,13 @@ public partial class MainWindow : Window
         _tabManager.Close(tab.Path);
         var next = _tabManager.ActiveTab;
         if (next != null)
-            _ = LoadAnimationFileAsync(next.Path.FullPath);
+        {
+            // Use OpenAchxWorkflowAsync directly — bypasses EnsureCurrentEditorContentHasTab
+            // so the just-closed file is not accidentally re-registered as a background tab.
+            if (!string.IsNullOrEmpty(next.Path.Original))
+                _ = _appCommands.OpenAchxWorkflowAsync(next.Path.FullPath)
+                    .ContinueWith(_ => Dispatcher.UIThread.InvokeAsync(RebuildTabStrip));
+        }
         else
         {
             // All tabs closed — start fresh
@@ -266,11 +286,17 @@ public partial class MainWindow : Window
         if (valid.Count == 0) return;
 
         _tabManager.RestoreFrom(valid, _appSettings.ActiveTabPath);
+        RebuildTabStrip();
 
-        // Load the active tab's file into the editor
+        // Load the active tab's file directly — bypassing LoadAnimationFileAsync avoids
+        // the early-return in that method (OpenOrFocus would return Focused for a tab
+        // that RestoreFrom already registered, skipping the actual file load).
         var active = _tabManager.ActiveTab;
         if (active != null)
-            await LoadAnimationFileAsync(active.Path.FullPath);
+        {
+            await _appCommands.OpenAchxWorkflowAsync(active.Path.FullPath);
+            RebuildTabStrip();
+        }
     }
 
     // ── Startup ───────────────────────────────────────────────────────────────
@@ -2390,6 +2416,11 @@ public partial class MainWindow : Window
     {
         if (string.IsNullOrEmpty(fileName)) return;
 
+        // If there is already a file open that hasn't been registered as a tab yet,
+        // add it as a background tab so it appears as the first tab when the second
+        // file is opened.  This covers the common case of File > Open > Open.
+        EnsureCurrentEditorContentHasTab();
+
         var filePath = new FilePath(fileName);
         var result = _tabManager.OpenOrFocus(filePath);
 
@@ -2401,6 +2432,29 @@ public partial class MainWindow : Window
         }
 
         await _appCommands.OpenAchxWorkflowAsync(fileName);
+    }
+
+    /// <summary>
+    /// Registers the currently-loaded file (or an "Untitled" placeholder when the editor has
+    /// content but no saved path) as a background tab so it appears before the next file that
+    /// is about to be opened.
+    /// </summary>
+    private void EnsureCurrentEditorContentHasTab()
+    {
+        var currentPath = _projectManager.FileName;
+        if (!string.IsNullOrEmpty(currentPath))
+        {
+            // Saved file — add its tab if not already tracked.
+            var fp = new FilePath(currentPath);
+            if (_tabManager.Tabs.All(t => t.Path != fp))
+                _tabManager.RegisterBackground(fp);
+        }
+        else if (_tabManager.Tabs.Count == 0 &&
+                 _projectManager.AnimationChainListSave?.AnimationChains.Count > 0)
+        {
+            // Unsaved new file with content — register an Untitled placeholder tab.
+            _tabManager.RegisterBackground(new FilePath(null!), "Untitled");
+        }
     }
 
     private void UpdateTitle()

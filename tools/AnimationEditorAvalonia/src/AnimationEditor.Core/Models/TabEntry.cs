@@ -9,15 +9,28 @@ namespace AnimationEditor.Core.Models
     /// </summary>
     public sealed class TabEntry
     {
-        public TabEntry(FilePath path)
+        /// <param name="path">The absolute path of the <c>.achx</c> file. Pass an empty <see cref="FilePath"/> for an unsaved file.</param>
+        /// <param name="displayNameOverride">
+        /// When set, overrides the tab label. Use <c>"Untitled"</c> for unsaved files
+        /// that have no on-disk path yet.
+        /// </param>
+        public TabEntry(FilePath path, string? displayNameOverride = null)
         {
             Path = path;
+            _displayNameOverride = displayNameOverride;
         }
+
+        private readonly string? _displayNameOverride;
 
         /// <summary>The absolute path of the <c>.achx</c> file this tab represents.</summary>
         public FilePath Path { get; }
 
-        /// <summary>The filename without directory, used as the tab label.</summary>
-        public string DisplayName => Path.NoPath;
+        /// <summary>
+        /// The tab label. Returns <see cref="_displayNameOverride"/> when set;
+        /// otherwise the filename without directory.
+        /// </summary>
+        public string DisplayName =>
+            _displayNameOverride
+            ?? (string.IsNullOrEmpty(Path.Original) ? "Untitled" : Path.NoPath);
     }
 }
