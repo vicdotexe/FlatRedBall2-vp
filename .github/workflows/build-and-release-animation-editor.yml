@@ -106,7 +106,7 @@ jobs:
 
       - name: Mark binary executable (non-Windows)
         if: matrix.os != 'windows-latest'
-        run: chmod +x dist/publish/AnimationEditor.App
+        run: chmod +x dist/publish/AnimationEditor
 
       - name: Package (zip)
         if: matrix.archive == 'zip'
