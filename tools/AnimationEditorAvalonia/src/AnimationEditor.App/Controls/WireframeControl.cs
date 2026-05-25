@@ -978,6 +978,22 @@ public class WireframeControl : Control
     }
 
     /// <summary>
+    /// Applies the grid-snapped cell at the given screen position to the currently-selected frame
+    /// (via <see cref="ApplyRegionToSelectedFrame"/>). This is the double-click path in grid mode:
+    /// it bypasses handle hit-testing so frames that cover the entire texture can still be
+    /// assigned a specific cell.
+    /// No-ops when bitmap is null, grid is off, cell size is ≤ 0, or no frame is selected.
+    /// </summary>
+    public void SimulateGridSnapDoubleClick(float screenX, float screenY)
+    {
+        if (_bitmap is null || !_showGrid || _gridSize <= 0) return;
+        var world = ScreenToTexture(screenX, screenY);
+        int gx = GridSnapper.Snap(world.X, _gridSize);
+        int gy = GridSnapper.Snap(world.Y, _gridSize);
+        ApplyRegionToSelectedFrame(gx, gy, gx + _gridSize, gy + _gridSize);
+    }
+
+    /// <summary>
     /// Runs the hover-preview snap logic for the given screen point and returns
     /// the resulting preview state. Requires a loaded texture (returns ShowPreview=false otherwise).
     /// </summary>
@@ -1432,6 +1448,18 @@ public class WireframeControl : Control
         }
 
         if (!props.IsLeftButtonPressed) return;
+
+        // Grid mode double-click: bypass handle hit-testing so that a frame covering
+        // the entire texture (which would otherwise always hit HandleKind.Move) can still
+        // have a specific grid cell applied to it.
+        if (!isCtrl && !_isMagicWandMode && e.ClickCount == 2 && _showGrid && _gridSize > 0 && _bitmap != null)
+        {
+            var dblWorld = ScreenToTexture((float)pos.X, (float)pos.Y);
+            int gx = GridSnapper.Snap(dblWorld.X, _gridSize);
+            int gy = GridSnapper.Snap(dblWorld.Y, _gridSize);
+            ApplyRegionToSelectedFrame(gx, gy, gx + _gridSize, gy + _gridSize);
+            return;
+        }
 
         // 1. Hit-test resize handles on the selected frame (skipped in Magic Wand mode)
         if (!isCtrl && !_isMagicWandMode)
