@@ -1353,7 +1353,7 @@ public class WireframeControl : Control
             snap.Frames.Add((fr.Bounds, fr.IsSelected));
 
         var sel = _frameRects.FirstOrDefault(f => f.IsSelected);
-        if (sel != null)
+        if (sel != null && !_isMagicWandMode)
         {
             snap.SelectedHandleBounds = sel.Bounds;
 
@@ -1425,8 +1425,8 @@ public class WireframeControl : Control
 
         if (!props.IsLeftButtonPressed) return;
 
-        // 1. Hit-test resize handles on the selected frame
-        if (!isCtrl)
+        // 1. Hit-test resize handles on the selected frame (skipped in Magic Wand mode)
+        if (!isCtrl && !_isMagicWandMode)
         {
             var (hitFrame, hitHandle) = HitTestHandle(pos);
             if (hitHandle != HandleKind.None)
@@ -1477,16 +1477,24 @@ public class WireframeControl : Control
         // 2. Magic-wand mode
         if (_isMagicWandMode && _inspectableImage != null)
         {
-            _inspectableImage.GetOpaqueWandBounds(
-                (int)world.X, (int)world.Y,
-                out int minX, out int minY, out int maxX, out int maxY);
-
-            if (maxX >= minX && maxY >= minY)
+            if (isCtrl)
             {
-                if (isCtrl)
+                // Ctrl+click: create a new frame from the wand's flood-fill bounds.
+                _inspectableImage.GetOpaqueWandBounds(
+                    (int)world.X, (int)world.Y,
+                    out int minX, out int minY, out int maxX, out int maxY);
+                if (maxX >= minX && maxY >= minY)
                     FrameCreatedFromRegion?.Invoke(minX, minY, maxX, maxY);
-                else
-                    ApplyRegionToSelectedFrame(minX, minY, maxX, maxY);
+            }
+            else if (e.ClickCount >= 2 && _showPreview)
+            {
+                // Double-click: apply the currently-hovered preview rect to the selected frame.
+                ApplyPreviewToSelectedFrame();
+            }
+            else
+            {
+                // Single-click: plain frame selection only.
+                TrySelectFrameAtPoint(world);
             }
             return;
         }
@@ -2083,6 +2091,19 @@ public class WireframeControl : Control
         FrameRegionChanged?.Invoke(frame);
     }
 
+    /// <summary>
+    /// Applies the current hover-preview rect (<see cref="_previewRect"/>) to the selected frame.
+    /// Used by Magic Wand double-click to commit the dashed-outline selection.
+    /// No-op when no frame is selected, no bitmap is loaded, or no preview is active.
+    /// </summary>
+    private void ApplyPreviewToSelectedFrame()
+    {
+        if (!_showPreview || _selectedState!.SelectedFrame is null || _bitmap is null) return;
+        ApplyRegionToSelectedFrame(
+            (int)_previewRect.Left, (int)_previewRect.Top,
+            (int)_previewRect.Right, (int)_previewRect.Bottom);
+    }
+
     // ── Coordinate transforms ─────────────────────────────────────────────────
 
     private SKPoint ScreenToTexture(float sx, float sy)
@@ -2260,6 +2281,21 @@ public class WireframeControl : Control
         var (minX, minY, maxX, maxY) = PlainClickFrameRegionCalculator.Compute(
             world.X, world.Y, _bitmap.Width, _bitmap.Height, lastW, lastH);
         FrameCreatedFromRegion?.Invoke(minX, minY, maxX, maxY);
+    }
+
+    /// <summary>
+    /// Test-only: simulates a Magic Wand double-click at the given screen position.
+    /// Updates the hover preview from the pixel at <paramref name="screenX"/>,
+    /// <paramref name="screenY"/> and then applies <see cref="ApplyPreviewToSelectedFrame"/>,
+    /// mirroring the double-click branch in <see cref="OnPointerPressed"/>.
+    /// No-op when magic-wand mode is off, the bitmap is null, or there is no preview.
+    /// </summary>
+    public void SimulateWandDoubleClick(float screenX, float screenY)
+    {
+        if (!_isMagicWandMode || _bitmap is null) return;
+        UpdatePreview(new Point(screenX, screenY));
+        if (_showPreview)
+            ApplyPreviewToSelectedFrame();
     }
 
     /// <summary>

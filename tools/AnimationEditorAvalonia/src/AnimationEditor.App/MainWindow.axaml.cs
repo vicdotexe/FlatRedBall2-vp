@@ -523,9 +523,12 @@ public partial class MainWindow : Window
 
     // ── Wireframe toolbar wiring ──────────────────────────────────────────────
 
+    private bool _suppressModeToggle;
+
     private void WireWireframeToolbar()
     {
         TextureCombo.SelectionChanged += OnTextureComboChanged;
+        MoveModeToggle.IsCheckedChanged += OnMoveModeToggled;
         MagicWandToggle.IsCheckedChanged += OnMagicWandToggled;
         SnapToGridCheck.IsCheckedChanged += OnSnapToGridChanged;
         GridSizeInput.LostFocus += OnGridSizeInputLostFocus;
@@ -538,6 +541,10 @@ public partial class MainWindow : Window
         ZoomPlusBtn.Click  += (_, _) => StepZoomPreset(WireframeCtrl.Zoom * 100f, _zoomPresets, +1, p => WireframeCtrl.SetZoomPercent(p));
         ZoomMinusBtn.Click += (_, _) => StepZoomPreset(WireframeCtrl.Zoom * 100f, _zoomPresets, -1, p => WireframeCtrl.SetZoomPercent(p));
         WireframeCtrl.WheelZoomPresets = _zoomPresets;
+
+        // Default to Move mode
+        MoveModeToggle.IsChecked = true;
+        WireframeCtrl.IsMagicWandMode = false;
 
         // Apply initial grid state
         WireframeCtrl.SetGrid(false, 16);
@@ -561,9 +568,24 @@ public partial class MainWindow : Window
         RefreshPropertyPanel();
     }
 
+    private void OnMoveModeToggled(object? sender, RoutedEventArgs e)
+    {
+        if (_suppressModeToggle) return;
+        if (MoveModeToggle.IsChecked != true) return;
+        _suppressModeToggle = true;
+        MagicWandToggle.IsChecked = false;
+        _suppressModeToggle = false;
+        WireframeCtrl.IsMagicWandMode = false;
+    }
+
     private void OnMagicWandToggled(object? sender, RoutedEventArgs e)
     {
-        WireframeCtrl.IsMagicWandMode = MagicWandToggle.IsChecked == true;
+        if (_suppressModeToggle) return;
+        if (MagicWandToggle.IsChecked != true) return;
+        _suppressModeToggle = true;
+        MoveModeToggle.IsChecked = false;
+        _suppressModeToggle = false;
+        WireframeCtrl.IsMagicWandMode = true;
     }
 
     private void OnSnapToGridChanged(object? sender, RoutedEventArgs e)
