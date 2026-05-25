@@ -44,6 +44,14 @@ public partial class MainWindow : Window
     private readonly Services.ThumbnailService _thumbnailService;
 
     private AppSettingsModel _appSettings = new();
+    private readonly TabManager _tabManager = new();
+
+    // ── Tab drag state ────────────────────────────────────────────────────────
+    private TabEntry? _dragTab;
+    private double _dragStartX;
+    private bool _isDragging;
+    private Border? _ghostBorder;
+    private int _untitledCounter;
     private bool _suppressPropRefresh;
     private bool _suppressTextureComboChanged;
     private bool _suppressZoomComboChanged;
@@ -97,6 +105,7 @@ public partial class MainWindow : Window
         WirePropertyPanel();
         WirePlaybackControls();
         WireKeyboard();
+        WireTabBar();
 
         WireframeCtrl.InitializeServices(_selectedState, _appState, _appCommands, _events, _projectManager, _undoManager);
         PreviewCtrl.InitializeServices(_selectedState, _appState, _appCommands, _events, _projectManager, _undoManager, _thumbnailService);
@@ -104,12 +113,319 @@ public partial class MainWindow : Window
         Opened += OnOpened;
         Closed += (_, _) =>
         {
+            SaveTabsToSettings();
             _appCommands.HotReloadWatcher.Dispose();
             PreviewCtrl.Playback.FrameIndexChanged -= OnPreviewPlaybackFrameIndexChanged;
             foreach (var vm in _timelineFrames)
                 (vm.Thumbnail as IDisposable)?.Dispose();
             DisposeTreeThumbnails();
         };
+    }
+
+    // ── Tab bar ───────────────────────────────────────────────────────────────
+
+    private void WireTabBar()
+    {
+        _tabManager.ActiveChanged += _ => Dispatcher.UIThread.InvokeAsync(RebuildTabStrip);
+    }
+
+    private void RebuildTabStrip()
+    {
+        TabStrip.Children.Clear();
+
+        var tabs = _tabManager.Tabs;
+        TabBarBorder.IsVisible = tabs.Count > 1;
+
+        foreach (var tab in tabs)
+        {
+            bool isActive = tab == _tabManager.ActiveTab;
+            var captured = tab;
+
+            // Tab container
+            var tabBorder = new Border
+            {
+                Background = isActive
+                    ? new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#2f3641"))
+                    : Avalonia.Media.Brushes.Transparent,
+                BorderBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#2a2e36")),
+                BorderThickness = new Avalonia.Thickness(0, 0, 1, 0),
+                Padding = new Avalonia.Thickness(0),
+                Cursor = new Cursor(StandardCursorType.Hand),
+            };
+
+            ToolTip.SetTip(tabBorder, tab.Path.FullPath);
+
+            var row = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+                Margin = new Avalonia.Thickness(8, 0, 0, 0),
+            };
+
+            var label = new TextBlock
+            {
+                Text = tab.DisplayName,
+                FontSize = 11,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                Foreground = isActive
+                    ? new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#d4d8de"))
+                    : new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#9098a4")),
+            };
+            Grid.SetColumn(label, 0);
+
+            var closeBtn = new Button
+            {
+                Content = "✕",
+                FontSize = 9,
+                Width = 20,
+                Height = 20,
+                Padding = new Avalonia.Thickness(0),
+                Background = Avalonia.Media.Brushes.Transparent,
+                BorderThickness = new Avalonia.Thickness(0),
+                Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#9098a4")),
+                HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                Margin = new Avalonia.Thickness(2, 0, 2, 0),
+            };
+            Grid.SetColumn(closeBtn, 1);
+            closeBtn.Click += (_, _) => CloseTab(captured);
+
+            row.Children.Add(label);
+            row.Children.Add(closeBtn);
+            tabBorder.Child = row;
+
+            // Pointer handling: immediate pointer-capture on press (so PointerMoved fires even
+            // when the cursor moves over other tabs).  Activation is deferred to PointerReleased
+            // so that RebuildTabStrip is never called while a drag is in-flight.
+            // Close-button presses are excluded from capture by checking args.Source.
+            tabBorder.PointerPressed += (_, args) =>
+            {
+                var pt = args.GetCurrentPoint(tabBorder);
+                if (pt.Properties.IsRightButtonPressed)
+                {
+                    var menu = new ContextMenu
+                    {
+                        Items =
+                        {
+                            new MenuItem
+                            {
+                                Header = "Detach to New Window",
+                                Command = new RelayCommand(() => DetachTab(captured)),
+                            },
+                            new MenuItem
+                            {
+                                Header = "Close Tab",
+                                Command = new RelayCommand(() => CloseTab(captured)),
+                            },
+                        },
+                    };
+                    menu.Open(tabBorder);
+                    args.Handled = true;
+                    return;
+                }
+
+                if (pt.Properties.IsLeftButtonPressed)
+                {
+                    // Skip close-button presses so Button.Click still fires normally.
+                    if (args.Source is Button) return;
+
+                    // Capture immediately so PointerMoved always arrives here even when the
+                    // cursor moves across other tabs.  Activation happens on release.
+                    args.Pointer.Capture(tabBorder);
+                    _dragTab = captured;
+                    _dragStartX = args.GetPosition(TabStrip).X;
+                    _isDragging = false;
+                    args.Handled = true;
+                }
+            };
+
+            tabBorder.PointerMoved += (_, args) =>
+            {
+                if (_dragTab != captured) return;
+                double x = args.GetPosition(TabStrip).X;
+                if (!_isDragging && Math.Abs(x - _dragStartX) > 5)
+                {
+                    _isDragging = true;
+                    tabBorder.Cursor = new Cursor(StandardCursorType.DragMove);
+                    tabBorder.Opacity = 0.4;
+
+                    // Create a floating ghost label that follows the pointer
+                    _ghostBorder = new Border
+                    {
+                        Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#3a4150")),
+                        BorderBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#4a90d9")),
+                        BorderThickness = new Avalonia.Thickness(1),
+                        CornerRadius = new Avalonia.CornerRadius(3),
+                        Padding = new Avalonia.Thickness(10, 5),
+                        Opacity = 0.92,
+                        IsHitTestVisible = false,
+                        Child = new TextBlock
+                        {
+                            Text = captured.DisplayName,
+                            FontSize = 11,
+                            Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#d4d8de")),
+                        },
+                    };
+                    var initPos = args.GetPosition(DragOverlayCanvas);
+                    Canvas.SetLeft(_ghostBorder, initPos.X + 10);
+                    Canvas.SetTop(_ghostBorder, initPos.Y - 18);
+                    DragOverlayCanvas.Children.Add(_ghostBorder);
+                }
+
+                if (_isDragging && _ghostBorder != null)
+                {
+                    var pos = args.GetPosition(DragOverlayCanvas);
+                    Canvas.SetLeft(_ghostBorder, pos.X + 10);
+                    Canvas.SetTop(_ghostBorder, pos.Y - 18);
+                }
+            };
+
+            tabBorder.PointerReleased += (_, args) =>
+            {
+                var uk = args.GetCurrentPoint(tabBorder).Properties.PointerUpdateKind;
+
+                if (uk == PointerUpdateKind.MiddleButtonReleased)
+                {
+                    CloseTab(captured);
+                    args.Handled = true;
+                    return;
+                }
+
+                if (_dragTab != captured || uk != PointerUpdateKind.LeftButtonReleased)
+                    return;
+
+                args.Pointer.Capture(null);
+                tabBorder.Cursor = new Cursor(StandardCursorType.Hand);
+                tabBorder.Opacity = 1.0;
+
+                // Remove ghost overlay
+                if (_ghostBorder != null)
+                {
+                    DragOverlayCanvas.Children.Remove(_ghostBorder);
+                    _ghostBorder = null;
+                }
+
+                if (_isDragging)
+                {
+                    int targetIdx = ComputeTabIndexAt(args.GetPosition(TabStrip).X);
+                    _tabManager.Move(captured.Path, targetIdx);
+                    RebuildTabStrip();
+                }
+                else
+                {
+                    _ = ActivateTabAsync(captured);
+                }
+
+                _dragTab = null;
+                _isDragging = false;
+            };
+
+            TabStrip.Children.Add(tabBorder);
+        }
+    }
+
+    private async Task ActivateTabAsync(TabEntry tab)
+    {
+        if (tab == _tabManager.ActiveTab) return;
+        SaveCompanionFile();
+        _tabManager.Activate(tab.Path);
+        // Bypass LoadAnimationFileAsync so we don't hit the short-circuit that skips
+        // the file load when the path is already the active tab.
+        if (IsUntitledTab(tab))
+        {
+            // Untitled tab — reset to a blank editor; there is no on-disk file to reload.
+            _projectManager.AnimationChainListSave = new AnimationChainListSave();
+            _projectManager.FileName = null;
+            _selectedState.Reset();
+            _undoManager.Clear();
+            RefreshTreeView();
+            UpdateTitle();
+            UpdateStatusBar();
+        }
+        else
+        {
+            await _appCommands.OpenAchxWorkflowAsync(tab.Path.FullPath);
+        }
+        RebuildTabStrip();
+    }
+
+    /// <summary>
+    /// Opens <paramref name="filePath"/> as a new tab (or focuses it if already open).
+    /// Called from <see cref="App"/> when the single-instance server receives a path from
+    /// a second process.
+    /// </summary>
+    public async Task OpenFileAsTab(string filePath) => await LoadAnimationFileAsync(filePath);
+
+    private void CloseTab(TabEntry tab)
+    {
+        _tabManager.Close(tab.Path);
+        var next = _tabManager.ActiveTab;
+        if (next != null)
+        {
+            // Use OpenAchxWorkflowAsync directly — bypasses EnsureCurrentEditorContentHasTab
+            // so the just-closed file is not accidentally re-registered as a background tab.
+            if (!IsUntitledTab(next))
+                _ = _appCommands.OpenAchxWorkflowAsync(next.Path.FullPath)
+                    .ContinueWith(_ => Dispatcher.UIThread.InvokeAsync(RebuildTabStrip));
+            else
+            {
+                // Switching to an Untitled tab — reset to a blank editor.
+                _projectManager.AnimationChainListSave = new AnimationChainListSave();
+                _projectManager.FileName = null;
+                _selectedState.Reset();
+                _undoManager.Clear();
+                RefreshTreeView();
+                UpdateTitle();
+                UpdateStatusBar();
+                RebuildTabStrip();
+            }
+        }
+        else
+        {
+            // All tabs closed — start fresh
+            _projectManager.AnimationChainListSave = new AnimationChainListSave();
+            _projectManager.FileName = null;
+            _selectedState.Reset();
+            _undoManager.Clear();
+            RefreshTreeView();
+            UpdateTitle();
+            UpdateStatusBar();
+        }
+    }
+
+    private void SaveTabsToSettings()
+    {
+        // Exclude unsaved (sentinel) Untitled tabs — they have no on-disk path to restore.
+        _appSettings.OpenTabPaths = _tabManager.OpenTabPaths
+            .Where(p => !IsUntitledSentinel(p))
+            .ToList();
+        _appSettings.ActiveTabPath = IsUntitledTab(_tabManager.ActiveTab)
+            ? null
+            : _tabManager.ActiveTab?.Path.FullPath;
+        SaveSettingsFile();
+    }
+
+    private async Task RestoreTabsAsync()
+    {
+        if (_appSettings.OpenTabPaths.Count == 0) return;
+
+        // Filter to paths that still exist on disk
+        var valid = _appSettings.OpenTabPaths
+            .Where(p => File.Exists(p))
+            .ToList();
+        if (valid.Count == 0) return;
+
+        _tabManager.RestoreFrom(valid, _appSettings.ActiveTabPath);
+        RebuildTabStrip();
+
+        // Load the active tab's file directly — bypassing LoadAnimationFileAsync avoids
+        // the early-return in that method (OpenOrFocus would return Focused for a tab
+        // that RestoreFrom already registered, skipping the actual file load).
+        var active = _tabManager.ActiveTab;
+        if (active != null)
+        {
+            await _appCommands.OpenAchxWorkflowAsync(active.Path.FullPath);
+            RebuildTabStrip();
+        }
     }
 
     // ── Startup ───────────────────────────────────────────────────────────────
@@ -120,6 +436,10 @@ public partial class MainWindow : Window
         if (args.Length >= 2 && File.Exists(args[1]))
         {
             _ = LoadAnimationFileAsync(args[1]);
+        }
+        else if (_appSettings.OpenTabPaths.Count > 0)
+        {
+            _ = RestoreTabsAsync();
         }
         else
         {
@@ -160,6 +480,14 @@ public partial class MainWindow : Window
             RefreshRecentFiles();
             UpdateTitle();
             UpdateStatusBar();
+
+            // If the active tab was an Untitled sentinel, promote it to the real file path.
+            var active = _tabManager.ActiveTab;
+            if (active != null && IsUntitledTab(active))
+            {
+                _tabManager.Rename(active.Path, new FilePath(path));
+                RebuildTabStrip();
+            }
         });
         _events.AvailableTexturesChanged += () => Dispatcher.UIThread.InvokeAsync(RefreshTextureCombo);
 
@@ -856,11 +1184,22 @@ public partial class MainWindow : Window
 
     private void OnNewClick(object? sender, RoutedEventArgs e)
     {
+        // Register the currently-open file (if any) as a tab before we clear it.
+        EnsureCurrentEditorContentHasTab();
+
         _projectManager.AnimationChainListSave = new AnimationChainListSave();
         _projectManager.FileName = null;
         _selectedState.Reset();
         _undoManager.Clear();
         RefreshTreeView();
+
+        // Open a new numbered Untitled tab and activate it.
+        var displayName = TabManager.ComputeUntitledDisplayName(
+            _tabManager.Tabs.Select(t => t.DisplayName).ToList());
+        var sentinelPath = new FilePath(NewUntitledSentinelPath());
+        _tabManager.OpenOrFocus(sentinelPath, displayName);
+        RebuildTabStrip();
+
         _ = _appCommands.SaveCurrentAnimationChainListAsync();
     }
 
@@ -2223,8 +2562,102 @@ public partial class MainWindow : Window
 
     private async Task LoadAnimationFileAsync(string fileName)
     {
-        if (!string.IsNullOrEmpty(fileName))
-            await _appCommands.OpenAchxWorkflowAsync(fileName);
+        if (string.IsNullOrEmpty(fileName)) return;
+
+        // If there is already a file open that hasn't been registered as a tab yet,
+        // add it as a background tab so it appears as the first tab when the second
+        // file is opened.  This covers the common case of File > Open > Open.
+        EnsureCurrentEditorContentHasTab();
+
+        var filePath = new FilePath(fileName);
+        var result = _tabManager.OpenOrFocus(filePath);
+
+        if (result == TabOpenResult.Focused)
+        {
+            // The tab is already registered and now active in TabManager, but the editor
+            // may still be displaying a different tab's content (e.g. user was on tab 1
+            // and re-opened tab 2's file via File > Open).  Load the file to ensure the
+            // panels and previews reflect the focused tab.
+            bool alreadyShown = string.Equals(_projectManager.FileName, fileName,
+                StringComparison.OrdinalIgnoreCase);
+            if (!alreadyShown && !string.IsNullOrEmpty(fileName))
+                await _appCommands.OpenAchxWorkflowAsync(fileName);
+            RebuildTabStrip();
+            return;
+        }
+
+        await _appCommands.OpenAchxWorkflowAsync(fileName);
+    }
+
+    /// <summary>
+    /// Registers the currently-loaded file (or an "Untitled" placeholder when the editor has
+    /// content but no saved path) as a background tab so it appears before the next file that
+    /// is about to be opened.
+    /// </summary>
+    private void EnsureCurrentEditorContentHasTab()
+    {
+        var currentPath = _projectManager.FileName;
+        if (!string.IsNullOrEmpty(currentPath))
+        {
+            // Saved file — add its tab if not already tracked.
+            var fp = new FilePath(currentPath);
+            if (_tabManager.Tabs.All(t => t.Path != fp))
+                _tabManager.RegisterBackground(fp);
+        }
+        else if (_tabManager.Tabs.Count == 0 &&
+                 _projectManager.AnimationChainListSave?.AnimationChains.Count > 0)
+        {
+            // Unsaved new file with content — register a numbered Untitled placeholder tab.
+            var displayName = TabManager.ComputeUntitledDisplayName(
+                _tabManager.Tabs.Select(t => t.DisplayName).ToList());
+            _tabManager.RegisterBackground(new FilePath(NewUntitledSentinelPath()), displayName);
+        }
+    }
+
+    /// <summary>
+    /// Returns the tab index that corresponds to the given X coordinate (in the TabStrip
+    /// StackPanel's local coordinate space).  Finds the first tab whose centre is to the
+    /// right of <paramref name="xInTabStrip"/>; if none, returns the last tab index.
+    /// </summary>
+    private int ComputeTabIndexAt(double xInTabStrip)
+    {
+        var children = TabStrip.Children;
+        for (int i = 0; i < children.Count; i++)
+        {
+            var b = children[i].Bounds;
+            if (xInTabStrip < b.Left + b.Width / 2.0)
+                return i;
+        }
+        return Math.Max(0, children.Count - 1);
+    }
+
+    // Sentinel paths use the prefix "__untitled__:" so they are distinguishable from real
+    // on-disk paths and are unique per new-file action within this window session.
+    private const string UntitledSentinelPrefix = "__untitled__:";
+
+    private static bool IsUntitledSentinel(string? path) =>
+        path?.StartsWith(UntitledSentinelPrefix, StringComparison.Ordinal) == true;
+
+    private static bool IsUntitledTab(TabEntry? tab) =>
+        tab != null &&
+        (string.IsNullOrEmpty(tab.Path.Original) || IsUntitledSentinel(tab.Path.Original));
+
+    private string NewUntitledSentinelPath() =>
+        $"{UntitledSentinelPrefix}{++_untitledCounter}";
+
+    /// <summary>
+    /// Closes <paramref name="tab"/> in this window and opens it in a brand-new,
+    /// fully-independent <see cref="MainWindow"/> instance.
+    /// No-op for Untitled (unsaved) tabs — there is no file to move.
+    /// </summary>
+    private void DetachTab(TabEntry tab)
+    {
+        if (IsUntitledTab(tab)) return;
+        var filePath = tab.Path.FullPath;
+        CloseTab(tab);
+        var window = App.CreateDetachedWindow();
+        window.Show();
+        _ = window.OpenFileAsTab(filePath);
     }
 
     private void UpdateTitle()
