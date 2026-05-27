@@ -6,6 +6,37 @@
 
 FlatRedBall2 is the next generation of [FlatRedBall](https://github.com/vchelaru/FlatRedBall)  — a 2D game engine with 20+ years of iteration behind it, rebuilt from the ground up on modern .NET. It runs on two backends: [MonoGame](https://monogame.net) for desktop and [KNI](https://github.com/kniEngine/kni) for browser (via Blazor WASM), sharing a single codebase.
 
+## Quick Start for Humans
+
+New to FlatRedBall2? Get a working game in under 5 minutes.
+
+**1. Verify .NET 10 is installed**
+```
+dotnet --version
+```
+You should see `10.x`. If not, see [Installing .NET 10](#installing-net-10) below.
+
+**2. Create a new game project**
+```
+dotnet new install FlatRedBall2.Templates
+dotnet new frb2-desktop -n MyGame
+```
+
+**3. Run it**
+```
+cd MyGame/MyGame.Desktop
+dotnet tool restore
+dotnet run
+```
+
+A window opens showing "Hello from FlatRedBall 2" on a black background — you're done.
+
+**4. Next steps**
+- Open `MyGame.Common/Screens/GameScreen.cs` — this is where your code goes
+- Browse the [Samples](samples/) to see real games built on the engine
+- Check [`frb-skills/`](frb-skills/) for task-specific guides (entities, collision, animation, etc.)
+- See [Detailed Setup](#detailed-setup-guide) below for multi-platform (desktop + web) and custom project setup
+
 ## Samples
 
 Each sample is a complete runnable game built on the engine — open the source to see real usage patterns.
@@ -86,7 +117,7 @@ Or follow the distro-specific package instructions at https://learn.microsoft.co
 
 After restarting, run `dotnet --version` to confirm you see `10.x`.
 
-## Quick Start
+## Detailed Setup Guide
 
 Install the project template once (re-run before each new project to pick up template updates):
 
@@ -125,15 +156,7 @@ dotnet run
 
 A window should open showing the text "Hello from FlatRedBall 2" centered on a black background. If you see that, everything works.
 
-### Next steps
-
-- Open `YourGameName.Common/Screens/GameScreen.cs` — this is where your game code goes. `CustomInitialize` runs once when the screen starts (it's where the placeholder label is created — delete that block once you start building your own game); `CustomActivity` runs every frame.
-- For complete examples of real games, browse the [`samples/`](samples/) directory of **this repository** (not your project). Each sample is a runnable project demonstrating different engine features.
-- For task-specific guidance (entities, collision, animation, etc.), see [`frb-skills/`](frb-skills/) — Markdown guides written for AI assistants but readable by humans too.
-
 ### Multi-platform (Desktop + Web)
-
-If you also want to ship to browsers, use `frb2-multiplatform` instead of `frb2-desktop`:
 
 ```
 dotnet new frb2-multiplatform -n YourGameName
