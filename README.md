@@ -45,19 +45,50 @@ Binaries are unsigned. Windows SmartScreen will warn on first run ("More info" �
 - **Extensive XML documentation** — every public API documented; IntelliSense covers everything
 - **AI assistant support** — ships with skill files in `/frb-skills/` for any AI coding tool
 
-## Quick Start
+## Prerequisites
 
-### Step 1 — Verify .NET 10 is installed
-
-FlatRedBall2 requires the **.NET 10 SDK**. Check your version:
+FlatRedBall2 requires the **.NET 10 SDK**. Before running any `dotnet` command below, verify it is installed and on your PATH:
 
 ```
 dotnet --version
 ```
 
-You should see `10.x` (e.g. `10.0.100`). If the command isn't found or shows an older version, see [Installing .NET 10](#installing-net-10) below.
+You should see a version starting with `10.` (e.g. `10.0.100`). If you instead see:
 
-### Step 2 — Install the project template
+- `'dotnet' is not recognized as the name of a cmdlet...` (PowerShell) or `dotnet: command not found` (bash) — the SDK is not installed, or its install directory is not on your PATH.
+- A version older than `10.` — you have an older SDK; install .NET 10 alongside it (side-by-side installs are supported).
+
+See [Installing .NET 10](#installing-net-10) below for platform-specific instructions.
+
+### Installing .NET 10
+
+FlatRedBall2 requires the **.NET 10 SDK**. If `dotnet --version` isn't found or shows an older version, install it:
+
+**Windows** — installer from https://dotnet.microsoft.com/download/dotnet/10.0, or via winget:
+
+```
+winget install Microsoft.DotNet.SDK.10
+```
+
+**macOS** — same download page, or via Homebrew:
+
+```
+brew install --cask dotnet-sdk
+```
+
+**Linux** — Microsoft's install script (works on any distro):
+
+```
+curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0
+```
+
+Or follow distro-specific instructions at https://learn.microsoft.com/dotnet/core/install/linux.
+
+> **Restart your terminal after installing** — installers add `dotnet` to PATH, but existing terminal sessions won't see it. Close and reopen your terminal (or restart the editor if using VS Code / Rider). Then run `dotnet --version` to confirm `10.x`.
+
+## Quick Start
+
+### Step 1 — Install the project template
 
 Run this once (and again before any new project to pick up template updates):
 
@@ -65,7 +96,7 @@ Run this once (and again before any new project to pick up template updates):
 dotnet new install FlatRedBall2.Templates
 ```
 
-### Step 3 — Create your game
+### Step 2 — Create your game
 
 Pick a name and run from the directory where you want the project folder created:
 
@@ -86,7 +117,7 @@ The new project's `Content/` folder is pre-populated with starter assets (animat
 dotnet new frb2-desktop -n YourGameName --IncludeStarterContent false
 ```
 
-### Step 4 — Build and run
+### Step 3 — Build and run
 
 ```
 cd YourGameName/YourGameName.Desktop
@@ -98,7 +129,7 @@ dotnet run
 
 A window opens showing "Hello from FlatRedBall 2" centered on a black background. If you see that, everything works.
 
-### Step 5 — Start building
+### Step 4 — Start building
 
 - Open `YourGameName.Common/Screens/GameScreen.cs` — this is where your game code lives. `CustomInitialize` runs once when the screen starts (the placeholder label is created here — delete that block and replace it with your own code); `CustomActivity` runs every frame.
 - Browse the [`samples/`](samples/) directory of **this repository** (not your project) for complete working game examples.
@@ -208,32 +239,6 @@ public class GameScreen : Screen
 ```
 
 See the `samples/` directory for complete working examples.
-
-## Installing .NET 10
-
-FlatRedBall2 requires the **.NET 10 SDK**. If `dotnet --version` isn't found or shows an older version, install it:
-
-**Windows** — installer from https://dotnet.microsoft.com/download/dotnet/10.0, or via winget:
-
-```
-winget install Microsoft.DotNet.SDK.10
-```
-
-**macOS** — same download page, or via Homebrew:
-
-```
-brew install --cask dotnet-sdk
-```
-
-**Linux** — Microsoft's install script (works on any distro):
-
-```
-curl -sSL https://dot.net/v1/dotnet-install.sh | bash -s -- --channel 10.0
-```
-
-Or follow distro-specific instructions at https://learn.microsoft.com/dotnet/core/install/linux.
-
-> **Restart your terminal after installing** — installers add `dotnet` to PATH, but existing terminal sessions won't see it. Close and reopen your terminal (or restart the editor if using VS Code / Rider). Then run `dotnet --version` to confirm `10.x`.
 
 ## Working with AI Assistants
 
