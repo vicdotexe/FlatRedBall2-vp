@@ -135,14 +135,12 @@ Open `YourGameName.Common/Screens/GameScreen.cs`. The template creates a centere
 
 **Core concepts:**
 
-- **Screen** — a game state (level, menu, game-over). `GameScreen` is your first one. Add entities and logic here.
-- **Entity** — a game object with position, physics, and shapes (player, enemy, bullet). Always create them through a `Factory<T>(this)` rather than directly with `new T()`.
-- **`CustomInitialize`** — runs once when the screen or entity starts. Create factories, load content, and wire up collision relationships here.
-- **`CustomActivity(FrameTime time)`** — runs every frame. Move things, fire timers, check win/lose conditions. Use `time.DeltaSeconds` for frame-rate-independent motion.
+- **Screen** — a game state (level, menu, game-over). `GameScreen` is your first one.
+- **Entity** — a game object (player, enemy, bullet). Create them through `Factory<T>(this)` — never `new T()` directly.
 
-The engine handles rendering, physics integration, and collision detection automatically — you wire up the logic and it does the rest.
+The engine handles rendering, physics, and collision automatically. Override `CustomInitialize` for one-time setup (factories, content, collision wiring) and `CustomActivity(FrameTime time)` for per-frame logic. For complete lifecycle rules see [`frb-skills/engine-overview/SKILL.md`](frb-skills/engine-overview/SKILL.md).
 
-Browse the [`samples/`](samples/) directory of **this repository** for complete games that show these patterns in practice. See [`frb-skills/`](frb-skills/) for task-specific guides (entities, collision, animation, physics, and more).
+Browse the [`samples/`](samples/) directory for complete games. See [`frb-skills/`](frb-skills/) for task-specific guides (entities, collision, animation, physics, and more).
 
 ### Multi-platform (Desktop + Web)
 
