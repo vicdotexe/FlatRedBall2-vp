@@ -8,6 +8,13 @@ namespace FlatRedBall2.Tests;
 public class FlatRedBallServiceGumFontValidationTests
 {
     [Fact]
+    public void IsAbsoluteContentPath_WindowsDriveAndRelativePaths_ReturnsExpectedValues()
+    {
+        FlatRedBallService.IsAbsoluteContentPath("C:/fonts/NotoSans-Regular.ttf").ShouldBeTrue();
+        FlatRedBallService.IsAbsoluteContentPath("Fonts/Inter-Regular.ttf").ShouldBeFalse();
+    }
+
+    [Fact]
     public void ResolveGumFontValidationPaths_RelativeAndAbsolutePaths_UsesGumProjectDirectoryForRelative()
     {
         var settings = new EngineInitSettings

@@ -300,7 +300,7 @@ public class FlatRedBallService
                 continue;
 
             var path = NormalizePathSeparators(configuredPath);
-            if (!Path.IsPathRooted(path) && !string.IsNullOrWhiteSpace(gumProjectDirectory))
+            if (!IsAbsoluteContentPath(path) && !string.IsNullOrWhiteSpace(gumProjectDirectory))
                 path = CombineForwardSlashPaths(gumProjectDirectory!, path);
 
             resolved.Add(path);
@@ -379,6 +379,23 @@ public class FlatRedBallService
 
     private static string NormalizePathSeparators(string path)
         => path.Replace('\\', '/');
+
+    internal static bool IsAbsoluteContentPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        var normalized = NormalizePathSeparators(path.Trim());
+        if (Path.IsPathRooted(normalized))
+            return true;
+
+        // Path.IsPathRooted("C:/...") is false on Unix, but these are still explicit absolute
+        // Windows paths that should not be rewritten as Gum-project-relative content.
+        return normalized.Length >= 3
+            && char.IsLetter(normalized[0])
+            && normalized[1] == ':'
+            && normalized[2] == '/';
+    }
 
     // Screen management
     /// <summary>
