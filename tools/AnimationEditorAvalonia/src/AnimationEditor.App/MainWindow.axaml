@@ -26,8 +26,8 @@
         <!-- ── Title bar: app icon + name + menus + drag region + window controls ── -->
         <Border DockPanel.Dock="Top"
                 x:Name="TitleBarBorder"
-                Background="{StaticResource BgRail}"
-                BorderBrush="{StaticResource LineBrush}"
+                Background="{DynamicResource BgRail}"
+                BorderBrush="{DynamicResource LineBrush}"
                 BorderThickness="0,0,0,1"
                 Height="36">
             <Grid>
@@ -39,7 +39,7 @@
                             Width="46" Height="36"
                             Padding="0" BorderThickness="0"
                             Background="Transparent"
-                            Foreground="{StaticResource InkMid}"
+                            Foreground="{DynamicResource InkMid}"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             FontSize="16"
@@ -50,7 +50,7 @@
                             Width="46" Height="36"
                             Padding="0" BorderThickness="0"
                             Background="Transparent"
-                            Foreground="{StaticResource InkMid}"
+                            Foreground="{DynamicResource InkMid}"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             FontSize="13"
@@ -61,7 +61,7 @@
                             Width="46" Height="36"
                             Padding="0" BorderThickness="0"
                             Background="Transparent"
-                            Foreground="{StaticResource InkMid}"
+                            Foreground="{DynamicResource InkMid}"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             FontSize="12"
@@ -108,6 +108,12 @@
                         <MenuItem Header="Preview Zoom O_ut"    InputGesture="Ctrl+Shift+OemMinus" />
                         <Separator />
                         <MenuItem Header="Show _History" x:Name="MenuShowHistory" />
+                        <Separator />
+                        <MenuItem Header="_Theme">
+                            <MenuItem Header="_Light"         x:Name="MenuThemeLight"  ToggleType="Radio" />
+                            <MenuItem Header="_Dark"          x:Name="MenuThemeDark"   ToggleType="Radio" />
+                            <MenuItem Header="Follow _System" x:Name="MenuThemeSystem" ToggleType="Radio" />
+                        </MenuItem>
                     </MenuItem>
                     <MenuItem Header="_Help">
                         <MenuItem Header="_About"         x:Name="MenuAbout" />
@@ -130,20 +136,20 @@
                 <TextBlock Text="AnimationEditor"
                            FontSize="12"
                            LineHeight="16"
-                           Foreground="{StaticResource InkMid}"
+                           Foreground="{DynamicResource InkMid}"
                            IsHitTestVisible="False" />
                 <!-- Separator and filename shown only when a file is open -->
                 <TextBlock x:Name="TitleSeparator"
                            Text=" -"
                            FontSize="12"
                            LineHeight="16"
-                           Foreground="{StaticResource InkMid}"
+                           Foreground="{DynamicResource InkMid}"
                            IsHitTestVisible="False"
                            IsVisible="False" />
                 <TextBlock x:Name="TitleFileName"
                            FontSize="12"
                            LineHeight="16"
-                           Foreground="{StaticResource InkMid}"
+                           Foreground="{DynamicResource InkMid}"
                            IsVisible="False">
                     <TextBlock.ContextMenu>
                         <ContextMenu>
@@ -160,8 +166,8 @@
         <!-- ── Tab bar: one tab per open .achx file ── -->
         <Border x:Name="TabBarBorder"
                 DockPanel.Dock="Top"
-                Background="{StaticResource BgCanvas}"
-                BorderBrush="{StaticResource LineBrush}"
+                Background="{DynamicResource BgCanvas}"
+                BorderBrush="{DynamicResource LineBrush}"
                 BorderThickness="0,0,0,1"
                 Height="30"
                 IsVisible="False">
@@ -173,8 +179,8 @@
         </Border>
 
         <Border DockPanel.Dock="Bottom"
-                Background="{StaticResource BgRail}"
-                BorderBrush="{StaticResource LineBrush}"
+                Background="{DynamicResource BgRail}"
+                BorderBrush="{DynamicResource LineBrush}"
                 BorderThickness="0,1,0,0"
                 Height="22">
             <DockPanel Margin="12,0">
@@ -184,23 +190,23 @@
                     <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
                         <Ellipse x:Name="StatusDot"
                                  Width="6" Height="6"
-                                 Fill="{StaticResource AccentSoft}" />
+                                 Fill="{DynamicResource AccentSoft}" />
                         <TextBlock x:Name="StatusSaveLabel"
                                    Text="Not saved"
                                    FontSize="11"
                                    FontFamily="Consolas,Menlo,Monospace"
-                                   Foreground="{StaticResource InkMid}"
+                                   Foreground="{DynamicResource InkMid}"
                                    VerticalAlignment="Center" />
                     </StackPanel>
                     <TextBlock x:Name="StatusFilename"
                                FontSize="11"
                                FontFamily="Consolas,Menlo,Monospace"
-                               Foreground="{StaticResource InkMid}"
+                               Foreground="{DynamicResource InkMid}"
                                VerticalAlignment="Center" />
                     <TextBlock x:Name="StatusCounts"
                                FontSize="11"
                                FontFamily="Consolas,Menlo,Monospace"
-                               Foreground="{StaticResource InkMid}"
+                               Foreground="{DynamicResource InkMid}"
                                VerticalAlignment="Center" />
                 </StackPanel>
                 <!-- right: cursor, selection -->
@@ -209,19 +215,19 @@
                     <TextBlock x:Name="StatusCursor"
                                FontSize="11"
                                FontFamily="Consolas,Menlo,Monospace"
-                               Foreground="{StaticResource InkMid}"
+                               Foreground="{DynamicResource InkMid}"
                                VerticalAlignment="Center" />
                     <TextBlock x:Name="StatusSelection"
                                FontSize="11"
                                FontFamily="Consolas,Menlo,Monospace"
-                               Foreground="{StaticResource InkMid}"
+                               Foreground="{DynamicResource InkMid}"
                                VerticalAlignment="Center" />
                 </StackPanel>
                 <!-- center: transient status message (last child — fills remaining space) -->
                 <TextBlock x:Name="StatusMessage"
                            FontSize="11"
                            FontFamily="Consolas,Menlo,Monospace"
-                           Foreground="{StaticResource InkMid}"
+                           Foreground="{DynamicResource InkMid}"
                            VerticalAlignment="Center"
                            HorizontalAlignment="Center"
                            IsVisible="False" />
@@ -233,12 +239,12 @@
 
             <!-- ── Left: Animation tree ── -->
             <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto"
-                  Background="{StaticResource BgCanvas}">
+                  Background="{DynamicResource BgCanvas}">
 
                 <!-- ── Tree pane header ── -->
                 <Border Grid.Row="0"
-                        Background="{StaticResource BgRail}"
-                        BorderBrush="{StaticResource LineBrush}"
+                        Background="{DynamicResource BgRail}"
+                        BorderBrush="{DynamicResource LineBrush}"
                         BorderThickness="0,0,0,1"
                         Height="36">
                     <DockPanel Margin="10,0">
@@ -249,7 +255,7 @@
                                     Padding="0"
                                     Background="Transparent"
                                     BorderThickness="0"
-                                    Foreground="{StaticResource InkMid}"
+                                    Foreground="{DynamicResource InkMid}"
                                     HorizontalContentAlignment="Center"
                                     VerticalContentAlignment="Center"
                                     ToolTip.Tip="Search">
@@ -261,7 +267,7 @@
                                     Padding="0"
                                     Background="Transparent"
                                     BorderThickness="0"
-                                    Foreground="{StaticResource InkMid}"
+                                    Foreground="{DynamicResource InkMid}"
                                     HorizontalContentAlignment="Center"
                                     VerticalContentAlignment="Center"
                                     ToolTip.Tip="Expand All" />
@@ -271,7 +277,7 @@
                                     Padding="0"
                                     Background="Transparent"
                                     BorderThickness="0"
-                                    Foreground="{StaticResource InkMid}"
+                                    Foreground="{DynamicResource InkMid}"
                                     HorizontalContentAlignment="Center"
                                     VerticalContentAlignment="Center"
                                     ToolTip.Tip="Collapse All" />
@@ -279,13 +285,13 @@
                         <TextBlock Text="ANIMATIONS"
                                    FontSize="11"
                                    FontWeight="SemiBold"
-                                   Foreground="{StaticResource InkMid}"
+                                   Foreground="{DynamicResource InkMid}"
                                    VerticalAlignment="Center" />
                     </DockPanel>
                 </Border>
 
                 <TreeView x:Name="AnimTree" Grid.Row="1"
-                          Background="{StaticResource BgCanvas}"
+                          Background="{DynamicResource BgCanvas}"
                           SelectionMode="Multiple"
                           ScrollViewer.VerticalScrollBarVisibility="Visible"
                           ScrollViewer.AllowAutoHide="False">
@@ -361,29 +367,29 @@
                                              Margin="0,0,4,0"
                                              VerticalAlignment="Center"
                                              Path="avares://AnimationEditor/Assets/icons/svg/IconChain.svg"
-                                             CurrentColor="#9098a4" />
+                                             CurrentColor="{DynamicResource IconInkMuted}" />
                                     <svg:Svg IsVisible="{Binding IsFrameNode}"
                                              Width="14" Height="14"
                                              Margin="0,0,4,0"
                                              VerticalAlignment="Center"
                                              Path="avares://AnimationEditor/Assets/icons/svg/IconFrame.svg"
-                                             CurrentColor="#5d6573" />
+                                             CurrentColor="{DynamicResource IconInkDim}" />
                                     <svg:Svg IsVisible="{Binding IsRectNode}"
                                              Width="14" Height="14"
                                              Margin="0,0,4,0"
                                              VerticalAlignment="Center"
                                              Path="avares://AnimationEditor/Assets/icons/svg/IconShape.svg"
-                                             CurrentColor="#5d6573" />
+                                             CurrentColor="{DynamicResource IconInkDim}" />
                                     <svg:Svg IsVisible="{Binding IsCircleNode}"
                                              Width="14" Height="14"
                                              Margin="0,0,4,0"
                                              VerticalAlignment="Center"
                                              Path="avares://AnimationEditor/Assets/icons/svg/IconCircle.svg"
-                                             CurrentColor="#5d6573" />
+                                             CurrentColor="{DynamicResource IconInkDim}" />
                                     <Panel>
                                         <!-- Display mode -->
                                         <TextBlock Text="{Binding Header}"
-                                                   Foreground="{StaticResource Ink}"
+                                                   Foreground="{DynamicResource Ink}"
                                                    Padding="2,1"
                                                    VerticalAlignment="Center"
                                                    IsVisible="{Binding !IsEditing}"
@@ -392,8 +398,8 @@
                                         <TextBox Text="{Binding EditingText, Mode=TwoWay}"
                                                  IsVisible="{Binding IsEditing}"
                                                  Background="#2a2e36"
-                                                 Foreground="{StaticResource Ink}"
-                                                 CaretBrush="{StaticResource Ink}"
+                                                 Foreground="{DynamicResource Ink}"
+                                                 CaretBrush="{DynamicResource Ink}"
                                                  SelectionBrush="#4466aa"
                                                  BorderThickness="1"
                                                  Margin="0"
@@ -405,7 +411,7 @@
                                 </StackPanel>
                                 <TextBlock Grid.Column="1"
                                            Text="{Binding Meta}"
-                                           Foreground="{StaticResource InkDim}"
+                                           Foreground="{DynamicResource InkDim}"
                                            FontSize="10"
                                            Margin="8,0,6,0"
                                            HorizontalAlignment="Right"
@@ -431,22 +437,22 @@
 
                 <!-- ── Add Animation button ── -->
                 <Border Grid.Row="2"
-                        BorderBrush="{StaticResource LineBrush}"
+                        BorderBrush="{DynamicResource LineBrush}"
                         BorderThickness="0,1,0,0"
-                        Background="{StaticResource BgCanvas}"
+                        Background="{DynamicResource BgCanvas}"
                         Padding="8,6">
                     <Button x:Name="AddChainBtn"
                             Content="+ Add Animation"
                             HorizontalAlignment="Stretch"
                             Height="30"
-                            Foreground="{StaticResource Ink}" />
+                            Foreground="{DynamicResource Ink}" />
                 </Border>
             </Grid>
 
             <!-- ── Splitter (left | middle) ── -->
             <GridSplitter Grid.Column="1"
                           ResizeDirection="Columns"
-                          Background="{StaticResource LineStrong}"
+                          Background="{DynamicResource LineStrong}"
                           HorizontalAlignment="Stretch" />
 
             <!-- ── Right: Wireframe toolbar + Wireframe + Preview ── -->
@@ -454,15 +460,15 @@
 
                 <!-- ── Wireframe toolbar ── -->
                 <Border Grid.Row="0"
-                        BorderBrush="{StaticResource LineBrush}"
+                        BorderBrush="{DynamicResource LineBrush}"
                         BorderThickness="0,0,0,1"
-                        Background="{StaticResource BgRail}"
+                        Background="{DynamicResource BgRail}"
                         Padding="4,3">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="2">
                         <!-- Texture label + combo hidden for now — multi-texture support is planned for a future milestone.
                              Do not remove; set IsVisible="True" and re-enable when the multi-texture feature is implemented. -->
                         <TextBlock Text="Texture:" VerticalAlignment="Center" Margin="0,0,4,0"
-                                   Foreground="{StaticResource InkMid}" IsVisible="False" />
+                                   Foreground="{DynamicResource InkMid}" IsVisible="False" />
                         <ComboBox x:Name="TextureCombo"
                                   MinWidth="220"
                                   MaxWidth="400"
@@ -471,33 +477,33 @@
                                   IsVisible="False" />
 
                         <!-- Edit-mode toggle: Move vs Magic Wand -->
-                        <Border BorderBrush="{StaticResource LineBrush}"
+                        <Border BorderBrush="{DynamicResource LineBrush}"
                                 BorderThickness="1" CornerRadius="4" ClipToBounds="True"
                                 Height="26" Margin="0,0,2,0" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
                                 <ToggleButton x:Name="MoveModeToggle"
                                               Height="26"
-                                              Foreground="{StaticResource Ink}"
+                                              Foreground="{DynamicResource Ink}"
                                               CornerRadius="3,0,0,3"
                                               ToolTip.Tip="Move mode — drag handles to resize/move frames">
                                     <StackPanel Orientation="Horizontal" Spacing="4">
                                         <svg:Svg Width="16" Height="16"
                                                  Path="avares://AnimationEditor/Assets/icons/svg/IconMove.svg"
-                                                 CurrentColor="#e6e8ec"
+                                                 CurrentColor="{DynamicResource IconInk}"
                                                  VerticalAlignment="Center" />
                                         <TextBlock Text="Move" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </ToggleButton>
-                                <Border Width="1" Background="{StaticResource LineBrush}" />
+                                <Border Width="1" Background="{DynamicResource LineBrush}" />
                                 <ToggleButton x:Name="MagicWandToggle"
                                               Height="26"
-                                              Foreground="{StaticResource Ink}"
+                                              Foreground="{DynamicResource Ink}"
                                               CornerRadius="0,3,3,0"
                                               ToolTip.Tip="Magic Wand mode — hover to preview region; double-click to apply; Ctrl+click to add new frame">
                                     <StackPanel Orientation="Horizontal" Spacing="4">
                                         <svg:Svg Width="16" Height="16"
                                                  Path="avares://AnimationEditor/Assets/icons/svg/IconMagicWand.svg"
-                                                 CurrentColor="#e6e8ec"
+                                                 CurrentColor="{DynamicResource IconInk}"
                                                  VerticalAlignment="Center" />
                                         <TextBlock Text="Magic Wand" VerticalAlignment="Center" />
                                     </StackPanel>
@@ -506,35 +512,35 @@
                         </Border>
 
                         <!-- Divider -->
-                        <Border Width="1" Height="18" Background="{StaticResource LineBrush}"
+                        <Border Width="1" Height="18" Background="{DynamicResource LineBrush}"
                                 Margin="4,0" VerticalAlignment="Center" />
 
                         <ToggleButton x:Name="SnapToGridCheck"
                                       Height="26"
-                                      Foreground="{StaticResource Ink}"
+                                      Foreground="{DynamicResource Ink}"
                                       VerticalAlignment="Center"
                                       Margin="0,0,4,0"
                                       ToolTip.Tip="Snap to Grid">
                             <StackPanel Orientation="Horizontal" Spacing="4">
                                 <svg:Svg Width="16" Height="16"
                                          Path="avares://AnimationEditor/Assets/icons/svg/IconGrid.svg"
-                                         CurrentColor="#e6e8ec"
+                                         CurrentColor="{DynamicResource IconInk}"
                                          VerticalAlignment="Center" />
                                 <TextBlock Text="Grid" VerticalAlignment="Center" />
                             </StackPanel>
                         </ToggleButton>
 
-                        <Border BorderBrush="{StaticResource LineBrush}"
+                        <Border BorderBrush="{DynamicResource LineBrush}"
                                 BorderThickness="1" CornerRadius="4" ClipToBounds="True"
                                 Height="26" Margin="0,0,2,0" VerticalAlignment="Center"
                                 IsEnabled="{Binding #SnapToGridCheck.IsChecked}">
                             <DockPanel>
                                 <Button x:Name="GridSizeMinusBtn" DockPanel.Dock="Left"
                                         Classes="flanker" Content="−" Width="22"
-                                        BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,1,0" />
+                                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,0" />
                                 <Button x:Name="GridSizePlusBtn" DockPanel.Dock="Right"
                                         Classes="flanker" Content="+" Width="22"
-                                        BorderBrush="{StaticResource LineBrush}" BorderThickness="1,0,0,0" />
+                                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="1,0,0,0" />
                                 <TextBox x:Name="GridSizeInput" Text="16"
                                          HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                                          Background="Transparent" BorderThickness="0" Padding="4,0" FontSize="11"
@@ -544,22 +550,22 @@
                         </Border>
 
                         <!-- Divider -->
-                        <Border Width="1" Height="18" Background="{StaticResource LineBrush}"
+                        <Border Width="1" Height="18" Background="{DynamicResource LineBrush}"
                                 Margin="4,0" VerticalAlignment="Center" />
 
                         <TextBlock Text="Zoom:" VerticalAlignment="Center" Margin="0,0,4,0"
-                                   Foreground="{StaticResource InkMid}" FontSize="11" />
-                        <Border BorderBrush="{StaticResource LineBrush}"
+                                   Foreground="{DynamicResource InkMid}" FontSize="11" />
+                        <Border BorderBrush="{DynamicResource LineBrush}"
                                 BorderThickness="1" CornerRadius="4" ClipToBounds="True"
                                 Height="26" Width="130" VerticalAlignment="Center">
                             <DockPanel>
                                 <Button x:Name="ZoomMinusBtn" DockPanel.Dock="Left"
                                         Classes="flanker" Content="−" Width="22"
-                                        BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,1,0"
+                                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,0"
                                         ToolTip.Tip="Zoom out to previous preset" />
                                 <Button x:Name="ZoomPlusBtn" DockPanel.Dock="Right"
                                         Classes="flanker" Content="+" Width="22"
-                                        BorderBrush="{StaticResource LineBrush}" BorderThickness="1,0,0,0"
+                                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="1,0,0,0"
                                         ToolTip.Tip="Zoom in to next preset" />
                                 <AutoCompleteBox x:Name="ZoomCombo"
                                                  Text="100%"
@@ -580,13 +586,13 @@
                         </Border>
 
                         <!-- Divider -->
-                        <Border Width="1" Height="18" Background="{StaticResource LineBrush}"
+                        <Border Width="1" Height="18" Background="{DynamicResource LineBrush}"
                                 Margin="4,0" VerticalAlignment="Center" />
 
                         <TextBlock x:Name="TextureNameLabel"
                                    VerticalAlignment="Center"
                                    FontSize="11"
-                                   Foreground="{StaticResource InkMid}"
+                                   Foreground="{DynamicResource InkMid}"
                                    Margin="4,0,0,0"
                                    IsVisible="False" />
                     </StackPanel>
@@ -595,7 +601,7 @@
                 <!-- Wireframe panel fills top, with scrollbars -->
                 <ScrollViewer x:Name="WireframeScrollViewer"
                               Grid.Row="1"
-                              Background="{StaticResource BgCanvas}"
+                              Background="{DynamicResource BgCanvas}"
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Auto">
                     <controls:WireframeControl x:Name="WireframeCtrl" />
@@ -604,7 +610,7 @@
                 <!-- Horizontal splitter between wireframe and preview -->
                 <GridSplitter Grid.Row="2"
                               ResizeDirection="Rows"
-                              Background="{StaticResource LineStrong}"
+                              Background="{DynamicResource LineStrong}"
                               HorizontalAlignment="Stretch" />
 
                 <!-- ── Preview block: toolbar + animated canvas + timeline ── -->
@@ -613,40 +619,40 @@
 
                     <!-- ── Preview toolbar ── -->
                     <Border Grid.Row="0"
-                            BorderBrush="{StaticResource LineBrush}"
+                            BorderBrush="{DynamicResource LineBrush}"
                             BorderThickness="0,0,0,1"
-                            Background="{StaticResource BgRail}"
+                            Background="{DynamicResource BgRail}"
                             Padding="4,3">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="2">
                             <ToggleButton x:Name="OnionSkinToggle"
                                           Height="26"
-                                          Foreground="{StaticResource Ink}"
+                                          Foreground="{DynamicResource Ink}"
                                           ToolTip.Tip="Show previous frame at 50% alpha">
                                 <StackPanel Orientation="Horizontal" Spacing="4">
                                     <svg:Svg Width="16" Height="16"
                                              Path="avares://AnimationEditor/Assets/icons/svg/IconOnionSkin.svg"
-                                             CurrentColor="#e6e8ec"
+                                             CurrentColor="{DynamicResource IconInk}"
                                              VerticalAlignment="Center" />
                                     <TextBlock Text="Onion Skin" VerticalAlignment="Center" />
                                 </StackPanel>
                             </ToggleButton>
                             <ToggleButton x:Name="ShowGuidesCheck"
                                           Height="26"
-                                          Foreground="{StaticResource Ink}"
+                                          Foreground="{DynamicResource Ink}"
                                           VerticalAlignment="Center"
                                           Margin="4,0,4,0"
                                           ToolTip.Tip="Show guides">
                                 <StackPanel Orientation="Horizontal" Spacing="4">
                                     <svg:Svg Width="16" Height="16"
                                              Path="avares://AnimationEditor/Assets/icons/svg/IconGuides.svg"
-                                             CurrentColor="#e6e8ec"
+                                             CurrentColor="{DynamicResource IconInk}"
                                              VerticalAlignment="Center" />
                                     <TextBlock Text="Guides" VerticalAlignment="Center" />
                                 </StackPanel>
                             </ToggleButton>
                             <ToggleButton x:Name="InterpolateToggle"
                                           Height="26"
-                                          Foreground="{StaticResource Ink}"
+                                          Foreground="{DynamicResource Ink}"
                                           VerticalAlignment="Center"
                                           Margin="0,0,4,0"
                                           ToolTip.Tip="Ease the sprite between frame offsets during playback (preview only — the game snaps)">
@@ -654,23 +660,23 @@
                             </ToggleButton>
 
                             <!-- Divider -->
-                            <Border Width="1" Height="18" Background="{StaticResource LineBrush}"
+                            <Border Width="1" Height="18" Background="{DynamicResource LineBrush}"
                                     Margin="4,0" VerticalAlignment="Center" />
 
                             <TextBlock Text="Zoom:" VerticalAlignment="Center"
-                                       Margin="0,0,4,0" Foreground="{StaticResource InkMid}"
+                                       Margin="0,0,4,0" Foreground="{DynamicResource InkMid}"
                                        FontSize="11" />
-                            <Border BorderBrush="{StaticResource LineBrush}"
+                            <Border BorderBrush="{DynamicResource LineBrush}"
                                     BorderThickness="1" CornerRadius="4" ClipToBounds="True"
                                     Height="26" Width="130" VerticalAlignment="Center">
                                 <DockPanel>
                                     <Button x:Name="PreviewZoomMinusBtn" DockPanel.Dock="Left"
                                             Classes="flanker" Content="−" Width="22"
-                                            BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,1,0"
+                                            BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,0"
                                             ToolTip.Tip="Zoom out to previous preset" />
                                     <Button x:Name="PreviewZoomPlusBtn" DockPanel.Dock="Right"
                                             Classes="flanker" Content="+" Width="22"
-                                            BorderBrush="{StaticResource LineBrush}" BorderThickness="1,0,0,0"
+                                            BorderBrush="{DynamicResource LineBrush}" BorderThickness="1,0,0,0"
                                             ToolTip.Tip="Zoom in to next preset" />
                                     <AutoCompleteBox x:Name="PreviewZoomCombo"
                                                      Text="100%"
@@ -691,22 +697,22 @@
                             </Border>
 
                             <!-- Divider -->
-                            <Border Width="1" Height="18" Background="{StaticResource LineBrush}"
+                            <Border Width="1" Height="18" Background="{DynamicResource LineBrush}"
                                     Margin="4,0" VerticalAlignment="Center" />
 
                             <TextBlock Text="Speed:" VerticalAlignment="Center"
-                                       Margin="0,0,4,0" Foreground="{StaticResource InkMid}"
+                                       Margin="0,0,4,0" Foreground="{DynamicResource InkMid}"
                                        FontSize="11" />
-                            <Border BorderBrush="{StaticResource LineBrush}"
+                            <Border BorderBrush="{DynamicResource LineBrush}"
                                     BorderThickness="1" CornerRadius="4" ClipToBounds="True"
                                     Height="26" Width="110" VerticalAlignment="Center">
                                 <DockPanel>
                                     <Button x:Name="SpeedDownBtn" DockPanel.Dock="Left"
                                             Classes="flanker" Content="−" Width="22"
-                                            BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,1,0" />
+                                            BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,0" />
                                     <Button x:Name="SpeedUpBtn" DockPanel.Dock="Right"
                                             Classes="flanker" Content="+" Width="22"
-                                            BorderBrush="{StaticResource LineBrush}" BorderThickness="1,0,0,0" />
+                                            BorderBrush="{DynamicResource LineBrush}" BorderThickness="1,0,0,0" />
                                     <TextBox x:Name="SpeedInput" Text="1.0"
                                              HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                                              Background="Transparent" BorderThickness="0" Padding="4,0" FontSize="11"
@@ -723,19 +729,19 @@
                     <Grid Grid.Row="2" RowDefinitions="14,*">
                         <!-- ruler header — BgRail matches the wireframe/preview toolbars -->
                         <Border Grid.Row="0"
-                                Background="{StaticResource BgRail}"
-                                BorderBrush="{StaticResource LineBrush}"
+                                Background="{DynamicResource BgRail}"
+                                BorderBrush="{DynamicResource LineBrush}"
                                 BorderThickness="0,1,0,1">
                             <TextBlock Text="TIMELINE"
                                        FontSize="9" FontWeight="SemiBold"
-                                       Foreground="{StaticResource InkDim}"
+                                       Foreground="{DynamicResource InkDim}"
                                        VerticalAlignment="Center"
                                        Margin="6,0" />
                         </Border>
                         <!-- frame cells — BgCanvas background so cells (BgPanel) contrast against it -->
                         <Border Grid.Row="1"
-                                Background="{StaticResource BgCanvas}"
-                                BorderBrush="{StaticResource LineBrush}"
+                                Background="{DynamicResource BgCanvas}"
+                                BorderBrush="{DynamicResource LineBrush}"
                                 BorderThickness="0,0,0,0">
                             <ScrollViewer HorizontalScrollBarVisibility="Auto"
                                           VerticalScrollBarVisibility="Disabled">
@@ -748,16 +754,16 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="models:TimelineFrameVm">
                                             <Grid Width="{Binding Width}" Height="38">
-                                                <Border BorderBrush="{StaticResource LineBrush}"
+                                                <Border BorderBrush="{DynamicResource LineBrush}"
                                                         BorderThickness="0,0,1,0"
-                                                        Background="{StaticResource BgPanel}">
+                                                        Background="{DynamicResource BgPanel}">
                                                     <StackPanel VerticalAlignment="Center"
                                                                 HorizontalAlignment="Center"
                                                                 Spacing="2">
                                                         <!-- frame thumbnail (texture crop, no shapes) -->
                                                         <Border Width="22" Height="18"
-                                                                Background="{StaticResource BgCanvas}"
-                                                                BorderBrush="{StaticResource LineStrong}"
+                                                                Background="{DynamicResource BgCanvas}"
+                                                                BorderBrush="{DynamicResource LineStrong}"
                                                                 BorderThickness="1"
                                                                 CornerRadius="2">
                                                             <Image Source="{Binding Thumbnail}"
@@ -766,7 +772,7 @@
                                                         <TextBlock Text="{Binding IndexLabel}"
                                                                    HorizontalAlignment="Center"
                                                                    FontSize="9"
-                                                                   Foreground="{StaticResource InkDim}" />
+                                                                   Foreground="{DynamicResource InkDim}" />
                                                     </StackPanel>
                                                 </Border>
                                                 <Canvas ClipToBounds="True"
@@ -774,7 +780,7 @@
                                                         IsVisible="{Binding IsCurrent}">
                                                     <Border Width="2"
                                                             Height="38"
-                                                            Background="{StaticResource Accent}"
+                                                            Background="{DynamicResource Accent}"
                                                             Canvas.Left="{Binding ScrubberOffset}" />
                                                 </Canvas>
                                             </Grid>
@@ -790,7 +796,7 @@
             <!-- ── Splitter (middle | right) ── -->
             <GridSplitter Grid.Column="3"
                           ResizeDirection="Columns"
-                          Background="{StaticResource LineStrong}"
+                          Background="{DynamicResource LineStrong}"
                           HorizontalAlignment="Stretch" />
 
             <!-- ── Middle: Property Inspector ── -->
@@ -798,22 +804,22 @@
 
                 <!-- ── Inspector pane header ── -->
                 <Border Grid.Row="0"
-                        Background="{StaticResource BgRail}"
-                        BorderBrush="{StaticResource LineBrush}"
+                        Background="{DynamicResource BgRail}"
+                        BorderBrush="{DynamicResource LineBrush}"
                         BorderThickness="0,0,0,1"
                         Height="36">
                     <TextBlock Text="INSPECTOR"
                                FontSize="11"
                                FontWeight="SemiBold"
-                               Foreground="{StaticResource InkMid}"
+                               Foreground="{DynamicResource InkMid}"
                                VerticalAlignment="Center"
                                Margin="10,0" />
                 </Border>
 
                 <Border Grid.Row="1"
-                        BorderBrush="{StaticResource LineBrush}"
+                        BorderBrush="{DynamicResource LineBrush}"
                         BorderThickness="1,0,0,0"
-                        Background="{StaticResource BgPanel}">
+                        Background="{DynamicResource BgPanel}">
                     <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                                   VerticalScrollBarVisibility="Auto">
                         <StackPanel Margin="0" Spacing="0">
@@ -821,7 +827,7 @@
                             <!-- No selection placeholder -->
                             <TextBlock x:Name="PropNoneLabel"
                                        Text="No selection"
-                                       Foreground="{StaticResource InkDim}"
+                                       Foreground="{DynamicResource InkDim}"
                                        FontStyle="Italic"
                                        HorizontalAlignment="Center"
                                        Margin="0,12,0,0" />
@@ -830,14 +836,14 @@
                             <StackPanel x:Name="PropFramePanel" IsVisible="False" Spacing="0">
 
                                 <!-- COORDINATES section -->
-                                <Border BorderBrush="{StaticResource LineBrush}"
+                                <Border BorderBrush="{DynamicResource LineBrush}"
                                         BorderThickness="0,0,0,1"
                                         Padding="12,8,12,10">
                                     <StackPanel Spacing="8">
                                         <TextBlock Text="COORDINATES"
                                                    FontSize="11"
                                                    FontWeight="SemiBold"
-                                                   Foreground="{StaticResource InkMid}" />
+                                                   Foreground="{DynamicResource InkMid}" />
                                         <!-- Pixel coord fields — 2×2 grid: [X][Y] / [W][H] -->
                                         <Grid x:Name="PropPixelSection"
                                               ColumnDefinitions="*,6,*" RowDefinitions="Auto,4,Auto">
@@ -871,47 +877,47 @@
                                 </Border>
 
                                 <!-- TIMING section -->
-                                <Border BorderBrush="{StaticResource LineBrush}"
+                                <Border BorderBrush="{DynamicResource LineBrush}"
                                         BorderThickness="0,0,0,1"
                                         Padding="12,8,12,10">
                                     <StackPanel Spacing="8">
                                         <TextBlock Text="TIMING"
                                                    FontSize="11"
                                                    FontWeight="SemiBold"
-                                                   Foreground="{StaticResource InkMid}" />
+                                                   Foreground="{DynamicResource InkMid}" />
                                         <Grid ColumnDefinitions="78,*,Auto">
                                             <TextBlock Text="Length" VerticalAlignment="Center"
-                                                       Foreground="{StaticResource InkMid}" FontSize="11" />
+                                                       Foreground="{DynamicResource InkMid}" FontSize="11" />
                                             <NumericUpDown x:Name="PropFrameLen" Grid.Column="1"
                                                            ShowButtonSpinner="True"
                                                            Minimum="0.001" Maximum="60"
                                                            Increment="0.05" FormatString="0.000" />
                                             <TextBlock Text="s" Grid.Column="2"
                                                        VerticalAlignment="Center" Margin="4,0,0,0"
-                                                       Foreground="{StaticResource InkDim}" FontSize="11" />
+                                                       Foreground="{DynamicResource InkDim}" FontSize="11" />
                                         </Grid>
                                     </StackPanel>
                                 </Border>
 
                                 <!-- TRANSFORM section -->
-                                <Border BorderBrush="{StaticResource LineBrush}"
+                                <Border BorderBrush="{DynamicResource LineBrush}"
                                         BorderThickness="0,0,0,1"
                                         Padding="12,8,12,10">
                                     <StackPanel Spacing="8">
                                         <TextBlock Text="TRANSFORM"
                                                    FontSize="11"
                                                    FontWeight="SemiBold"
-                                                   Foreground="{StaticResource InkMid}" />
+                                                   Foreground="{DynamicResource InkMid}" />
                                         <Grid ColumnDefinitions="78,*">
                                             <TextBlock Text="Relative X" VerticalAlignment="Center"
-                                                       Foreground="{StaticResource InkMid}" FontSize="11" />
+                                                       Foreground="{DynamicResource InkMid}" FontSize="11" />
                                             <NumericUpDown x:Name="PropRelX" Grid.Column="1"
                                                            Minimum="-10000" Maximum="10000"
                                                            Increment="1" FormatString="0.000" />
                                         </Grid>
                                         <Grid ColumnDefinitions="78,*">
                                             <TextBlock Text="Relative Y" VerticalAlignment="Center"
-                                                       Foreground="{StaticResource InkMid}" FontSize="11" />
+                                                       Foreground="{DynamicResource InkMid}" FontSize="11" />
                                             <NumericUpDown x:Name="PropRelY" Grid.Column="1"
                                                            Minimum="-10000" Maximum="10000"
                                                            Increment="1" FormatString="0.000" />
@@ -924,7 +930,7 @@
                                                           VerticalContentAlignment="Center">
                                                 <svg:Svg Width="16" Height="16"
                                                          Path="avares://AnimationEditor/Assets/icons/svg/IconFlipH.svg"
-                                                         CurrentColor="#e6e8ec"
+                                                         CurrentColor="{DynamicResource IconInk}"
                                                          VerticalAlignment="Center" />
                                             </ToggleButton>
                                             <ToggleButton x:Name="PropFlipV"
@@ -934,7 +940,7 @@
                                                           VerticalContentAlignment="Center">
                                                 <svg:Svg Width="16" Height="16"
                                                          Path="avares://AnimationEditor/Assets/icons/svg/IconFlipV.svg"
-                                                         CurrentColor="#e6e8ec"
+                                                         CurrentColor="{DynamicResource IconInk}"
                                                          VerticalAlignment="Center" />
                                             </ToggleButton>
                                         </StackPanel>
@@ -942,14 +948,14 @@
                                 </Border>
 
                                 <!-- TEXTURE section -->
-                                <Border BorderBrush="{StaticResource LineBrush}"
+                                <Border BorderBrush="{DynamicResource LineBrush}"
                                         BorderThickness="0,0,0,1"
                                         Padding="12,8,12,10">
                                     <StackPanel Spacing="8">
                                         <TextBlock Text="TEXTURE"
                                                    FontSize="11"
                                                    FontWeight="SemiBold"
-                                                   Foreground="{StaticResource InkMid}" />
+                                                   Foreground="{DynamicResource InkMid}" />
                                         <Grid ColumnDefinitions="*,24">
                                             <TextBox x:Name="PropTextureName" Grid.Column="0"
                                                      FontSize="10" />
@@ -968,43 +974,43 @@
 
                             <!-- ── Rectangle properties ── -->
                             <StackPanel x:Name="PropRectPanel" IsVisible="False" Spacing="0">
-                                <Border BorderBrush="{StaticResource LineBrush}"
+                                <Border BorderBrush="{DynamicResource LineBrush}"
                                         BorderThickness="0,0,0,1"
                                         Padding="12,8,12,10">
                                     <StackPanel Spacing="8">
                                         <TextBlock Text="RECTANGLE"
                                                    FontSize="11"
                                                    FontWeight="SemiBold"
-                                                   Foreground="{StaticResource InkMid}" />
+                                                   Foreground="{DynamicResource InkMid}" />
                                         <Grid ColumnDefinitions="78,*">
                                             <TextBlock Text="Name" VerticalAlignment="Center"
-                                                       Foreground="{StaticResource InkMid}" FontSize="11" />
+                                                       Foreground="{DynamicResource InkMid}" FontSize="11" />
                                             <TextBox x:Name="PropRectName" Grid.Column="1" FontSize="11" />
                                         </Grid>
                                         <Grid ColumnDefinitions="78,*">
                                             <TextBlock Text="X" VerticalAlignment="Center"
-                                                       Foreground="{StaticResource InkMid}" FontSize="11" />
+                                                       Foreground="{DynamicResource InkMid}" FontSize="11" />
                                             <NumericUpDown x:Name="PropRectX" Grid.Column="1"
                                                            Minimum="-10000" Maximum="10000"
                                                            Increment="1" FormatString="0.000" />
                                         </Grid>
                                         <Grid ColumnDefinitions="78,*">
                                             <TextBlock Text="Y" VerticalAlignment="Center"
-                                                       Foreground="{StaticResource InkMid}" FontSize="11" />
+                                                       Foreground="{DynamicResource InkMid}" FontSize="11" />
                                             <NumericUpDown x:Name="PropRectY" Grid.Column="1"
                                                            Minimum="-10000" Maximum="10000"
                                                            Increment="1" FormatString="0.000" />
                                         </Grid>
                                         <Grid ColumnDefinitions="78,*">
                                             <TextBlock Text="Scale X" VerticalAlignment="Center"
-                                                       Foreground="{StaticResource InkMid}" FontSize="11" />
+                                                       Foreground="{DynamicResource InkMid}" FontSize="11" />
                                             <NumericUpDown x:Name="PropRectScaleX" Grid.Column="1"
                                                            Minimum="0.001" Maximum="10000"
                                                            Increment="0.5" FormatString="0.000" />
                                         </Grid>
                                         <Grid ColumnDefinitions="78,*">
                                             <TextBlock Text="Scale Y" VerticalAlignment="Center"
-                                                       Foreground="{StaticResource InkMid}" FontSize="11" />
+                                                       Foreground="{DynamicResource InkMid}" FontSize="11" />
                                             <NumericUpDown x:Name="PropRectScaleY" Grid.Column="1"
                                                            Minimum="0.001" Maximum="10000"
                                                            Increment="0.5" FormatString="0.000" />
@@ -1015,36 +1021,36 @@
 
                             <!-- ── Circle properties ── -->
                             <StackPanel x:Name="PropCirclePanel" IsVisible="False" Spacing="0">
-                                <Border BorderBrush="{StaticResource LineBrush}"
+                                <Border BorderBrush="{DynamicResource LineBrush}"
                                         BorderThickness="0,0,0,1"
                                         Padding="12,8,12,10">
                                     <StackPanel Spacing="8">
                                         <TextBlock Text="CIRCLE"
                                                    FontSize="11"
                                                    FontWeight="SemiBold"
-                                                   Foreground="{StaticResource InkMid}" />
+                                                   Foreground="{DynamicResource InkMid}" />
                                         <Grid ColumnDefinitions="78,*">
                                             <TextBlock Text="Name" VerticalAlignment="Center"
-                                                       Foreground="{StaticResource InkMid}" FontSize="11" />
+                                                       Foreground="{DynamicResource InkMid}" FontSize="11" />
                                             <TextBox x:Name="PropCircleName" Grid.Column="1" FontSize="11" />
                                         </Grid>
                                         <Grid ColumnDefinitions="78,*">
                                             <TextBlock Text="X" VerticalAlignment="Center"
-                                                       Foreground="{StaticResource InkMid}" FontSize="11" />
+                                                       Foreground="{DynamicResource InkMid}" FontSize="11" />
                                             <NumericUpDown x:Name="PropCircleX" Grid.Column="1"
                                                            Minimum="-10000" Maximum="10000"
                                                            Increment="1" FormatString="0.000" />
                                         </Grid>
                                         <Grid ColumnDefinitions="78,*">
                                             <TextBlock Text="Y" VerticalAlignment="Center"
-                                                       Foreground="{StaticResource InkMid}" FontSize="11" />
+                                                       Foreground="{DynamicResource InkMid}" FontSize="11" />
                                             <NumericUpDown x:Name="PropCircleY" Grid.Column="1"
                                                            Minimum="-10000" Maximum="10000"
                                                            Increment="1" FormatString="0.000" />
                                         </Grid>
                                         <Grid ColumnDefinitions="78,*">
                                             <TextBlock Text="Radius" VerticalAlignment="Center"
-                                                       Foreground="{StaticResource InkMid}" FontSize="11" />
+                                                       Foreground="{DynamicResource InkMid}" FontSize="11" />
                                             <NumericUpDown x:Name="PropCircleRadius" Grid.Column="1"
                                                            Minimum="0.001" Maximum="10000"
                                                            Increment="0.5" FormatString="0.000" />
@@ -1061,7 +1067,7 @@
                 <GridSplitter x:Name="HistorySplitter"
                               Grid.Row="2"
                               ResizeDirection="Rows"
-                              Background="{StaticResource LineBrush}"
+                              Background="{DynamicResource LineBrush}"
                               HorizontalAlignment="Stretch"
                               Height="4" />
 
@@ -1073,8 +1079,8 @@
                     <!-- ── History pane header ── -->
                     <Border x:Name="HistoryHeaderBorder"
                             Grid.Row="0"
-                            Background="{StaticResource BgRail}"
-                            BorderBrush="{StaticResource LineBrush}"
+                            Background="{DynamicResource BgRail}"
+                            BorderBrush="{DynamicResource LineBrush}"
                             BorderThickness="1,1,0,1"
                             Height="36">
                         <Grid ColumnDefinitions="*,Auto">
@@ -1082,7 +1088,7 @@
                                        Text="HISTORY"
                                        FontSize="11"
                                        FontWeight="SemiBold"
-                                       Foreground="{StaticResource InkMid}"
+                                       Foreground="{DynamicResource InkMid}"
                                        VerticalAlignment="Center"
                                        Margin="10,0" />
                             <StackPanel Grid.Column="1"
@@ -1098,7 +1104,7 @@
                                         ToolTip.Tip="Undo">
                                     <svg:Svg Width="14" Height="14"
                                              Path="avares://AnimationEditor/Assets/icons/svg/IconUndo.svg"
-                                             CurrentColor="#e6e8ec" />
+                                             CurrentColor="{DynamicResource IconInk}" />
                                 </Button>
                                 <Button x:Name="HistoryRedoButton"
                                         Width="26" Height="26"
@@ -1108,7 +1114,7 @@
                                         ToolTip.Tip="Redo">
                                     <svg:Svg Width="14" Height="14"
                                              Path="avares://AnimationEditor/Assets/icons/svg/IconRedo.svg"
-                                             CurrentColor="#e6e8ec" />
+                                             CurrentColor="{DynamicResource IconInk}" />
                                 </Button>
                                 <Button x:Name="HistoryCloseButton"
                                         Width="26" Height="26"
@@ -1118,7 +1124,7 @@
                                         ToolTip.Tip="Close History">
                                     <svg:Svg Width="14" Height="14"
                                              Path="avares://AnimationEditor/Assets/icons/svg/IconClose.svg"
-                                             CurrentColor="#e6e8ec" />
+                                             CurrentColor="{DynamicResource IconInk}" />
                                 </Button>
                             </StackPanel>
                         </Grid>
@@ -1127,8 +1133,8 @@
                     <!-- ── History list (read-only — no user selection) ── -->
                     <ScrollViewer x:Name="HistoryScrollViewer"
                                   Grid.Row="1"
-                                  Background="{StaticResource BgPanel}"
-                                  BorderBrush="{StaticResource LineBrush}"
+                                  Background="{DynamicResource BgPanel}"
+                                  BorderBrush="{DynamicResource LineBrush}"
                                   BorderThickness="1,0,0,0"
                                   HorizontalScrollBarVisibility="Disabled">
                         <ItemsControl x:Name="HistoryList">
@@ -1178,8 +1184,8 @@
                 VerticalAlignment="Bottom"
                 HorizontalAlignment="Stretch"
                 Margin="0,0,0,22"
-                Background="{StaticResource BgRail}"
-                BorderBrush="{StaticResource LineBrush}"
+                Background="{DynamicResource BgRail}"
+                BorderBrush="{DynamicResource LineBrush}"
                 BorderThickness="0,1,0,0"
                 Height="36"
                 ZIndex="10">
@@ -1190,7 +1196,7 @@
                         Width="28" Height="22"
                         Padding="0" BorderThickness="0"
                         Background="Transparent"
-                        Foreground="{StaticResource InkMid}"
+                        Foreground="{DynamicResource InkMid}"
                         VerticalAlignment="Center" />
                 <Button x:Name="ToastRetryBtn"
                         DockPanel.Dock="Right"
@@ -1202,7 +1208,7 @@
                 <TextBlock x:Name="ToastMessage"
                            VerticalAlignment="Center"
                            FontSize="11"
-                           Foreground="{StaticResource InkMid}"
+                           Foreground="{DynamicResource InkMid}"
                            TextTrimming="CharacterEllipsis" />
             </DockPanel>
         </Border>

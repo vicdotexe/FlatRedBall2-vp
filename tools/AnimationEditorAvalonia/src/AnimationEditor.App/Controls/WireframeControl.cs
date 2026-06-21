@@ -1,3 +1,4 @@
+using AnimationEditor.App.Theming;
 using AnimationEditor.Core;
 using AnimationEditor.Core.CommandsAndState;
 using AnimationEditor.Core.CommandsAndState.Commands;
@@ -9,6 +10,7 @@ using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using FlatRedBall2.Animation.Content;
 using SkiaSharp;
@@ -72,8 +74,9 @@ public class WireframeControl : Control
     private sealed class DrawOp : ICustomDrawOperation
     {
         private readonly RenderSnapshot _s;
+        private readonly CanvasPalette _palette;
 
-        public DrawOp(RenderSnapshot s) { _s = s; Bounds = new Rect(0, 0, s.Width, s.Height); }
+        public DrawOp(RenderSnapshot s, CanvasPalette palette) { _s = s; _palette = palette; Bounds = new Rect(0, 0, s.Width, s.Height); }
 
         public Rect Bounds { get; }
         public bool HitTest(Point p) => true;
@@ -85,14 +88,14 @@ public class WireframeControl : Control
             var lease = ctx.TryGetFeature<ISkiaSharpApiLeaseFeature>()?.Lease();
             if (lease is null) return;
             using (lease)
-                RenderSk(lease.SkCanvas, _s);
+                RenderSk(lease.SkCanvas, _s, _palette);
         }
 
         // ── Static rendering logic ────────────────────────────────────────────
 
-        internal static void RenderSk(SKCanvas canvas, RenderSnapshot s)
+        internal static void RenderSk(SKCanvas canvas, RenderSnapshot s, CanvasPalette palette)
         {
-            canvas.Clear(CanvasClearColor);
+            canvas.Clear(palette.Background);
 
             if (s.Image != null)
             {
@@ -110,7 +113,7 @@ public class WireframeControl : Control
                 // Outline around whole texture
                 using var outlinePaint = new SKPaint
                 {
-                    Color = new SKColor(255, 255, 255, 160),
+                    Color = palette.TextureOutline,
                     Style = SKPaintStyle.Stroke,
                     StrokeWidth = 1f
                 };
@@ -118,7 +121,7 @@ public class WireframeControl : Control
 
                 // Grid overlay
                 if (s.ShowGrid && s.GridSize > 0)
-                    DrawGrid(canvas, s, dest);
+                    DrawGrid(canvas, s, dest, palette.GridLine);
             }
 
             // Frame region rectangles
@@ -179,11 +182,11 @@ public class WireframeControl : Control
             }
         }
 
-        private static void DrawGrid(SKCanvas canvas, RenderSnapshot s, SKRect textureDest)
+        private static void DrawGrid(SKCanvas canvas, RenderSnapshot s, SKRect textureDest, SKColor gridColor)
         {
             using var paint = new SKPaint
             {
-                Color        = new SKColor(255, 255, 255, 35),
+                Color        = gridColor,
                 Style        = SKPaintStyle.Stroke,
                 StrokeWidth  = 0.5f,
                 IsAntialias  = true
@@ -288,8 +291,9 @@ public class WireframeControl : Control
     private static readonly IImmutableBrush _dbgBg = new ImmutableSolidColorBrush(Color.FromArgb(210, 0, 0, 0));
     private static readonly IImmutableBrush _dbgFg = new ImmutableSolidColorBrush(Color.FromRgb(0, 255, 80));
 
-    // Matches the BgCanvas design token (#0e0f12) — darkest tier, shared by all content panels.
-    internal static readonly SKColor CanvasClearColor = new(0x0e, 0x0f, 0x12);
+    // Neutral canvas/grid/outline colors for the active theme variant. Refreshed from
+    // ActualThemeVariant on every render and whenever the variant changes.
+    private CanvasPalette _palette = CanvasPalette.Dark;
 
     /// <summary>
     /// Toggle the real-time debug overlay + event log.  Bind to F2 in MainWindow.
@@ -509,6 +513,9 @@ public class WireframeControl : Control
     {
         ClipToBounds = true;
         Focusable = true;
+
+        // Repaint when the app theme variant changes so the canvas/grid/outline colors update.
+        ActualThemeVariantChanged += (_, _) => InvalidateVisual();
 
         // Subscriptions are deferred to InitializeServices (called from MainWindow)
 
@@ -1257,10 +1264,15 @@ public class WireframeControl : Control
 
     public override void Render(DrawingContext ctx)
     {
+        UpdatePalette();
         var snap = BuildSnapshot(Bounds.Width, Bounds.Height);
-        ctx.Custom(new DrawOp(snap));
+        ctx.Custom(new DrawOp(snap, _palette));
         DrawDebugOverlay(ctx);
     }
+
+    // ActualThemeVariant resolves Default to the concrete platform variant, so a simple
+    // "is it Light?" check correctly handles the follow-system case.
+    private void UpdatePalette() => _palette = CanvasPalette.For(ActualThemeVariant != ThemeVariant.Light);
 
     /// <summary>
     /// Renders the current wireframe state to an off-screen bitmap of the given size.
@@ -1273,10 +1285,11 @@ public class WireframeControl : Control
     /// </summary>
     public SKBitmap RenderToBitmap(int width, int height)
     {
+        UpdatePalette();
         var snap   = BuildSnapshot(width, height);
         var bitmap = new SKBitmap(width, height);
         using var canvas = new SKCanvas(bitmap);
-        DrawOp.RenderSk(canvas, snap);
+        DrawOp.RenderSk(canvas, snap, _palette);
         return bitmap;
     }
 

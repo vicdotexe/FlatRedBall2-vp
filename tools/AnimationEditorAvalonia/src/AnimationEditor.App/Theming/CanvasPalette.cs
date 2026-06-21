@@ -1,0 +1,45 @@
+using SkiaSharp;
+
+namespace AnimationEditor.App.Theming;
+
+/// <summary>
+/// The neutral background and chrome colors the Skia-drawn editor canvases
+/// (<c>WireframeControl</c>, <c>PreviewControl</c>) use for a given theme variant.
+/// <para>
+/// Only colors that would otherwise vanish against the opposite background live here
+/// (canvas fill, grid lines, texture outline, ruler strips/ticks/labels). Saturated
+/// <i>semantic</i> overlays — frame-region blue, guide cyan, origin/shape gold and green —
+/// read legibly on both themes and stay as constants in the controls.
+/// </para>
+/// </summary>
+internal readonly record struct CanvasPalette(
+    SKColor Background,
+    SKColor TextureOutline,
+    SKColor GridLine,
+    SKColor RulerBackground,
+    SKColor RulerTick,
+    SKColor RulerLabel,
+    SKColor RulerBorder)
+{
+    /// <summary>Dark theme — matches the historical hardcoded values (BgCanvas #0e0f12).</summary>
+    public static readonly CanvasPalette Dark = new(
+        Background:      new SKColor(0x0e, 0x0f, 0x12),
+        TextureOutline:  new SKColor(255, 255, 255, 160),
+        GridLine:        new SKColor(255, 255, 255, 35),
+        RulerBackground: new SKColor(50, 50, 55),
+        RulerTick:       new SKColor(160, 160, 165),
+        RulerLabel:      new SKColor(190, 190, 195),
+        RulerBorder:     new SKColor(80, 80, 85));
+
+    /// <summary>Light theme — dark chrome on a light canvas so the same elements stay visible.</summary>
+    public static readonly CanvasPalette Light = new(
+        Background:      new SKColor(0xe8, 0xea, 0xed),
+        TextureOutline:  new SKColor(0, 0, 0, 140),
+        GridLine:        new SKColor(0, 0, 0, 30),
+        RulerBackground: new SKColor(225, 227, 231),
+        RulerTick:       new SKColor(110, 116, 124),
+        RulerLabel:      new SKColor(80, 86, 94),
+        RulerBorder:     new SKColor(190, 194, 200));
+
+    public static CanvasPalette For(bool isDark) => isDark ? Dark : Light;
+}

@@ -1,4 +1,5 @@
 ﻿using AnimationEditor.App.Services;
+using AnimationEditor.App.Theming;
 using AnimationEditor.Core;
 using AnimationEditor.Core.CommandsAndState;
 using AnimationEditor.Core.CommandsAndState.Commands;
@@ -9,6 +10,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using FlatRedBall2.Animation.Content;
 using SkiaSharp;
@@ -48,8 +50,9 @@ public class PreviewControl : Control
     private const float RulerSize = 20f;
     private const float PanPadding = 0f;
 
-    // Matches the BgCanvas design token (#0e0f12) — darkest tier, shared by all content panels.
-    internal static readonly SKColor CanvasClearColor = new(0x0e, 0x0f, 0x12);
+    // Neutral canvas/ruler colors for the active theme variant. Refreshed from
+    // ActualThemeVariant on every render and whenever the variant changes.
+    private CanvasPalette _palette = CanvasPalette.Dark;
     private readonly List<float> _hGuides = new(); // world-Y values (positive = down on screen)
     private readonly List<float> _vGuides = new(); // world-X values (positive = right on screen)
     private int  _draggedGuideIdx = -1;
@@ -182,9 +185,10 @@ public class PreviewControl : Control
                                         _hGuides.ToArray(), _vGuides.ToArray(),
                                         _draggedGuideIdx, _draggingHGuide,
                                         BuildShapeInfos(), frameOffX, frameOffY);
+        UpdatePalette();
         var bitmap = new SKBitmap(width, height);
         using var canvas = new SKCanvas(bitmap);
-        RenderSkCore(canvas, snap, _thumbnailService.BitmapCache);
+        RenderSkCore(canvas, snap, _thumbnailService.BitmapCache, _palette);
         return bitmap;
     }
 
@@ -231,6 +235,9 @@ public class PreviewControl : Control
     {
         ClipToBounds = true;
         Focusable    = true;
+
+        // Repaint when the app theme variant changes so the canvas/ruler colors update.
+        ActualThemeVariantChanged += (_, _) => InvalidateVisual();
 
         // Subscriptions are deferred to InitializeServices (called from MainWindow)
 
@@ -503,6 +510,7 @@ public class PreviewControl : Control
 
         var (frameOffX, frameOffY) = ResolveFrameOffset(chain, displayFrame, selectedFrame is not null);
 
+        UpdatePalette();
         ctx.Custom(new DrawOp(
             new RenderSnapshot(
                 displayFrame, onionFrame, _zoom, _panX, _panY, _showGuides,
@@ -511,8 +519,12 @@ public class PreviewControl : Control
                 _hGuides.ToArray(), _vGuides.ToArray(),
                 _draggedGuideIdx, _draggingHGuide,
                 BuildShapeInfos(), frameOffX, frameOffY),
-            _thumbnailService.BitmapCache));
+            _thumbnailService.BitmapCache, _palette));
     }
+
+    // ActualThemeVariant resolves Default to the concrete platform variant, so a simple
+    // "is it Light?" check correctly handles the follow-system case.
+    private void UpdatePalette() => _palette = CanvasPalette.For(ActualThemeVariant != ThemeVariant.Light);
 
     // -- Guide helpers ---------------------------------------------------------
 
@@ -1291,9 +1303,9 @@ public class PreviewControl : Control
     // -- Shared SkiaSharp rendering (used by both live and off-screen paths) --
 
     private static void RenderSkCore(
-        SKCanvas canvas, RenderSnapshot s, Dictionary<string, SKBitmap?> cache)
+        SKCanvas canvas, RenderSnapshot s, Dictionary<string, SKBitmap?> cache, CanvasPalette palette)
     {
-        canvas.Clear(CanvasClearColor);
+        canvas.Clear(palette.Background);
 
         // Content origin is shifted so the ruler strips sit at the left/top edges
         float cx = (s.Width  - RulerSize) / 2f + RulerSize + s.PanX;
@@ -1441,21 +1453,21 @@ public class PreviewControl : Control
         canvas.Restore(); // end content clip
 
         // Ruler strips.
-        using var rulerBg = new SKPaint { Color = new SKColor(50, 50, 55) };
+        using var rulerBg = new SKPaint { Color = palette.RulerBackground };
         canvas.DrawRect(new SKRect(0,         0, s.Width, RulerSize), rulerBg);   // top
         canvas.DrawRect(new SKRect(0, RulerSize, RulerSize, s.Height), rulerBg);  // left
         canvas.DrawRect(new SKRect(0,         0, RulerSize, RulerSize), rulerBg); // corner
 
         using var tickPaint = new SKPaint
         {
-            Color       = new SKColor(160, 160, 165),
+            Color       = palette.RulerTick,
             StrokeWidth = 1f,
             IsAntialias = false
         };
         using var labelFont = new SKFont { Size = 8f };
         using var labelPaint = new SKPaint
         {
-            Color    = new SKColor(190, 190, 195),
+            Color    = palette.RulerLabel,
             IsAntialias = true
         };
 
@@ -1517,7 +1529,7 @@ public class PreviewControl : Control
         }
 
         // Ruler border lines
-        using var borderPaint = new SKPaint { Color = new SKColor(80, 80, 85), StrokeWidth = 1f };
+        using var borderPaint = new SKPaint { Color = palette.RulerBorder, StrokeWidth = 1f };
         canvas.DrawLine(RulerSize, 0, RulerSize, s.Height, borderPaint);
         canvas.DrawLine(0, RulerSize, s.Width, RulerSize, borderPaint);
     }
@@ -1637,11 +1649,13 @@ public class PreviewControl : Control
     {
         private readonly RenderSnapshot              _snap;
         private readonly Dictionary<string, SKBitmap?> _cache;
+        private readonly CanvasPalette                _palette;
 
-        public DrawOp(RenderSnapshot snap, Dictionary<string, SKBitmap?> cache)
+        public DrawOp(RenderSnapshot snap, Dictionary<string, SKBitmap?> cache, CanvasPalette palette)
         {
-            _snap  = snap;
-            _cache = cache;
+            _snap    = snap;
+            _cache   = cache;
+            _palette = palette;
         }
 
         public Rect Bounds => new(0, 0, _snap.Width, _snap.Height);
@@ -1654,7 +1668,7 @@ public class PreviewControl : Control
             var feature = ctx.TryGetFeature<ISkiaSharpApiLeaseFeature>();
             if (feature is null) return;
             using var lease = feature.Lease();
-            PreviewControl.RenderSkCore(lease.SkCanvas, _snap, _cache);
+            PreviewControl.RenderSkCore(lease.SkCanvas, _snap, _cache, _palette);
         }
     }
 }

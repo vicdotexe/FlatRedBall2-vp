@@ -20,6 +20,12 @@ namespace AnimationEditor.Core.Models
         /// </summary>
         public string? ActiveTabPath { get; set; }
 
+        /// <summary>
+        /// The editor theme. Defaults to <see cref="AppTheme.Dark"/> so existing settings
+        /// files (which predate this field) and fresh installs keep the historical dark look.
+        /// </summary>
+        public AppTheme Theme { get; set; } = AppTheme.Dark;
+
         public void AddFile(FilePath filePath)
         {
             RecentFiles.RemoveAll(item => new FilePath(item) == filePath);

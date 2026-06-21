@@ -1,4 +1,5 @@
-﻿using AnimationEditor.Core;
+﻿using AnimationEditor.App.Theming;
+using AnimationEditor.Core;
 using AnimationEditor.Core.CommandsAndState;
 using AnimationEditor.Core.CommandsAndState.Commands;
 using AnimationEditor.Core.Data;
@@ -12,9 +13,11 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using FlatRedBall2.Animation.Content;
 using SkiaSharp;
@@ -98,6 +101,7 @@ public partial class MainWindow : Window
 
         WireAppCommands();
         LoadSettingsFile();
+        ApplyPersistedTheme();
         WireMenuEvents();
         WireWireframeToolbar();
         WireWireframeControl();
@@ -145,10 +149,8 @@ public partial class MainWindow : Window
             // Tab container
             var tabBorder = new Border
             {
-                Background = isActive
-                    ? new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#2f3641"))
-                    : Avalonia.Media.Brushes.Transparent,
-                BorderBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#2a2e36")),
+                Background = isActive ? ThemedBrush("BgActive") : Avalonia.Media.Brushes.Transparent,
+                BorderBrush = ThemedBrush("LineBrush"),
                 BorderThickness = new Avalonia.Thickness(0, 0, 1, 0),
                 Padding = new Avalonia.Thickness(0),
                 Cursor = new Cursor(StandardCursorType.Hand),
@@ -167,9 +169,7 @@ public partial class MainWindow : Window
                 Text = tab.DisplayName,
                 FontSize = 11,
                 VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-                Foreground = isActive
-                    ? new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#d4d8de"))
-                    : new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#9098a4")),
+                Foreground = isActive ? ThemedBrush("Ink") : ThemedBrush("InkMid"),
             };
             Grid.SetColumn(label, 0);
 
@@ -182,7 +182,7 @@ public partial class MainWindow : Window
                 Padding = new Avalonia.Thickness(0),
                 Background = Avalonia.Media.Brushes.Transparent,
                 BorderThickness = new Avalonia.Thickness(0),
-                Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#9098a4")),
+                Foreground = ThemedBrush("InkMid"),
                 HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
                 VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center,
                 Margin = new Avalonia.Thickness(2, 0, 2, 0),
@@ -927,15 +927,19 @@ public partial class MainWindow : Window
         var undoHistory = _undoManager.UndoHistory;
         var redoHistory = _undoManager.RedoHistory;
         var items = new List<Models.HistoryEntryVm>();
+        // Applied (undo) rows use full-strength ink; redo rows are muted. Pick per theme.
+        bool dark = ActualThemeVariant != ThemeVariant.Light;
+        string appliedInk = dark ? "#e6e8ec" : "#1a1d22";
+        string redoInk     = dark ? "#6a6e76" : "#9aa1ad";
         // Photoshop order: oldest applied at top, newest applied at bottom, redo items below.
         foreach (var cmd in undoHistory)
-            items.Add(new Models.HistoryEntryVm(cmd.Description, "#e6e8ec"));
+            items.Add(new Models.HistoryEntryVm(cmd.Description, appliedInk));
         // Mark the most recently applied command as "you are here".
         if (items.Count > 0)
             items[^1] = items[^1] with { IsCurrent = true };
         // Redo items follow: next-to-redo first, furthest future last.
         foreach (var cmd in redoHistory)
-            items.Add(new Models.HistoryEntryVm(cmd.Description, "#6a6e76"));
+            items.Add(new Models.HistoryEntryVm(cmd.Description, redoInk));
         HistoryList.ItemsSource = items;
         int currentIndex = undoHistory.Count - 1;
         ScrollHistoryToCurrent(currentIndex, items.Count);
@@ -1177,6 +1181,13 @@ public partial class MainWindow : Window
         HistoryCloseButton.Click += (_, _) => SetHistoryVisible(false);
         MenuShowHistory.Click    += (_, _) => SetHistoryVisible(true);
         MenuShowHistory.IsEnabled = false;
+
+        MenuThemeLight.Click  += (_, _) => SetTheme(AppTheme.Light);
+        MenuThemeDark.Click   += (_, _) => SetTheme(AppTheme.Dark);
+        MenuThemeSystem.Click += (_, _) => SetTheme(AppTheme.System);
+        // C#-built surfaces (tab strip, history rows) hold static brush snapshots, so
+        // rebuild them when the variant changes. XAML surfaces follow via DynamicResource.
+        ActualThemeVariantChanged += (_, _) => { RebuildTabStrip(); RefreshHistoryPanel(); };
 
         RefreshRecentFiles();
 
@@ -2746,6 +2757,42 @@ public partial class MainWindow : Window
         }
     }
 
+    // ── Theme ─────────────────────────────────────────────────────────────────
+
+    /// <summary>Applies the persisted theme to the application and syncs the menu checkmarks.</summary>
+    private void ApplyPersistedTheme()
+    {
+        if (Avalonia.Application.Current is { } app)
+            app.RequestedThemeVariant = ThemeManager.ToVariant(_appSettings.Theme);
+        SyncThemeMenuChecks();
+    }
+
+    private void SetTheme(AppTheme theme)
+    {
+        _appSettings.Theme = theme;
+        if (Avalonia.Application.Current is { } app)
+            app.RequestedThemeVariant = ThemeManager.ToVariant(theme);
+        SyncThemeMenuChecks();
+        SaveSettingsFile();
+    }
+
+    private void SyncThemeMenuChecks()
+    {
+        MenuThemeLight.IsChecked  = _appSettings.Theme == AppTheme.Light;
+        MenuThemeDark.IsChecked   = _appSettings.Theme == AppTheme.Dark;
+        MenuThemeSystem.IsChecked = _appSettings.Theme == AppTheme.System;
+    }
+
+    /// <summary>
+    /// Resolves a design-token brush for the application's current theme variant. Used for
+    /// C#-built controls that can't bind via DynamicResource in XAML (tab strip, history rows,
+    /// dialog builders). All windows inherit the app variant, so this matches their appearance.
+    /// </summary>
+    private static IBrush ThemedBrush(string key) =>
+        Avalonia.Application.Current is { } app
+        && app.TryFindResource(key, app.ActualThemeVariant, out var v) && v is IBrush b
+            ? b : Brushes.Transparent;
+
     private void LoadSettingsFile()
     {
         try
@@ -2866,13 +2913,13 @@ public partial class MainWindow : Window
         {
             Text = "This action cannot be undone.",
             FontSize = 11,
-            Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#9098a4"))
+            Foreground = ThemedBrush("InkMid")
         });
 
         var deleteBtn = new Button
         {
             Content = "Delete",
-            Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#d83a3a")),
+            Background = ThemedBrush("Accent"),
             Foreground = Avalonia.Media.Brushes.White,
             Padding = new Avalonia.Thickness(16, 6)
         };
