@@ -1351,7 +1351,7 @@ public class PreviewControl : Control
         {
             using var guidePaint = new SKPaint
             {
-                Color       = new SKColor(0, 200, 255, 200),
+                Color       = palette.GuideLine.WithAlpha(200),
                 StrokeWidth = 1f,
                 IsAntialias = false
             };
@@ -1422,7 +1422,7 @@ public class PreviewControl : Control
             using var dragLabelFont = new SKFont { Size = 11f };
             using var dragLabelPaint = new SKPaint
             {
-                Color       = new SKColor(0, 200, 255, 230),
+                Color       = palette.GuideLine.WithAlpha(230),
                 IsAntialias = true
             };
             const float lMargin = 4f;
@@ -1511,7 +1511,7 @@ public class PreviewControl : Control
         // Draw guide value labels on the ruler edge
         using var guideTickPaint = new SKPaint
         {
-            Color       = new SKColor(0, 200, 255, 200),
+            Color       = palette.GuideLine.WithAlpha(200),
             StrokeWidth = 1f,
             IsAntialias = false
         };

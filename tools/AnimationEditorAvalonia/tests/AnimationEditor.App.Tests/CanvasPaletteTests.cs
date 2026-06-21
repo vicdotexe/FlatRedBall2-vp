@@ -39,4 +39,17 @@ public class CanvasPaletteTests
         Assert.True(dark.GridLine.Red > 200, "dark-mode grid line should be near-white");
         Assert.True(light.GridLine.Red < 80, "light-mode grid line should be near-black");
     }
+
+    [Fact]
+    public void For_LightGuideLine_IsDarkerThanDarkGuideLine()
+    {
+        // The dark-theme guide is bright cyan; on a light canvas that washes out, so the
+        // light-theme guide must be a deeper blue with clearly lower luminance.
+        var dark = CanvasPalette.For(isDark: true);
+        var light = CanvasPalette.For(isDark: false);
+
+        int darkSum  = dark.GuideLine.Red  + dark.GuideLine.Green  + dark.GuideLine.Blue;
+        int lightSum = light.GuideLine.Red + light.GuideLine.Green + light.GuideLine.Blue;
+        Assert.True(lightSum < darkSum, "light-mode guide should be darker than the dark-mode cyan");
+    }
 }

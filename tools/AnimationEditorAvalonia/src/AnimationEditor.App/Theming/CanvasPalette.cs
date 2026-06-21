@@ -6,10 +6,15 @@ namespace AnimationEditor.App.Theming;
 /// The neutral background and chrome colors the Skia-drawn editor canvases
 /// (<c>WireframeControl</c>, <c>PreviewControl</c>) use for a given theme variant.
 /// <para>
-/// Only colors that would otherwise vanish against the opposite background live here
-/// (canvas fill, grid lines, texture outline, ruler strips/ticks/labels). Saturated
-/// <i>semantic</i> overlays — frame-region blue, guide cyan, origin/shape gold and green —
+/// Colors that would otherwise vanish against the opposite background live here
+/// (canvas fill, grid lines, texture outline, ruler strips/ticks/labels, and the
+/// preview guide lines — bright cyan on dark, a deep blue on light). Truly saturated
+/// <i>semantic</i> overlays — frame-region blue, origin/shape gold and green —
 /// read legibly on both themes and stay as constants in the controls.
+/// </para>
+/// <para>
+/// <see cref="GuideLine"/> is stored opaque; callers apply their own alpha via
+/// <c>SKColor.WithAlpha</c> so the line / label / ruler-tick translucency is preserved.
 /// </para>
 /// </summary>
 internal readonly record struct CanvasPalette(
@@ -19,7 +24,8 @@ internal readonly record struct CanvasPalette(
     SKColor RulerBackground,
     SKColor RulerTick,
     SKColor RulerLabel,
-    SKColor RulerBorder)
+    SKColor RulerBorder,
+    SKColor GuideLine)
 {
     /// <summary>Dark theme — matches the historical hardcoded values (BgCanvas #0e0f12).</summary>
     public static readonly CanvasPalette Dark = new(
@@ -29,7 +35,8 @@ internal readonly record struct CanvasPalette(
         RulerBackground: new SKColor(50, 50, 55),
         RulerTick:       new SKColor(160, 160, 165),
         RulerLabel:      new SKColor(190, 190, 195),
-        RulerBorder:     new SKColor(80, 80, 85));
+        RulerBorder:     new SKColor(80, 80, 85),
+        GuideLine:       new SKColor(0, 200, 255));
 
     /// <summary>Light theme — dark chrome on a light canvas so the same elements stay visible.</summary>
     public static readonly CanvasPalette Light = new(
@@ -39,7 +46,8 @@ internal readonly record struct CanvasPalette(
         RulerBackground: new SKColor(225, 227, 231),
         RulerTick:       new SKColor(110, 116, 124),
         RulerLabel:      new SKColor(80, 86, 94),
-        RulerBorder:     new SKColor(190, 194, 200));
+        RulerBorder:     new SKColor(190, 194, 200),
+        GuideLine:       new SKColor(0, 105, 180));
 
     public static CanvasPalette For(bool isDark) => isDark ? Dark : Light;
 }
