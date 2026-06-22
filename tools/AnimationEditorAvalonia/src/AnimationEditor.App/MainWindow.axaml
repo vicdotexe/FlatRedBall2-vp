@@ -722,24 +722,23 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Preview panel fills remaining height of the block, with scrollbars.
-                         Unlike the Wireframe (a static bitmap in a ScrollViewer), the Preview
-                         draws dynamic content, so its scrollbars drive the manual pan directly
-                         (#415) rather than hosting the content in a ScrollViewer. -->
-                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" RowDefinitions="*,Auto">
-                        <controls:PreviewControl x:Name="PreviewCtrl"
-                                                 Grid.Row="0" Grid.Column="0" />
+                    <!-- Preview panel fills remaining height of the block. Unlike the Wireframe
+                         (a static bitmap in a ScrollViewer), the Preview draws dynamic content,
+                         so its scrollbars drive the manual pan directly (#415) rather than
+                         hosting the content in a ScrollViewer. The bars overlay the canvas edges
+                         and auto-hide (thin when idle, expand on hover) so they behave the same
+                         as the Wireframe's ScrollViewer scrollbars; overlaying (not reserving a
+                         cell) keeps the hover-expand from shifting the layout. -->
+                    <Grid Grid.Row="1">
+                        <controls:PreviewControl x:Name="PreviewCtrl" />
                         <ScrollBar x:Name="PreviewVScroll"
-                                   Grid.Row="0" Grid.Column="1"
                                    Orientation="Vertical"
-                                   AllowAutoHide="False" />
+                                   HorizontalAlignment="Right" VerticalAlignment="Stretch"
+                                   AllowAutoHide="True" />
                         <ScrollBar x:Name="PreviewHScroll"
-                                   Grid.Row="1" Grid.Column="0"
                                    Orientation="Horizontal"
-                                   AllowAutoHide="False" />
-                        <!-- Corner where the two scrollbars meet -->
-                        <Border Grid.Row="1" Grid.Column="1"
-                                Background="{DynamicResource BgRail}" />
+                                   HorizontalAlignment="Stretch" VerticalAlignment="Bottom"
+                                   AllowAutoHide="True" />
                     </Grid>
 
                     <!-- ── Timeline strip ── -->
