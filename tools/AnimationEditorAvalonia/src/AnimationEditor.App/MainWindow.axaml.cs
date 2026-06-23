@@ -67,10 +67,12 @@ public partial class MainWindow : Window
     private bool _suppressInterpolateSync;
     private System.Threading.CancellationTokenSource? _toastCts;
 
-    // AppContext.BaseDirectory works under single-file publish; Assembly.Location is empty there (IL3000).
-    // Path.Combine handles the platform-correct separator (was a hardcoded "\\" — would break on macOS/Linux).
+    // Shared per-user config dir, NOT the build output — so recent files / tabs / theme survive
+    // rebuilds, dotnet clean, and switching git worktrees (see issue #424). AppContext.BaseDirectory
+    // resolves to bin/<Config>/<TFM>/, which is per-build / per-checkout.
     private FilePath SettingsFilePath =>
-        new FilePath(Path.Combine(AppContext.BaseDirectory, "AESettings.json"));
+        AppSettingsLocation.ForApplicationDataRoot(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
 
     public MainWindow(
         IProjectManager projectManager,
@@ -2978,7 +2980,10 @@ public partial class MainWindow : Window
     {
         try
         {
-            File.WriteAllText(SettingsFilePath.FullPath,
+            var settingsFile = SettingsFilePath;
+            // The AnimationEditor subfolder under %APPDATA% won't exist on a fresh install.
+            Directory.CreateDirectory(settingsFile.GetDirectoryContainingThis().FullPath);
+            File.WriteAllText(settingsFile.FullPath,
                 JsonSerializer.Serialize(_appSettings, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch (IOException)
