@@ -555,6 +555,16 @@ public class Sprite : IRenderable, IAttachable
         p.IsVisible = true;
     }
 
+    // Rotation (radians) handed to SpriteBatch.Draw. SpriteBatch rotates corner offsets with the
+    // standard matrix in its own Y-down space, and the world batch then re-applies the camera's
+    // Y-flip — so the SIGN here decides on-screen spin direction. Extracted so the rotation
+    // convention is unit-testable without a GraphicsDevice (see SpriteRotationTests).
+    // Positive AbsoluteRotation must spin COUNTERCLOCKWISE to match the Polygon and the documented
+    // Angle convention (Angle.cs, PathFollower). The camera's Y-flip already supplies the only sign
+    // inversion, so the angle passes straight through — a prior extra negation (#378) made sprites
+    // spin clockwise (opposite a polygon hitbox on the same entity).
+    internal float RenderRotationRadians => AbsoluteRotation.Radians;
+
     /// <inheritdoc/>
     public void Draw(SpriteBatch spriteBatch, Camera camera)
     {
@@ -582,7 +592,7 @@ public class Sprite : IRenderable, IAttachable
             position,
             SourceRectangle,
             color,
-            -AbsoluteRotation.Radians,
+            RenderRotationRadians,
             origin,
             scale,
             effects,
