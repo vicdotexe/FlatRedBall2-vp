@@ -144,6 +144,33 @@ public class PreviewCenterOnEntityPointTests
     }
 
     [AvaloniaFact]
+    public void HandleDoubleTap_FrameNode_PansPreviewToFrameOffset()
+    {
+        var ctx   = TestHelpers.BuildServices();
+        ctx.AppState.OffsetMultiplier = 1f;
+        var window = ctx.CreateMainWindow();
+        window.Show();
+
+        PreviewControl preview = window.FindControl<PreviewControl>("PreviewCtrl")
+            ?? throw new InvalidOperationException("PreviewCtrl not found");
+        preview.SetZoomPercent(200);
+
+        // Offset large enough that centering on the origin (0,0) instead of the
+        // sprite would leave a clearly different — and visibly off-screen — pan.
+        var frame = new AnimationFrameSave { RelativeX = 40f, RelativeY = 25f };
+        var vm    = new TreeNodeVm { Data = frame };
+
+        window.HandleAnimTreeNodeDoubleTap(vm);
+
+        (float px, float py) = preview.PanOffset;
+        // panX = -(40 * 1 * 2) = -80,  panY = +(25 * 1 * 2) = +50
+        Assert.Equal(-80f, px, precision: 3);
+        Assert.Equal( 50f, py, precision: 3);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void HandleDoubleTap_UnknownNodeType_ReturnsFalse()
     {
         var ctx    = TestHelpers.BuildServices();
