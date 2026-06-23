@@ -170,7 +170,7 @@ public class WireframeCenterOnFrameTests
             // The camera must stay inside the valid pan band — re-clamping is a no-op.
             var (panX, panY, zoom) = ctrl.CameraState;
             var (bw, bh) = ctrl.BitmapSize;
-            var (cx, cy) = CanvasTransform.ClampWireframePan(panX, panY, vpW, vpH, bw, bh, zoom, 300f);
+            var (cx, cy) = CanvasTransform.ClampWireframePan(panX, panY, vpW, vpH, bw, bh, zoom);
             Assert.Equal(panX, cx, 1);
             Assert.Equal(panY, cy, 1);
 

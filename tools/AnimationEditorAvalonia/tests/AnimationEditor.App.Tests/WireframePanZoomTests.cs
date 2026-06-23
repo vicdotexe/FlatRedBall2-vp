@@ -56,9 +56,6 @@ public class WireframePanZoomTests
         => w.FindControl<T>(name)
            ?? throw new InvalidOperationException($"Control '{name}' not found");
 
-    // WireframeControl.PanPadding — the dead-space band the analytic clamp uses.
-    private const float PanPadding = 300f;
-
     /// <summary>
     /// Asserts the two invariants every zoom/pan operation must preserve, recomputed from the
     /// control's public camera state against the same analytic clamp the control uses:
@@ -74,14 +71,14 @@ public class WireframePanZoomTests
         var (bw, bh) = ctrl.BitmapSize;
         float vpW = (float)ctrl.Bounds.Width, vpH = (float)ctrl.Bounds.Height;
 
-        var (clampX, clampY) = CanvasTransform.ClampWireframePan(panX, panY, vpW, vpH, bw, bh, zoom, PanPadding);
+        var (clampX, clampY) = CanvasTransform.ClampWireframePan(panX, panY, vpW, vpH, bw, bh, zoom);
         Assert.True(Math.Abs(clampX - panX) < 0.5f && Math.Abs(clampY - panY) < 0.5f,
             $"{context}: camera pan ({panX:F1},{panY:F1}) is outside the valid band " +
             $"(clamp → {clampX:F1},{clampY:F1}) — texture pushed off-edge (#319).");
 
         float centeredX = vpW / 2f - bw * zoom / 2f;
         float centeredY = vpH / 2f - bh * zoom / 2f;
-        var (ccX, ccY) = CanvasTransform.ClampWireframePan(centeredX, centeredY, vpW, vpH, bw, bh, zoom, PanPadding);
+        var (ccX, ccY) = CanvasTransform.ClampWireframePan(centeredX, centeredY, vpW, vpH, bw, bh, zoom);
         Assert.True(Math.Abs(ccX - centeredX) < 0.5f && Math.Abs(ccY - centeredY) < 0.5f,
             $"{context}: texture centre not pannable to viewport centre (#341).");
     }

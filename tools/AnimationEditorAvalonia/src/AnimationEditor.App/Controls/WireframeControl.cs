@@ -251,11 +251,6 @@ public class WireframeControl : Control
     // ScrollViewer; the control IS the viewport and two ScrollBars are driven from this pan.
     private float _panX, _panY;
 
-    // Minimum dead-space padding (pixels) around the image so the user can always pan into
-    // the empty area on every side, at every zoom level. Passed as the `padding` argument
-    // to the analytic pan clamp (CanvasTransform.ClampWireframePan).
-    private const float PanPadding = 300f;
-
     private bool _showGrid;
     private int _gridSize = 16;
 
@@ -519,18 +514,19 @@ public class WireframeControl : Control
     private void RaiseViewChanged() => ViewChanged?.Invoke();
 
     /// <summary>
-    /// Clamps the camera pan so the texture stays reachable with <see cref="PanPadding"/>
-    /// pixels of dead-space on every side, at the current zoom. Pure analytic clamp
-    /// (<see cref="CanvasTransform.ClampWireframePan"/>) — no ScrollViewer extent dependency,
-    /// which is what makes a symmetric zoom in/out an exact round-trip (#422). No-op until
-    /// layout has produced a real viewport (<c>Bounds.Width &gt; 1</c>) or with no texture.
+    /// Clamps the camera pan so the texture's far edge can reach the viewport centre but no
+    /// further — the texture is never scrolled fully out of view, yet any texture point can be
+    /// brought to the centre. Pure analytic clamp (<see cref="CanvasTransform.ClampWireframePan"/>)
+    /// — no ScrollViewer extent dependency, which is what makes a symmetric zoom in/out an exact
+    /// round-trip (#422). No-op until layout has produced a real viewport (<c>Bounds.Width &gt; 1</c>)
+    /// or with no texture.
     /// </summary>
     private void ClampCamera()
     {
         if (_bitmap == null || Bounds.Width <= 1) return;
         (_panX, _panY) = CanvasTransform.ClampWireframePan(
             _panX, _panY, (float)Bounds.Width, (float)Bounds.Height,
-            _bitmap.Width, _bitmap.Height, _zoom, PanPadding);
+            _bitmap.Width, _bitmap.Height, _zoom);
     }
 
     /// <summary>
@@ -548,10 +544,10 @@ public class WireframeControl : Control
             return (new ScrollBarRange(0f, 0f, 0f, 1f), new ScrollBarRange(0f, 0f, 0f, 1f));
 
         // Centre-relative pan: pan_c = panX − viewW/2; content extent (origin = texture
-        // top-left) is [0, bitmap × zoom]. Mirrors ClampWireframePan's mapping.
+        // top-left) is [0, bitmap × zoom]; padding −viewport/2 matches ClampWireframePan's band.
         return (
-            PanScrollBar.FromPan(_panX - viewW / 2f, viewW, 0f, _bitmap.Width  * _zoom, PanPadding),
-            PanScrollBar.FromPan(_panY - viewH / 2f, viewH, 0f, _bitmap.Height * _zoom, PanPadding));
+            PanScrollBar.FromPan(_panX - viewW / 2f, viewW, 0f, _bitmap.Width  * _zoom, -viewW / 2f),
+            PanScrollBar.FromPan(_panY - viewH / 2f, viewH, 0f, _bitmap.Height * _zoom, -viewH / 2f));
     }
 
     /// <summary>Sets the horizontal pan from a scrollbar value (see <see cref="PanScrollBar"/>)
@@ -681,15 +677,15 @@ public class WireframeControl : Control
     }
 
     /// <summary>
-    /// Directly sets the camera state (pan and zoom), then clamps it to the valid pan band.
-    /// Useful for tests and for restoring a persisted camera (companion .aeproperties file).
+    /// Directly sets the camera state (pan and zoom) exactly, without clamping — for tests that
+    /// need a predictable, axis-aligned view and for restoring a persisted camera. A persisted
+    /// camera that lands out of band is re-clamped on the next layout pass (SizeChanged).
     /// </summary>
     public void SetCamera(float panX, float panY, float zoom)
     {
         _panX = panX;
         _panY = panY;
-        _zoom = Math.Clamp(zoom, CanvasTransform.MinZoom, CanvasTransform.MaxZoom);
-        ClampCamera();
+        _zoom = zoom;
         InvalidateVisual();
         RaiseViewChanged();
     }
@@ -1402,7 +1398,7 @@ public class WireframeControl : Control
             (_panX, _panY, _zoom) = CanvasTransform.ZoomWireframe(
                 sx, sy, factor, _panX, _panY, _zoom,
                 (float)Bounds.Width, (float)Bounds.Height,
-                _bitmap.Width, _bitmap.Height, PanPadding);
+                _bitmap.Width, _bitmap.Height);
         }
 
         InvalidateVisual();
