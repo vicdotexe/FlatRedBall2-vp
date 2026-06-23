@@ -140,4 +140,51 @@ public static class CanvasTransform
         float viewExtent, float contentMin, float contentMax, float padding = 0f)
         => (-viewExtent / 2f - padding - contentMax,
              viewExtent / 2f + padding - contentMin);
+
+    // ── Wireframe camera (top-left pan convention) ─────────────────────────────
+
+    /// <summary>
+    /// Clamps a wireframe pan so the texture's far edge can reach the viewport centre but no
+    /// further — the texture is never scrolled fully out of view, yet any texture point can
+    /// still be brought to the centre for editing. The wireframe's pan is the screen position
+    /// of texture pixel (0,0): <c>screenX = panX + textureX × zoom</c>, so the per-axis band is
+    /// <c>[viewport/2 − bitmap × zoom, viewport/2]</c>.
+    /// <para>
+    /// The clamp is a pure function of <c>(pan, zoom, viewport, bitmap)</c> — it never depends
+    /// on a layout-resolved <c>ScrollViewer.Extent</c>. That is what makes a symmetric zoom
+    /// in/out sequence an exact round-trip and the reachable bounds at a given zoom identical
+    /// regardless of zoom direction (#422). Internally this maps the top-left pan to the
+    /// centre-relative convention <see cref="ClampPan"/> uses (origin = texture top-left,
+    /// on-screen extent <c>[0, bitmap × zoom]</c>, padding <c>−viewport/2</c>) and back.
+    /// </para>
+    /// </summary>
+    public static (float PanX, float PanY) ClampWireframePan(
+        float panX, float panY,
+        float viewW, float viewH,
+        float bitmapW, float bitmapH, float zoom)
+    {
+        // padding = −viewport/2 pulls the band in so the content's far edge stops at the centre.
+        // Clamp each axis with its own padding (ClampPan takes a single padding for both axes).
+        var (minX, maxX) = PanRange(viewW, 0f, bitmapW * zoom, -viewW / 2f);
+        var (minY, maxY) = PanRange(viewH, 0f, bitmapH * zoom, -viewH / 2f);
+        return (Math.Clamp(panX - viewW / 2f, minX, maxX) + viewW / 2f,
+                Math.Clamp(panY - viewH / 2f, minY, maxY) + viewH / 2f);
+    }
+
+    /// <summary>
+    /// Zooms the wireframe camera toward a viewport-space pivot and clamps the result, as a
+    /// single pure step shared by the control and its invariant tests. Composes
+    /// <see cref="ZoomToward"/> (pivot preserved) with <see cref="ClampWireframePan"/>. See
+    /// <see cref="ClampWireframePan"/> for the round-trip / direction-independence guarantee.
+    /// </summary>
+    public static (float PanX, float PanY, float Zoom) ZoomWireframe(
+        float pivotX, float pivotY, float factor,
+        float panX, float panY, float zoom,
+        float viewW, float viewH,
+        float bitmapW, float bitmapH)
+    {
+        var (npx, npy, nz) = ZoomToward(pivotX, pivotY, factor, panX, panY, zoom);
+        var (cpx, cpy) = ClampWireframePan(npx, npy, viewW, viewH, bitmapW, bitmapH, nz);
+        return (cpx, cpy, nz);
+    }
 }

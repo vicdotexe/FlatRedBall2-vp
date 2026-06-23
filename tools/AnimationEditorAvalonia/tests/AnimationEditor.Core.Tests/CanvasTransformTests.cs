@@ -333,4 +333,99 @@ public class CanvasTransformTests
         Assert.Equal(max, clampedHigh, 4);
         Assert.Equal(min, clampedLow,  4);
     }
+
+    // ── Wireframe camera (#422) ───────────────────────────────────────────────
+    // The wireframe stores pan as the screen position of texture pixel (0,0)
+    // (screenX = panX + textureX*zoom). ClampWireframePan/ZoomWireframe clamp that
+    // pan analytically — purely a function of (zoom, viewport, bitmap) with no
+    // dependency on a layout-resolved ScrollViewer extent. The band stops the
+    // texture's far edge at the viewport centre: the texture is never scrolled fully
+    // out of view, yet any texture point can still be brought to the centre. These
+    // invariants turn the zoom-boundary bug family (#138/#319/#341/#412/#422) into
+    // can't-regress.
+
+    [Fact]
+    public void ClampWireframePan_CannotScrollTextureFullyOutOfView()
+    {
+        // The far edge of the texture stops at the viewport centre — so at any pan at least
+        // half the viewport still shows texture (a large texture is never lost off-screen).
+        const float vw = 800f, vh = 600f, bw = 256f, bh = 256f, zoom = 4f; // 1024 px > viewport
+        float extX = bw * zoom;
+
+        // Pan hard right: texture LEFT edge stops at the viewport centre.
+        var (maxPanX, _) = CanvasTransform.ClampWireframePan(1e6f, 0f, vw, vh, bw, bh, zoom);
+        Assert.Equal(vw / 2f, maxPanX, 3);
+
+        // Pan hard left: texture RIGHT edge (minPanX + extX) stops at the viewport centre.
+        var (minPanX, _) = CanvasTransform.ClampWireframePan(-1e6f, 0f, vw, vh, bw, bh, zoom);
+        Assert.Equal(vw / 2f - extX, minPanX, 3);
+    }
+
+    [Fact]
+    public void ClampWireframePan_BoundsAtZoom_IndependentOfArrivalDirection()
+    {
+        // #422 root cause: the reachable pan bounds used to depend on a stale extent, so they
+        // differed by one notch depending on whether you arrived by zooming in or out. The band
+        // is now a pure function of the final zoom: [viewport/2 − extent, viewport/2].
+        const float vw = 800f, vh = 600f, bw = 256f, bh = 256f, zoom = 2f;
+
+        var (maxPanX, _) = CanvasTransform.ClampWireframePan(1e6f,  0f, vw, vh, bw, bh, zoom);
+        var (minPanX, _) = CanvasTransform.ClampWireframePan(-1e6f, 0f, vw, vh, bw, bh, zoom);
+
+        Assert.Equal(vw / 2f, maxPanX, 3);
+        Assert.Equal(vw / 2f - bw * zoom, minPanX, 3);
+    }
+
+    [Fact]
+    public void ClampWireframePan_CenteredPan_StaysCentered_AtHighZoom()
+    {
+        // #341: the texture must always be pannable to the viewport centre. The centred pan is
+        // inside the band even when the texture dwarfs the viewport.
+        const float vw = 800f, vh = 600f, bw = 256f, bh = 256f, zoom = 8f;
+        float centeredX = (vw - bw * zoom) / 2f;
+        float centeredY = (vh - bh * zoom) / 2f;
+
+        var (cx, cy) = CanvasTransform.ClampWireframePan(centeredX, centeredY, vw, vh, bw, bh, zoom);
+
+        Assert.Equal(centeredX, cx, 3);
+        Assert.Equal(centeredY, cy, 3);
+    }
+
+    [Fact]
+    public void ZoomWireframe_PivotInBand_PreservesTextureCoordUnderPivot()
+    {
+        // #138: while the pan stays inside the band, the texture coordinate under the zoom
+        // pivot is preserved exactly (no boundary drift).
+        const float vw = 800f, vh = 600f, bw = 256f, bh = 256f;
+        float panX = (vw - bw) / 2f, panY = (vh - bh) / 2f, zoom = 1f;
+        const float pivotX = 500f, pivotY = 350f;
+        float txBefore = (pivotX - panX) / zoom;
+
+        var (npx, _, nz) = CanvasTransform.ZoomWireframe(
+            pivotX, pivotY, 2f, panX, panY, zoom, vw, vh, bw, bh);
+
+        float txAfter = (pivotX - npx) / nz;
+        Assert.Equal(txBefore, txAfter, 3);
+    }
+
+    [Fact]
+    public void ZoomWireframe_SymmetricInOut_RoundTripsToStart()
+    {
+        // #422 acceptance: zoom in N notches then out N notches returns the camera exactly
+        // to its starting state. Parameters keep the pan inside the band the whole time, so
+        // the round trip is exact (no wall is hit).
+        const float vw = 800f, vh = 600f, bw = 256f, bh = 256f;
+        float startPanX = (vw - bw) / 2f, startPanY = (vh - bh) / 2f, startZoom = 1f;
+        const float pivotX = 520f, pivotY = 360f;
+
+        var (px, py, z) = (startPanX, startPanY, startZoom);
+        for (int i = 0; i < 4; i++)
+            (px, py, z) = CanvasTransform.ZoomWireframe(pivotX, pivotY, 1.25f, px, py, z, vw, vh, bw, bh);
+        for (int i = 0; i < 4; i++)
+            (px, py, z) = CanvasTransform.ZoomWireframe(pivotX, pivotY, 0.8f, px, py, z, vw, vh, bw, bh);
+
+        Assert.Equal(startPanX, px, 2);
+        Assert.Equal(startPanY, py, 2);
+        Assert.Equal(startZoom, z, 4);
+    }
 }
