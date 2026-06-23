@@ -3903,6 +3903,9 @@ public partial class MainWindow : Window
                 return true;
             case AnimationFrameSave frame:
                 WireframeCtrl.CenterOnFrame(frame);
+                // Bring the sprite into view in the preview too — center on the frame's
+                // offset, not the entity origin, or a large-offset frame stays off-screen.
+                PreviewCtrl.CenterOnEntityPoint(frame.RelativeX, frame.RelativeY);
                 return true;
             case AARectSave rect:
                 PreviewCtrl.CenterOnEntityPoint(rect.X, rect.Y);
