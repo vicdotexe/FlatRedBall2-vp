@@ -148,6 +148,11 @@ public partial class MainWindow : Window
     private void WireTabBar()
     {
         _tabManager.ActiveChanged += _ => Dispatcher.UIThread.InvokeAsync(RebuildTabStrip);
+        // Persist the open-tab session on every change (open / switch / close / reorder), not just
+        // on graceful window close — a debugger Stop or crash never fires Closed and would otherwise
+        // lose the session (issue #439). Called synchronously so the write lands before any kill;
+        // SaveTabsToSettings only reads tab state and writes a file, touching no UI controls.
+        _tabManager.TabsChanged += SaveTabsToSettings;
     }
 
     private void RebuildTabStrip()

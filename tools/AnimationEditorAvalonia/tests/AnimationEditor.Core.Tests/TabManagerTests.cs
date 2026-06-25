@@ -372,6 +372,131 @@ public class TabManagerTests
         Assert.True(raised);
     }
 
+    // ── TabsChanged event (issue #439) ────────────────────────────────────────
+
+    [Fact]
+    public void OpenOrFocus_RaisesTabsChanged()
+    {
+        var tm = new TabManager();
+        int count = 0;
+        tm.TabsChanged += () => count++;
+
+        tm.OpenOrFocus(P(@"C:\Games\a.achx"));
+
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public void Activate_RaisesTabsChanged()
+    {
+        var tm = new TabManager();
+        tm.OpenOrFocus(P(@"C:\Games\a.achx"));
+        tm.OpenOrFocus(P(@"C:\Games\b.achx"));
+        bool raised = false;
+        tm.TabsChanged += () => raised = true;
+
+        tm.Activate(P(@"C:\Games\a.achx"));
+
+        Assert.True(raised);
+    }
+
+    [Fact]
+    public void Close_ActiveTab_RaisesTabsChanged()
+    {
+        var tm = new TabManager();
+        tm.OpenOrFocus(P(@"C:\Games\a.achx"));
+        bool raised = false;
+        tm.TabsChanged += () => raised = true;
+
+        tm.Close(P(@"C:\Games\a.achx"));
+
+        Assert.True(raised);
+    }
+
+    [Fact]
+    public void Close_BackgroundTab_RaisesTabsChanged_EvenThoughActiveChangedDoesNot()
+    {
+        // The core of issue #439: closing a non-active tab changes the open-tab set but
+        // leaves ActiveTab untouched, so ActiveChanged stays silent. TabsChanged must fire
+        // so the session is re-persisted.
+        var tm = new TabManager();
+        tm.OpenOrFocus(P(@"C:\Games\a.achx"));
+        tm.OpenOrFocus(P(@"C:\Games\b.achx")); // b is active
+        bool activeChanged = false, tabsChanged = false;
+        tm.ActiveChanged += _ => activeChanged = true;
+        tm.TabsChanged += () => tabsChanged = true;
+
+        tm.Close(P(@"C:\Games\a.achx")); // close the background tab
+
+        Assert.False(activeChanged);
+        Assert.True(tabsChanged);
+    }
+
+    [Fact]
+    public void Move_RaisesTabsChanged()
+    {
+        var tm = new TabManager();
+        tm.OpenOrFocus(P(@"C:\a.achx"));
+        tm.OpenOrFocus(P(@"C:\b.achx"));
+        bool raised = false;
+        tm.TabsChanged += () => raised = true;
+
+        tm.Move(P(@"C:\a.achx"), 1);
+
+        Assert.True(raised);
+    }
+
+    [Fact]
+    public void Move_SameIndex_DoesNotRaiseTabsChanged()
+    {
+        var tm = new TabManager();
+        tm.OpenOrFocus(P(@"C:\a.achx"));
+        tm.OpenOrFocus(P(@"C:\b.achx"));
+        bool raised = false;
+        tm.TabsChanged += () => raised = true;
+
+        tm.Move(P(@"C:\a.achx"), 0); // already at index 0 — no change
+
+        Assert.False(raised);
+    }
+
+    [Fact]
+    public void RegisterBackground_RaisesTabsChanged()
+    {
+        var tm = new TabManager();
+        bool raised = false;
+        tm.TabsChanged += () => raised = true;
+
+        tm.RegisterBackground(P(@"C:\Games\existing.achx"));
+
+        Assert.True(raised);
+    }
+
+    [Fact]
+    public void Rename_RaisesTabsChanged()
+    {
+        var tm = new TabManager();
+        tm.OpenOrFocus(P("__untitled__:1"), "Untitled");
+        bool raised = false;
+        tm.TabsChanged += () => raised = true;
+
+        tm.Rename(P("__untitled__:1"), P(@"C:\hero.achx"));
+
+        Assert.True(raised);
+    }
+
+    [Fact]
+    public void RestoreFrom_RaisesTabsChanged()
+    {
+        var tm = new TabManager();
+        bool raised = false;
+        tm.TabsChanged += () => raised = true;
+
+        tm.RestoreFrom(new List<string> { @"C:\a.achx" }, activePath: null);
+
+        Assert.True(raised);
+    }
+
     // ── RegisterBackground ────────────────────────────────────────────────────
 
     [Fact]

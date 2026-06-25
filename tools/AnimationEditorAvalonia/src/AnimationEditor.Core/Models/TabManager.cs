@@ -34,6 +34,15 @@ namespace AnimationEditor.Core.Models
         /// </summary>
         public event Action<TabEntry?>? ActiveChanged;
 
+        /// <summary>
+        /// Raised whenever the open-tab set changes in a way worth persisting: a tab is opened,
+        /// focused, activated, closed, moved, renamed, registered, or the whole list is restored.
+        /// Unlike <see cref="ActiveChanged"/> this also fires for changes that leave
+        /// <see cref="ActiveTab"/> untouched — closing a background tab or reordering — so session
+        /// persistence can save on every change instead of only on graceful window close (issue #439).
+        /// </summary>
+        public event Action? TabsChanged;
+
     /// <summary>
     /// Opens <paramref name="path"/> as a new tab with an optional display-name override,
     /// or focuses its existing tab if it is already open.
@@ -44,12 +53,14 @@ namespace AnimationEditor.Core.Models
         if (existing != null)
         {
             SetActive(existing);
+            RaiseTabsChanged();
             return TabOpenResult.Focused;
         }
 
         var entry = new TabEntry(path, displayNameOverride);
         _tabs.Add(entry);
         SetActive(entry);
+        RaiseTabsChanged();
         return TabOpenResult.Opened;
     }
 
@@ -85,7 +96,10 @@ namespace AnimationEditor.Core.Models
         {
             var tab = FindTab(path);
             if (tab != null)
+            {
                 SetActive(tab);
+                RaiseTabsChanged();
+            }
         }
 
         /// <summary>
@@ -101,18 +115,19 @@ namespace AnimationEditor.Core.Models
             int idx = _tabs.IndexOf(tab);
             _tabs.RemoveAt(idx);
 
-            if (tab != ActiveTab)
-                return; // no active-tab change needed
-
-            if (_tabs.Count == 0)
+            // Re-pick the active tab only when the one closed was active. A background-tab
+            // close leaves ActiveTab as-is but still changes the open-tab set, so TabsChanged
+            // fires regardless (ActiveChanged would not).
+            if (tab == ActiveTab)
             {
-                SetActive(null);
-                return;
+                if (_tabs.Count == 0)
+                    SetActive(null);
+                else
+                    // Prefer the tab that moved into this slot; fall back to the one before.
+                    SetActive(_tabs[Math.Min(idx, _tabs.Count - 1)]);
             }
 
-            // Prefer the tab that moved into this slot; fall back to the one before.
-            int nextIdx = Math.Min(idx, _tabs.Count - 1);
-            SetActive(_tabs[nextIdx]);
+            RaiseTabsChanged();
         }
 
         /// <summary>
@@ -130,11 +145,14 @@ namespace AnimationEditor.Core.Models
             if (_tabs.Count == 0)
             {
                 SetActive(null);
-                return;
+            }
+            else
+            {
+                TabEntry? desired = activePath != null ? FindTab(new FilePath(activePath)) : null;
+                SetActive(desired ?? _tabs[0]);
             }
 
-            TabEntry? desired = activePath != null ? FindTab(new FilePath(activePath)) : null;
-            SetActive(desired ?? _tabs[0]);
+            RaiseTabsChanged();
         }
 
         // ── Private helpers ───────────────────────────────────────────────────
@@ -152,6 +170,7 @@ namespace AnimationEditor.Core.Models
         {
             if (FindTab(path) != null) return;
             _tabs.Insert(0, new TabEntry(path, displayNameOverride));
+            RaiseTabsChanged();
         }
 
         /// <summary>
@@ -168,6 +187,7 @@ namespace AnimationEditor.Core.Models
             if (current == target) return;
             _tabs.RemoveAt(current);
             _tabs.Insert(target, tab);
+            RaiseTabsChanged();
         }
 
         /// <summary>
@@ -186,6 +206,7 @@ namespace AnimationEditor.Core.Models
             _tabs[idx] = replacement;
             if (ActiveTab == tab)
                 ActiveTab = replacement;
+            RaiseTabsChanged();
         }
 
         // ── Private helpers ───────────────────────────────────────────────────
@@ -198,5 +219,7 @@ namespace AnimationEditor.Core.Models
             ActiveTab = tab;
             ActiveChanged?.Invoke(tab);
         }
+
+        private void RaiseTabsChanged() => TabsChanged?.Invoke();
     }
 }
