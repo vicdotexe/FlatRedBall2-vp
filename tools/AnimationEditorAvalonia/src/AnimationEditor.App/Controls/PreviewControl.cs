@@ -1716,8 +1716,9 @@ public class PreviewControl : Control
             Color = new SKColor(255, 255, 255, (byte)(255 * alpha))
         };
         // Reference render of the frame's color operation; runtimes apply it however they choose.
-        if (FrameColorFilter.Resolve(frame.ColorOperation, frame.Red, frame.Green, frame.Blue) is { } f)
-            paint.ColorFilter = SKColorFilter.CreateBlendMode(f.Color, f.Mode);
+        using var colorFilter = FrameColorFilter.Create(frame.ColorOperation, frame.Red, frame.Green, frame.Blue);
+        if (colorFilter is not null)
+            paint.ColorFilter = colorFilter;
         var sampling = zoom >= 1
             ? new SKSamplingOptions(SKFilterMode.Nearest)
             : new SKSamplingOptions(SKFilterMode.Linear);
