@@ -202,6 +202,12 @@ public class AnimationChainListSave
         if (frame.RelativeX != 0f) el.Add(new XElement("RelativeX", FloatStr(frame.RelativeX)));
         if (frame.RelativeY != 0f) el.Add(new XElement("RelativeY", FloatStr(frame.RelativeY)));
 
+        // Per-frame color channels are game-consumed and optional: write each only when set
+        // so frames without color stay byte-identical.
+        if (frame.Red.HasValue) el.Add(new XElement("Red", frame.Red.Value));
+        if (frame.Green.HasValue) el.Add(new XElement("Green", frame.Green.Value));
+        if (frame.Blue.HasValue) el.Add(new XElement("Blue", frame.Blue.Value));
+
         if (frame.HasCustomName && !string.IsNullOrEmpty(frame.Name))
         {
             el.Add(new XElement("Name", frame.Name));
@@ -276,6 +282,9 @@ public class AnimationChainListSave
         frame.FlipVertical = BoolEl(el, "FlipVertical");
         frame.RelativeX = FloatEl(el, "RelativeX");
         frame.RelativeY = FloatEl(el, "RelativeY");
+        frame.Red = IntElNullable(el, "Red");
+        frame.Green = IntElNullable(el, "Green");
+        frame.Blue = IntElNullable(el, "Blue");
         frame.Name = (string?)el.Element("Name") ?? string.Empty;
         frame.HasCustomName = BoolEl(el, "HasCustomName");
 
@@ -422,6 +431,12 @@ public class AnimationChainListSave
         return el != null ? bool.Parse(el.Value) : defaultValue;
     }
 
+    private static int? IntElNullable(XElement parent, string name)
+    {
+        var el = parent.Element(name);
+        return el != null ? int.Parse(el.Value, CultureInfo.InvariantCulture) : null;
+    }
+
     /// <summary>
     /// Converts this save object to a runtime <see cref="AnimationChainList"/>, loading
     /// all referenced textures through <see cref="ContentLoader.Load{T}"/>.
@@ -470,6 +485,9 @@ public class AnimationChainListSave
                     FlipVertical = frameSave.FlipVertical,
                     RelativeX = frameSave.RelativeX,
                     RelativeY = frameSave.RelativeY,
+                    Red = frameSave.Red,
+                    Green = frameSave.Green,
+                    Blue = frameSave.Blue,
                 };
 
                 frame.Texture = loadTexture(frameSave);

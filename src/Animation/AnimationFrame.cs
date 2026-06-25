@@ -46,6 +46,19 @@ public class AnimationFrame
     public float RelativeY;
 
     /// <summary>
+    /// Optional per-frame red channel, 0–255, or <c>null</c> when unset. <b>Not</b> applied by the
+    /// engine: read it via <see cref="FlatRedBall2.Rendering.Sprite.CurrentFrame"/> and apply it in
+    /// game code (tint, flash, etc.). See <see cref="Green"/>, <see cref="Blue"/>.
+    /// </summary>
+    public int? Red;
+
+    /// <summary>Optional per-frame green channel, 0–255, or <c>null</c> when unset. See <see cref="Red"/>.</summary>
+    public int? Green;
+
+    /// <summary>Optional per-frame blue channel, 0–255, or <c>null</c> when unset. See <see cref="Red"/>.</summary>
+    public int? Blue;
+
+    /// <summary>
     /// Per-frame shape definitions reconciled against the parent entity at frame switch time.
     /// Each entry must have a non-empty unique <see cref="AnimationShapeFrame.Name"/>. See
     /// <see cref="AnimationChainList"/> for the ownership rule that decides which entity shapes

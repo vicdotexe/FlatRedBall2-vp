@@ -2409,6 +2409,9 @@ public partial class MainWindow : Window
         PropFrameLen.ValueChanged  += (_, _) => ApplyFrameLen();
         PropRelX.ValueChanged      += (_, _) => ApplyFrameRelative();
         PropRelY.ValueChanged      += (_, _) => ApplyFrameRelative();
+        PropRed.ValueChanged       += (_, _) => ApplyFrameColor();
+        PropGreen.ValueChanged     += (_, _) => ApplyFrameColor();
+        PropBlue.ValueChanged      += (_, _) => ApplyFrameColor();
         PropPixelX.ValueChanged    += (_, _) => ApplyFramePixelCoords();
         PropPixelY.ValueChanged    += (_, _) => ApplyFramePixelCoords();
         PropPixelW.ValueChanged    += (_, _) => ApplyFramePixelCoords();
@@ -2612,6 +2615,9 @@ public partial class MainWindow : Window
                 PropFrameLen.Value   = (decimal)frame.FrameLength;
                 PropRelX.Value       = (decimal)frame.RelativeX;
                 PropRelY.Value       = (decimal)frame.RelativeY;
+                PropRed.Value        = frame.Red.HasValue   ? frame.Red.Value   : (decimal?)null;
+                PropGreen.Value      = frame.Green.HasValue ? frame.Green.Value : (decimal?)null;
+                PropBlue.Value       = frame.Blue.HasValue  ? frame.Blue.Value  : (decimal?)null;
                 PropTextureName.Text = TexturePathHelper.ComputeDisplayPath(
                     frame.TextureName, _projectManager.FileName);
 
@@ -2677,6 +2683,16 @@ public partial class MainWindow : Window
         var frame = _selectedState.SelectedFrame;
         if (frame is null || !PropRelX.Value.HasValue || !PropRelY.Value.HasValue) return;
         _appCommands.SetFrameRelative(frame, (float)PropRelX.Value.Value, (float)PropRelY.Value.Value);
+    }
+
+    private void ApplyFrameColor()
+    {
+        if (_suppressPropRefresh) return;
+        var frame = _selectedState.SelectedFrame;
+        if (frame is null) return;
+        // A blank NumericUpDown (null Value) means the channel is unset and is omitted from the .achx.
+        static int? ToChannel(decimal? v) => v.HasValue ? (int)v.Value : null;
+        _appCommands.SetFrameColor(frame, ToChannel(PropRed.Value), ToChannel(PropGreen.Value), ToChannel(PropBlue.Value));
     }
 
     private void ApplyFramePixelCoords()

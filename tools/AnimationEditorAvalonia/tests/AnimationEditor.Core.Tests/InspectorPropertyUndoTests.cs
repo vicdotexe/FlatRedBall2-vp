@@ -7,6 +7,44 @@ namespace AnimationEditor.Core.Tests;
 [Collection("SequentialSingletons")]
 public class InspectorPropertyUndoTests
 {
+    // ── SetFrameColor ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public void SetFrameColor_Undo_RestoresChannels()
+    {
+        var ctx = TestHelpers.SetupFreshAcls();
+        var chain = TestHelpers.MakeChain(ctx.Acls, "Flash");
+        var frame = TestHelpers.MakeFrame();
+        // Start with no authored color (all null).
+        chain.Frames.Add(frame);
+
+        ctx.AppCommands.SetFrameColor(frame, 255, 200, 128);
+        Assert.True(ctx.UndoManager.CanUndo);
+        Assert.Equal(255, frame.Red);
+
+        ctx.UndoManager.Undo();
+
+        Assert.Null(frame.Red);
+        Assert.Null(frame.Green);
+        Assert.Null(frame.Blue);
+    }
+
+    [Fact]
+    public void SetFrameColor_SameValues_DoesNotCreateUndoEntry()
+    {
+        var ctx = TestHelpers.SetupFreshAcls();
+        var chain = TestHelpers.MakeChain(ctx.Acls, "Flash");
+        var frame = TestHelpers.MakeFrame();
+        frame.Red = 255;
+        frame.Green = 200;
+        frame.Blue = 128;
+        chain.Frames.Add(frame);
+
+        ctx.AppCommands.SetFrameColor(frame, 255, 200, 128);
+
+        Assert.False(ctx.UndoManager.CanUndo);
+    }
+
     // ── SetFrameLength ────────────────────────────────────────────────────────
 
     [Fact]

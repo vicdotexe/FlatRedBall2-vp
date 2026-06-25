@@ -36,6 +36,20 @@ public class AnimationFrameSave
     public float RelativeY;
 
     /// <summary>
+    /// Optional per-frame red channel, 0–255. <c>null</c> (the default) means unset, so it is
+    /// omitted from the saved <c>.achx</c>. These values are <b>not</b> applied by the engine or
+    /// the Animation Editor — game code reads them via <see cref="FlatRedBall2.Rendering.Sprite.CurrentFrame"/>
+    /// and decides how to use them (tint, flash, etc.). See <see cref="Green"/>, <see cref="Blue"/>.
+    /// </summary>
+    public int? Red;
+
+    /// <summary>Optional per-frame green channel, 0–255. See <see cref="Red"/> for the game-consumed contract.</summary>
+    public int? Green;
+
+    /// <summary>Optional per-frame blue channel, 0–255. See <see cref="Red"/> for the game-consumed contract.</summary>
+    public int? Blue;
+
+    /// <summary>
     /// User-visible display label for this frame in the Animation Editor tree.
     /// Only meaningful when <see cref="HasCustomName"/> is <c>true</c>; when
     /// <c>false</c> the editor shows a dynamic position-based label ("Frame N")

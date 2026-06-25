@@ -1042,6 +1042,14 @@ namespace AnimationEditor.Core.CommandsAndState
                 this, _events, true, desc));
         }
 
+        public void SetFrameColor(AnimationFrameSave frame, int? red, int? green, int? blue)
+        {
+            // Color is game-consumed and not previewed, so no wireframe refresh is needed.
+            _undoManager.Execute(new BulkFrameEditCommand(
+                [frame], () => { frame.Red = red; frame.Green = green; frame.Blue = blue; },
+                this, _events, false, "Set Frame Color"));
+        }
+
         public void SetFramePixelRegion(AnimationFrameSave frame,
             int pixelX, int pixelY, int pixelW, int pixelH, int bmpW, int bmpH)
         {

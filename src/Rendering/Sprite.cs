@@ -242,6 +242,7 @@ public class Sprite : IRenderable, IAttachable
         {
             _animationChains = value;
             _currentChainIndex = -1;
+            CurrentFrame = null;
         }
     }
 
@@ -269,6 +270,14 @@ public class Sprite : IRenderable, IAttachable
         _animationChains != null && _currentChainIndex >= 0 && _currentChainIndex < _animationChains.Count
             ? _animationChains[_currentChainIndex]
             : null;
+
+    /// <summary>
+    /// The <see cref="AnimationFrame"/> currently displayed, or <c>null</c> when no animation is playing.
+    /// Use this to read per-frame data the engine does not auto-apply — e.g.
+    /// <see cref="AnimationFrame.Red"/>/<see cref="AnimationFrame.Green"/>/<see cref="AnimationFrame.Blue"/> —
+    /// and apply it in game code.
+    /// </summary>
+    public AnimationFrame? CurrentFrame { get; private set; }
 
     /// <summary>Fired when a non-looping animation reaches its last frame.</summary>
     public event Action? AnimationFinished;
@@ -384,6 +393,7 @@ public class Sprite : IRenderable, IAttachable
         if (chain.Count == 0) return;
 
         var frame = chain[System.Math.Clamp(_currentFrameIndex, 0, chain.Count - 1)];
+        CurrentFrame = frame;
         _texture = frame.Texture;
         _sourceRectangle = frame.SourceRectangle;
         FlipHorizontal = frame.FlipHorizontal;

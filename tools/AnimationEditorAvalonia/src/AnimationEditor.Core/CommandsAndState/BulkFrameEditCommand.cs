@@ -14,11 +14,13 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
         AnimationFrameSave Frame,
         float FrameLength,
         float RelativeX, float RelativeY,
-        float Left, float Right, float Top, float Bottom)
+        float Left, float Right, float Top, float Bottom,
+        int? Red, int? Green, int? Blue)
     {
         public static FrameFieldSnapshot Capture(AnimationFrameSave f) =>
             new(f, f.FrameLength, f.RelativeX, f.RelativeY,
-                f.LeftCoordinate, f.RightCoordinate, f.TopCoordinate, f.BottomCoordinate);
+                f.LeftCoordinate, f.RightCoordinate, f.TopCoordinate, f.BottomCoordinate,
+                f.Red, f.Green, f.Blue);
 
         public void RestoreToFrame()
         {
@@ -29,6 +31,9 @@ namespace AnimationEditor.Core.CommandsAndState.Commands
             Frame.RightCoordinate  = Right;
             Frame.TopCoordinate    = Top;
             Frame.BottomCoordinate = Bottom;
+            Frame.Red              = Red;
+            Frame.Green            = Green;
+            Frame.Blue             = Blue;
         }
     }
 
