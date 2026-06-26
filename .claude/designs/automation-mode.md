@@ -136,12 +136,18 @@ A `{"cmd":"screenshot"}` command that returns a base64-encoded PNG of the curren
 
 ---
 
+## Release Guard — decided
+
+**Status:** decided — yes, guarded (resolves the former "security / accidental activation" open question).
+
+Automation mode exposes internal entity state and arbitrary value-forcing, so it must never be reachable in a shipped build. The entire automation block in `src/FlatRedBallService.cs` is wrapped in `#if DEBUG`; the `#else` branch compiles `EnableAutomationMode`, `RegisterStateProvider`, and `RegisterValueSetter` to empty no-op stubs. A Release build therefore cannot activate automation even if a game ships the `EnableAutomationMode()` call and is launched with `--frb-auto`.
+
+---
+
 ## Open Questions
 
 1. **State registration API shape.** `RegisterStateProvider(string name, Func<object> provider)` vs. a typed generic `RegisterStateProvider<T>(string name, Func<T> provider)` with JSON serialization. Generic is cleaner but adds reflection at serialization time — may not matter given this is dev-only.
 
 2. **Input injection model.** Inject at the `InputManager` level (fake `GamePadState` / `KeyboardState`) vs. at the `FlatRedBallService.Input` abstraction layer. The abstraction layer is cleaner for FRB2 game code; injecting at MonoGame's state level also covers raw `Keyboard.GetState()` calls in `Game1.Update`.
 
-3. **Security / accidental activation.** Should there be a compile-time guard (`#if DEBUG`) so `EnableAutomationMode` is a no-op in Release builds? Probably yes — automation mode exposes internal game state and arbitrary value-forcing.
-
-4. **Frame timing in step mode.** Stepped frames use whatever `GameTime` MonoGame provides. Should step mode synthesize a fixed `GameTime` (e.g., always 16.67ms per frame) so physics is deterministic regardless of wall-clock time?
+3. **Frame timing in step mode.** Stepped frames use whatever `GameTime` MonoGame provides. Should step mode synthesize a fixed `GameTime` (e.g., always 16.67ms per frame) so physics is deterministic regardless of wall-clock time?
