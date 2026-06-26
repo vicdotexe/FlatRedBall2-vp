@@ -1049,33 +1049,35 @@
                                                 <ComboBoxItem>Add</ComboBoxItem>
                                             </ComboBox>
                                         </Grid>
-                                        <!-- Channel fields — 2×2 grid: [R][G] / [B][A] — so they degrade gracefully when the panel is narrow -->
-                                        <Grid ColumnDefinitions="*,6,*" RowDefinitions="Auto,4,Auto">
-                                            <Grid Grid.Column="0" Grid.Row="0" ColumnDefinitions="14,*">
+                                        <!-- Channel fields — responsive WrapPanel: each [label][textbox] unit has a MinWidth,
+                                             so units sit side-by-side when there's room and reflow one-per-row as the panel
+                                             narrows (the per-unit MinWidth is the wrap threshold). No overlap at any width. -->
+                                        <WrapPanel>
+                                            <Grid ColumnDefinitions="14,*" MinWidth="86" Margin="0,0,8,4">
                                                 <TextBlock Text="R" VerticalAlignment="Center"
                                                            Foreground="#f48b8b" FontSize="11" FontWeight="SemiBold" />
-                                                <NumericUpDown x:Name="PropRed" Grid.Column="1"
+                                                <NumericUpDown x:Name="PropRed" Grid.Column="1" MinWidth="66"
                                                                Minimum="0" Maximum="255" Increment="1" FormatString="0" />
                                             </Grid>
-                                            <Grid Grid.Column="2" Grid.Row="0" ColumnDefinitions="14,*">
+                                            <Grid ColumnDefinitions="14,*" MinWidth="86" Margin="0,0,8,4">
                                                 <TextBlock Text="G" VerticalAlignment="Center"
                                                            Foreground="#6dd28d" FontSize="11" FontWeight="SemiBold" />
-                                                <NumericUpDown x:Name="PropGreen" Grid.Column="1"
+                                                <NumericUpDown x:Name="PropGreen" Grid.Column="1" MinWidth="66"
                                                                Minimum="0" Maximum="255" Increment="1" FormatString="0" />
                                             </Grid>
-                                            <Grid Grid.Column="0" Grid.Row="2" ColumnDefinitions="14,*">
+                                            <Grid ColumnDefinitions="14,*" MinWidth="86" Margin="0,0,8,4">
                                                 <TextBlock Text="B" VerticalAlignment="Center"
                                                            Foreground="#8bb6f4" FontSize="11" FontWeight="SemiBold" />
-                                                <NumericUpDown x:Name="PropBlue" Grid.Column="1"
+                                                <NumericUpDown x:Name="PropBlue" Grid.Column="1" MinWidth="66"
                                                                Minimum="0" Maximum="255" Increment="1" FormatString="0" />
                                             </Grid>
-                                            <Grid Grid.Column="2" Grid.Row="2" ColumnDefinitions="14,*">
+                                            <Grid ColumnDefinitions="14,*" MinWidth="86" Margin="0,0,8,4">
                                                 <TextBlock Text="A" VerticalAlignment="Center"
                                                            Foreground="{DynamicResource InkMid}" FontSize="11" FontWeight="SemiBold" />
-                                                <NumericUpDown x:Name="PropAlpha" Grid.Column="1"
+                                                <NumericUpDown x:Name="PropAlpha" Grid.Column="1" MinWidth="66"
                                                                Minimum="0" Maximum="255" Increment="1" FormatString="0" />
                                             </Grid>
-                                        </Grid>
+                                        </WrapPanel>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
