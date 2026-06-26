@@ -50,6 +50,14 @@ public class AnimationFrameSave
     public int? Blue;
 
     /// <summary>
+    /// Optional per-frame alpha (transparency) channel, 0–255. <c>null</c> (the default) means unset, so it
+    /// is omitted from the saved <c>.achx</c>. Straight transparency, independent of <see cref="ColorOperation"/>.
+    /// Like the color channels it is <b>not</b> applied by the engine or the Animation Editor — game code reads
+    /// it via <see cref="FlatRedBall2.Rendering.Sprite.CurrentFrame"/>. See <see cref="Red"/>.
+    /// </summary>
+    public int? Alpha;
+
+    /// <summary>
     /// Optional per-frame color operation describing how <see cref="Red"/>/<see cref="Green"/>/<see cref="Blue"/>
     /// combine with the texture. <c>null</c> (the default) means none and is omitted from the saved
     /// <c>.achx</c>. Like the channels, runtimes interpret this as they choose. See <see cref="FlatRedBall2.Animation.ColorOperation"/>.
