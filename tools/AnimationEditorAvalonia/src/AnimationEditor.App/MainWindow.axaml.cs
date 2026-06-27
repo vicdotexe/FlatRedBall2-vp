@@ -3538,23 +3538,32 @@ public partial class MainWindow : Window
 
     // ── Copy / Paste ──────────────────────────────────────────────────────────
 
+    // The selected domain object, resolved from the selection model (the source of
+    // truth) with the tree node as a fast path. AnimTree.SelectedItem alone is null
+    // whenever the selected node isn't realized — e.g. a frame is selected while its
+    // chain row is collapsed — even though _selectedState still holds it. Mirrors the
+    // shape→frame→chain priority in SyncTreeSelection.
+    private object? SelectedData =>
+        (AnimTree.SelectedItem as TreeNodeVm)?.Data
+        ?? (object?)_selectedState.SelectedCircle
+        ?? _selectedState.SelectedRectangle
+        ?? _selectedState.SelectedFrame
+        ?? (object?)_selectedState.SelectedChain;
+
     private async Task HandleCopyAsync()
     {
         if (IsTextInputFocused()) return;
         var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
         if (clipboard is null) return;
 
-        string? xml = null;
-
-        var selectedVm = AnimTree.SelectedItem as TreeNodeVm;
-        if (selectedVm?.Data is AnimationChainSave chainToCopy)
-            xml = ClipboardPayload.Serialize(new List<AnimationChainSave> { chainToCopy });
-        else if (selectedVm?.Data is AnimationFrameSave frameToCopy)
-            xml = ClipboardPayload.Serialize(new List<AnimationFrameSave> { frameToCopy });
-        else if (selectedVm?.Data is AARectSave rectToCopy)
-            xml = ClipboardPayload.Serialize(rectToCopy);
-        else if (selectedVm?.Data is CircleSave circleToCopy)
-            xml = ClipboardPayload.Serialize(circleToCopy);
+        string? xml = SelectedData switch
+        {
+            AnimationChainSave chainToCopy => ClipboardPayload.Serialize(new List<AnimationChainSave> { chainToCopy }),
+            AnimationFrameSave frameToCopy => ClipboardPayload.Serialize(new List<AnimationFrameSave> { frameToCopy }),
+            AARectSave rectToCopy          => ClipboardPayload.Serialize(rectToCopy),
+            CircleSave circleToCopy        => ClipboardPayload.Serialize(circleToCopy),
+            _ => null,
+        };
 
         if (xml is not null)
             await clipboard.SetTextAsync(xml);
@@ -3576,7 +3585,7 @@ public partial class MainWindow : Window
         var acls = _projectManager.AnimationChainListSave;
         if (acls is null) return;
 
-        var selectedVm = AnimTree.SelectedItem as TreeNodeVm;
+        var selectedData = SelectedData;
 
         // Each branch hands the mutation to an undoable command via _appCommands;
         // the read-side prep (target resolution, ShapesSave init, name uniquing)
@@ -3589,8 +3598,8 @@ public partial class MainWindow : Window
         else if (frames is { Count: > 0 })
         {
             AnimationChainSave? targetChain = null;
-            if (selectedVm?.Data is AnimationChainSave c) targetChain = c;
-            else if (selectedVm?.Data is AnimationFrameSave f)
+            if (selectedData is AnimationChainSave c) targetChain = c;
+            else if (selectedData is AnimationFrameSave f)
                 targetChain = _objectFinder.GetAnimationChainContaining(f);
 
             if (targetChain is null && acls.AnimationChains.Count > 0)
@@ -3643,7 +3652,7 @@ public partial class MainWindow : Window
     {
         if (IsTextInputFocused()) return;
 
-        switch ((AnimTree.SelectedItem as TreeNodeVm)?.Data)
+        switch (SelectedData)
         {
             case AnimationChainSave chain:
                 _appCommands.DuplicateChain(chain);
@@ -3665,44 +3674,48 @@ public partial class MainWindow : Window
 
     private void HandleDelete()
     {
-        var selectedVm = AnimTree.SelectedItem as TreeNodeVm;
-        if (selectedVm is null) return;
-
         // Delete the whole multi-selection of the focused node's kind, not just the
         // focused node — AskToDelete* batches them into a single undo step.
-        if (selectedVm.Data is AnimationChainSave chainToDel)
+        switch (SelectedData)
         {
-            var chains = _selectedState.SelectedChains;
-            List<AnimationChainSave> toDelete = chains.Count > 0 ? chains : new List<AnimationChainSave> { chainToDel };
-            if (toDelete.Any(c => c.Frames.Count > 0))
-                ShowDeleteChainConfirm(toDelete);
-            else
-                _appCommands.DeleteAnimationChains(toDelete);
-        }
-        else if (selectedVm.Data is AnimationFrameSave frameToDel)
-        {
-            var frames = _selectedState.SelectedFrames;
-            _appCommands.DeleteFrames(frames.Count > 0 ? frames : new() { frameToDel });
-        }
-        else if (selectedVm.Data is AARectSave rectToDel)
-        {
-            var frame   = _selectedState.SelectedFrame!;
-            var rects   = _selectedState.SelectedRectangles;
-            var circles = _selectedState.SelectedCircles;
-            ShowDeleteShapeConfirm(
-                frame,
-                rects.Count > 0 ? rects : new() { rectToDel },
-                circles);
-        }
-        else if (selectedVm.Data is CircleSave circleToDel)
-        {
-            var frame   = _selectedState.SelectedFrame!;
-            var circles = _selectedState.SelectedCircles;
-            var rects   = _selectedState.SelectedRectangles;
-            ShowDeleteShapeConfirm(
-                frame,
-                rects,
-                circles.Count > 0 ? circles : new() { circleToDel });
+            case AnimationChainSave chainToDel:
+            {
+                var chains = _selectedState.SelectedChains;
+                List<AnimationChainSave> toDelete = chains.Count > 0 ? chains : new List<AnimationChainSave> { chainToDel };
+                if (toDelete.Any(c => c.Frames.Count > 0))
+                    ShowDeleteChainConfirm(toDelete);
+                else
+                    _appCommands.DeleteAnimationChains(toDelete);
+                break;
+            }
+            case AnimationFrameSave frameToDel:
+            {
+                var frames = _selectedState.SelectedFrames;
+                _appCommands.DeleteFrames(frames.Count > 0 ? frames : new() { frameToDel });
+                break;
+            }
+            case AARectSave rectToDel:
+            {
+                var frame   = _selectedState.SelectedFrame!;
+                var rects   = _selectedState.SelectedRectangles;
+                var circles = _selectedState.SelectedCircles;
+                ShowDeleteShapeConfirm(
+                    frame,
+                    rects.Count > 0 ? rects : new() { rectToDel },
+                    circles);
+                break;
+            }
+            case CircleSave circleToDel:
+            {
+                var frame   = _selectedState.SelectedFrame!;
+                var circles = _selectedState.SelectedCircles;
+                var rects   = _selectedState.SelectedRectangles;
+                ShowDeleteShapeConfirm(
+                    frame,
+                    rects,
+                    circles.Count > 0 ? circles : new() { circleToDel });
+                break;
+            }
         }
     }
 
