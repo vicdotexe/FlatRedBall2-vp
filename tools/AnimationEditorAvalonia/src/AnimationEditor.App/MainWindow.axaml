@@ -664,6 +664,21 @@
                             Background="{DynamicResource BgRail}"
                             Padding="4,3">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="2">
+                            <Button x:Name="PlayPauseBtn"
+                                    Height="26" Width="32"
+                                    Foreground="{DynamicResource Ink}"
+                                    VerticalAlignment="Center"
+                                    ToolTip.Tip="Play / Pause (Space)">
+                                <svg:Svg x:Name="PlayPauseIcon" Width="14" Height="14"
+                                         Path="avares://AnimationEditor/Assets/icons/svg/IconPlay.svg"
+                                         CurrentColor="{DynamicResource IconInk}"
+                                         VerticalAlignment="Center" HorizontalAlignment="Center" />
+                            </Button>
+
+                            <!-- Divider -->
+                            <Border Width="1" Height="18" Background="{DynamicResource LineBrush}"
+                                    Margin="4,0" VerticalAlignment="Center" />
+
                             <ToggleButton x:Name="OnionSkinToggle"
                                           Height="26"
                                           Foreground="{DynamicResource Ink}"
@@ -794,11 +809,15 @@
                                        VerticalAlignment="Center"
                                        Margin="6,0" />
                         </Border>
-                        <!-- frame cells — BgCanvas background so cells (BgPanel) contrast against it -->
-                        <Border Grid.Row="1"
+                        <!-- frame cells — BgCanvas background so cells (BgPanel) contrast against it.
+                             This border is the scrub surface: click/drag anywhere on it to move the
+                             playhead (#432). Pointer handlers are wired in MainWindow.axaml.cs. -->
+                        <Border x:Name="TimelineScrubSurface"
+                                Grid.Row="1"
                                 Background="{DynamicResource BgCanvas}"
                                 BorderBrush="{DynamicResource LineBrush}"
-                                BorderThickness="0,0,0,0">
+                                BorderThickness="0,0,0,0"
+                                Cursor="Hand">
                             <ScrollViewer HorizontalScrollBarVisibility="Auto"
                                           VerticalScrollBarVisibility="Disabled">
                                 <ItemsControl x:Name="TimelineStrip">
