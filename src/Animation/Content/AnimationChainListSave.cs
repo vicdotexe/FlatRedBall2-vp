@@ -178,6 +178,9 @@ public class AnimationChainListSave
             Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
             Indent = true,
             IndentChars = "  ",
+            // FRB1 .achx is CRLF. XmlWriter's default newline is platform-dependent (LF on
+            // Linux/CI), which would diff every line off-Windows — pin it so output is byte-stable.
+            NewLineChars = "\r\n",
         };
         using var stream = File.Create(path);
         using var writer = XmlWriter.Create(stream, settings);
