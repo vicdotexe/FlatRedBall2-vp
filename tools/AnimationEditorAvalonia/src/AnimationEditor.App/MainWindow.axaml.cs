@@ -2296,13 +2296,12 @@ public partial class MainWindow : Window
             AddSeparator();
             AddMenuItem("Copy",  () => _ = HandleCopyAsync());
             AddMenuItem("Paste", () => _ = HandlePasteAsync());
+            if (chain2 is not null)
+                AddMenuItem("Duplicate", () => _appCommands.DuplicateFrame(frame2, chain2));
             AddSeparator();
             AddMenuItem("View Texture in Explorer", () => ViewTextureInExplorer(frame2));
             AddMenuItem("Rename…", () =>
                 BeginInlineRename(vm!, frame2.HasCustomName ? frame2.Name : string.Empty));
-            AddSeparator();
-            if (chain2 is not null)
-                AddMenuItem("Duplicate Frame", () => _appCommands.DuplicateFrame(frame2, chain2));
             AddSeparator();
             AddMenuItem("Delete Frame", () =>
                 _appCommands.DeleteFrames(new List<AnimationFrameSave> { frame2 }));
@@ -2330,12 +2329,12 @@ public partial class MainWindow : Window
             AddMenuItem("Add Frame",          () => _appCommands.AddFrame(chain));
             AddMenuItem("Add Multiple Frames…", () => _ = AskAddMultipleFramesAsync(chain));
             AddSeparator();
-            AddMenuItem("Duplicate (original)",         () => _appCommands.DuplicateChain(chain));
-            AddMenuItem("Duplicate (flip horizontally)",() => _appCommands.DuplicateChain(chain, flipH: true));
-            AddMenuItem("Duplicate (flip vertically)",  () => _appCommands.DuplicateChain(chain, flipV: true));
-            AddSeparator();
             AddMenuItem("Copy",  () => _ = HandleCopyAsync());
             AddMenuItem("Paste", () => _ = HandlePasteAsync());
+            AddSubMenu("Duplicate",
+                ("Original",        () => _appCommands.DuplicateChain(chain)),
+                ("Flip Horizontal", () => _appCommands.DuplicateChain(chain, flipH: true)),
+                ("Flip Vertical",   () => _appCommands.DuplicateChain(chain, flipV: true)));
             AddSeparator();
             AddMenuItem("Adjust Offsets…", () => _ = AskAdjustOffsetsAsync(chain));
             AddMenuItem("Rename…",          () => BeginInlineRenameSelected(chain));
@@ -2372,6 +2371,18 @@ public partial class MainWindow : Window
 
     private void AddSeparator() =>
         AnimTree.ContextMenu!.Items.Add(new Separator());
+
+    private void AddSubMenu(string header, params (string Header, Action OnClick)[] children)
+    {
+        var parent = new MenuItem { Header = header };
+        foreach (var (childHeader, onClick) in children)
+        {
+            var child = new MenuItem { Header = childHeader };
+            child.Click += (_, _) => onClick();
+            parent.Items.Add(child);
+        }
+        AnimTree.ContextMenu!.Items.Add(parent);
+    }
 
     private void AskAdjustFrameTime(AnimationChainSave chain)
     {
