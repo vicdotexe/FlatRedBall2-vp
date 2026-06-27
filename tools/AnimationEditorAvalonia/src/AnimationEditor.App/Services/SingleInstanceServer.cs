@@ -38,9 +38,13 @@ public sealed class SingleInstanceServer : IDisposable
     /// </summary>
     public event Action<string>? FileOpenRequested;
 
-    public SingleInstanceServer()
+    public SingleInstanceServer() : this(MutexName) { }
+
+    // Test-only: lets tests isolate the named system mutex so it can't collide
+    // with a real running Animation Editor instance.
+    internal SingleInstanceServer(string mutexName)
     {
-        _mutex = new Mutex(initiallyOwned: true, name: MutexName, out bool createdNew);
+        _mutex = new Mutex(initiallyOwned: true, name: mutexName, out bool createdNew);
         IsOwner = createdNew;
     }
 
@@ -113,7 +117,15 @@ public sealed class SingleInstanceServer : IDisposable
     {
         _cts?.Cancel();
         _cts?.Dispose();
-        _mutex.ReleaseMutex();
+
+        // Only the owning process holds the mutex; a second instance never
+        // acquired it, so calling ReleaseMutex there throws "Object
+        // synchronization method was called from an unsynchronized block of code."
+        if (IsOwner)
+        {
+            try { _mutex.ReleaseMutex(); }
+            catch (ApplicationException) { /* not held / abandoned — nothing to release */ }
+        }
         _mutex.Dispose();
     }
 }
