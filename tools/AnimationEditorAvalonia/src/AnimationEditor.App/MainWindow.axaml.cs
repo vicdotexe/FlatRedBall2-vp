@@ -1471,7 +1471,13 @@ public partial class MainWindow : Window
         PreviewZoomMinusBtn.Click += (_, _) => StepZoomPreset(PreviewCtrl.Zoom * 100f, _previewZoomPresets, -1, p => PreviewCtrl.SetZoomPercent(p));
         PreviewCtrl.WheelZoomPresets = _previewZoomPresets;
 
-        PreviewCtrl.ZoomChanged += zoomPct => { SyncPreviewZoomCombo(zoomPct); SaveCompanionFile(); };
+        // The combo always tracks the live zoom; the companion file is persisted once the smooth
+        // zoom settles (IsZoomAnimating == false), not on every animation tick (#451).
+        PreviewCtrl.ZoomChanged += zoomPct =>
+        {
+            SyncPreviewZoomCombo(zoomPct);
+            if (!PreviewCtrl.IsZoomAnimating) SaveCompanionFile();
+        };
         PreviewCtrl.PanChanged  += (_, _) => SaveCompanionFile();
         PreviewCtrl.Playback.FrameIndexChanged += OnPreviewPlaybackFrameIndexChanged;
         PreviewCtrl.Playback.PlaybackTicked += OnPlaybackTicked;
