@@ -78,7 +78,7 @@ public class ClipboardPayloadShapeTests
     }
 
     [Fact]
-    public void FrameWithMixedShapes_PreservesTypeAndOrder()
+    public void FrameWithMixedShapes_GroupsByTypePreservingWithinTypeOrder()
     {
         var frame = new AnimationFrameSave { TextureName = "lava.png" };
         frame.ShapesSave = new ShapesSave();
@@ -88,10 +88,14 @@ public class ClipboardPayloadShapeTests
 
         var rt = RoundTripFrame(frame).ShapesSave!.Shapes;
 
+        // The .achx format uses FRB1's typed shape lists (rects, then polygons, then circles), so
+        // cross-type insertion order is not preserved — shapes regroup by type (A, C rects; B
+        // circle). Within a type, order is kept. Shapes are matched by Name at runtime, so this is
+        // purely a serialization-layout property.
         Assert.Collection(rt,
             s => Assert.Equal("A", Assert.IsType<AARectSave>(s).Name),
-            s => Assert.Equal("B", Assert.IsType<CircleSave>(s).Name),
-            s => Assert.Equal("C", Assert.IsType<AARectSave>(s).Name));
+            s => Assert.Equal("C", Assert.IsType<AARectSave>(s).Name),
+            s => Assert.Equal("B", Assert.IsType<CircleSave>(s).Name));
     }
 
     // ── Field coverage: a shaped frame must not drop any frame field ───────

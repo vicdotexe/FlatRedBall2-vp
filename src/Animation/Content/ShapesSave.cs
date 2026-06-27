@@ -24,9 +24,27 @@ public class ShapesSave
     public IEnumerable<PolygonSave> PolygonSaves => Shapes.OfType<PolygonSave>();
 }
 
+/// <summary>
+/// FRB1-only shape fields that FRB2 does not model but preserves verbatim so opening and
+/// re-saving an existing .achx round-trips byte-identical. Inert at runtime.
+/// </summary>
+public class Frb1ShapeData
+{
+    /// <summary>Z depth. FRB1 default 0; FRB2 is 2D so this is never read.</summary>
+    public float Z;
+    /// <summary>Tint alpha. FRB1 default 1.</summary>
+    public float Alpha = 1f;
+    /// <summary>Tint red. FRB1 default 1.</summary>
+    public float Red = 1f;
+    /// <summary>Tint green. FRB1 default 1.</summary>
+    public float Green = 1f;
+    /// <summary>Tint blue. FRB1 default 1.</summary>
+    public float Blue = 1f;
+}
+
 /// <summary>Serialized rectangle entry within a <see cref="ShapesSave"/>.</summary>
 /// <remarks>Serialized as <c>&lt;AxisAlignedRectangleSave&gt;</c> inside <c>&lt;AxisAlignedRectangleSaves&gt;</c>.</remarks>
-public class AARectSave
+public class AARectSave : Frb1ShapeData
 {
     /// <summary>Shape name; matched by name against entity-attached shapes.</summary>
     public string Name = string.Empty;
@@ -41,7 +59,7 @@ public class AARectSave
 }
 
 /// <summary>Serialized circle entry within a <see cref="ShapesSave"/>.</summary>
-public class CircleSave
+public class CircleSave : Frb1ShapeData
 {
     /// <summary>Shape name.</summary>
     public string Name = string.Empty;
@@ -54,7 +72,7 @@ public class CircleSave
 }
 
 /// <summary>Serialized polygon entry within a <see cref="ShapesSave"/>.</summary>
-public class PolygonSave
+public class PolygonSave : Frb1ShapeData
 {
     /// <summary>Shape name.</summary>
     public string Name = string.Empty;

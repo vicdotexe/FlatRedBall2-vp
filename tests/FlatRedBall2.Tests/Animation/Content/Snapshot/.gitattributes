@@ -1,0 +1,3 @@
+# Byte-exact snapshot: keep CRLF (no EOL normalization) on every platform so the
+# byte comparison against Save() output (always CRLF) passes on Windows and Linux CI alike.
+*.achx -text

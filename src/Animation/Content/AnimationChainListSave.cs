@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Text;
+using System.Xml;
 using System.Xml.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -155,16 +157,34 @@ public class AnimationChainListSave
     /// so existing .achx files in the wild keep their byte shape.
     /// </summary>
     /// <remarks>
+    /// Output is byte-faithful to FRB1: no UTF-8 BOM, CRLF newlines, the .NET-Framework float
+    /// format (7 significant digits, falling back to 9 when that doesn't round-trip), shapes in
+    /// FRB1's typed lists, and per-shape Z/Alpha/Red/Green/Blue preserved verbatim (see
+    /// <see cref="Frb1ShapeData"/>). Opening and re-saving an unedited file is a no-op diff.
     /// Frame defaults are omitted to keep diffs small: <c>FlipHorizontal</c>/<c>FlipVertical</c>
     /// are written only when <c>true</c>; <c>RelativeX</c>/<c>RelativeY</c> only when non-zero.
-    /// FRB1-only fields (Z, ScaleZ, Alpha/Red/Green/Blue on shapes; AxisAlignedCubeSaves;
-    /// SphereSaves) are written as empty list elements for dialect compatibility but their
-    /// values are not preserved.
+    /// The <c>&lt;ShapeCollectionSave&gt;</c> wrapper is written only when a frame's
+    /// <see cref="AnimationFrameSave.ShapesSave"/> is non-null, mirroring whether the source frame
+    /// had one (some FRB1 files omit it for shapeless frames, others write an empty one).
+    /// AxisAlignedCubeSaves and SphereSaves are FRB1 3D placeholders FRB2 does not model — always
+    /// emitted empty for dialect parity.
     /// </remarks>
     public void Save(string path)
     {
+        // FRB1 writes UTF-8 without a BOM; XDocument.Save(stream) would emit one, diffing every
+        // file. Use an explicit BOM-less encoding. Indent/newlines match FRB1 (2 spaces, CRLF).
+        var settings = new XmlWriterSettings
+        {
+            Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+            Indent = true,
+            IndentChars = "  ",
+            // FRB1 .achx is CRLF. XmlWriter's default newline is platform-dependent (LF on
+            // Linux/CI), which would diff every line off-Windows — pin it so output is byte-stable.
+            NewLineChars = "\r\n",
+        };
         using var stream = File.Create(path);
-        ToXDocument().Save(stream);
+        using var writer = XmlWriter.Create(stream, settings);
+        ToXDocument().Save(writer);
     }
 
     /// <summary>
@@ -228,60 +248,85 @@ public class AnimationChainListSave
             el.Add(new XElement("HasCustomName", "true"));
         }
 
-        el.Add(WriteShapes(frame.ShapesSave));
+        // Preserve wrapper presence so every FRB1 file round-trips byte-identical: the loader sets
+        // ShapesSave non-null iff the frame had a <ShapeCollectionSave> element. Some FRB1 files
+        // omit it for shapeless frames (-> null here), others write an empty one (-> non-null,
+        // zero shapes). Mirror whichever the source used instead of injecting or dropping it.
+        if (frame.ShapesSave is { } shapes)
+            el.Add(WriteShapes(shapes));
         return el;
     }
 
-    private static XElement WriteShapes(ShapesSave? shapes)
+    private static XElement WriteShapes(ShapesSave shapes)
     {
-        shapes ??= new ShapesSave();
+        // FRB1 groups shapes into typed lists (not one ordered list), in this exact element
+        // order: rectangles, cubes, polygons, circles, spheres. Cubes and spheres are FRB1-era
+        // 3D placeholders FRB2 does not model — emitted as empty elements for dialect parity.
+        var rectsEl = new XElement("AxisAlignedRectangleSaves");
+        foreach (var r in shapes.AARectSaves)
+            rectsEl.Add(new XElement("AxisAlignedRectangleSave",
+                new XElement("X", FloatStr(r.X)),
+                new XElement("Y", FloatStr(r.Y)),
+                new XElement("Z", FloatStr(r.Z)),
+                new XElement("ScaleX", FloatStr(r.ScaleX)),
+                new XElement("ScaleY", FloatStr(r.ScaleY)),
+                new XElement("Name", r.Name),
+                WriteColor(r)));
 
-        var shapesEl = new XElement("Shapes");
-        foreach (var shape in shapes.Shapes)
+        var polysEl = new XElement("PolygonSaves");
+        foreach (var p in shapes.PolygonSaves)
         {
-            switch (shape)
-            {
-                case AARectSave r:
-                    shapesEl.Add(new XElement("AxisAlignedRectangleSave",
-                        new XElement("X", FloatStr(r.X)),
-                        new XElement("Y", FloatStr(r.Y)),
-                        new XElement("ScaleX", FloatStr(r.ScaleX)),
-                        new XElement("ScaleY", FloatStr(r.ScaleY)),
-                        new XElement("Name", r.Name)));
-                    break;
-                case CircleSave c:
-                    shapesEl.Add(new XElement("CircleSave",
-                        new XElement("X", FloatStr(c.X)),
-                        new XElement("Y", FloatStr(c.Y)),
-                        new XElement("Radius", FloatStr(c.Radius)),
-                        new XElement("Name", c.Name)));
-                    break;
-                case PolygonSave p:
-                    var pointsEl = new XElement("Points");
-                    foreach (var v in p.Points)
-                    {
-                        pointsEl.Add(new XElement("Vector2Save",
-                            new XElement("X", FloatStr(v.X)),
-                            new XElement("Y", FloatStr(v.Y))));
-                    }
-                    shapesEl.Add(new XElement("PolygonSave",
-                        new XElement("Name", p.Name),
-                        new XElement("X", FloatStr(p.X)),
-                        new XElement("Y", FloatStr(p.Y)),
-                        pointsEl));
-                    break;
-            }
+            var pointsEl = new XElement("Points");
+            foreach (var v in p.Points)
+                pointsEl.Add(new XElement("Vector2Save",
+                    new XElement("X", FloatStr(v.X)),
+                    new XElement("Y", FloatStr(v.Y))));
+            polysEl.Add(new XElement("PolygonSave",
+                new XElement("Name", p.Name),
+                new XElement("X", FloatStr(p.X)),
+                new XElement("Y", FloatStr(p.Y)),
+                new XElement("Z", FloatStr(p.Z)),
+                pointsEl,
+                WriteColor(p)));
         }
 
-        // AxisAlignedCubeSaves and SphereSaves are FRB1-era 3D-shape placeholders that FRB2 does
-        // not model. Emit empty elements so the dialect matches what FRB1 readers expect.
+        var circlesEl = new XElement("CircleSaves");
+        foreach (var c in shapes.CircleSaves)
+            circlesEl.Add(new XElement("CircleSave",
+                new XElement("X", FloatStr(c.X)),
+                new XElement("Y", FloatStr(c.Y)),
+                new XElement("Z", FloatStr(c.Z)),
+                new XElement("Radius", FloatStr(c.Radius)),
+                new XElement("Name", c.Name),
+                WriteColor(c)));
+
         return new XElement("ShapeCollectionSave",
-            shapesEl,
+            rectsEl,
             new XElement("AxisAlignedCubeSaves"),
+            polysEl,
+            circlesEl,
             new XElement("SphereSaves"));
     }
 
-    private static string FloatStr(float value) => value.ToString("R", CultureInfo.InvariantCulture);
+    // Alpha/Red/Green/Blue trail each FRB1 shape in this order; preserved verbatim for round-trip.
+    private static object[] WriteColor(Frb1ShapeData s) =>
+    [
+        new XElement("Alpha", FloatStr(s.Alpha)),
+        new XElement("Red", FloatStr(s.Red)),
+        new XElement("Green", FloatStr(s.Green)),
+        new XElement("Blue", FloatStr(s.Blue)),
+    ];
+
+    // Reproduces .NET Framework's float "R" format (what FRB1 wrote): the shortest 7-significant-
+    // digit form if it round-trips, otherwise 9 digits. .NET's modern "R"/shortest differs
+    // (e.g. -18.0208321 would collapse to -18.020832), which would diff every coordinate.
+    private static string FloatStr(float value)
+    {
+        var s = value.ToString("G7", CultureInfo.InvariantCulture);
+        if (float.Parse(s, CultureInfo.InvariantCulture) != value)
+            s = value.ToString("G9", CultureInfo.InvariantCulture);
+        return s;
+    }
 
     private static AnimationFrameSave ParseFrame(XElement el)
     {
@@ -316,90 +361,25 @@ public class AnimationChainListSave
 
     private static ShapesSave ParseShapes(XElement el)
     {
+        // FRB1 dialect: separate typed containers. Read in write order (rects, polygons, circles)
+        // so the round-trip is stable; WriteShapes re-groups by type regardless of list order.
         var shapes = new ShapesSave();
 
-        // New format: <Shapes> with type-tagged children in unified insertion order.
-        var newShapesEl = el.Element("Shapes");
-        if (newShapesEl != null)
+        var rectsEl = el.Element("AxisAlignedRectangleSaves");
+        if (rectsEl != null)
         {
-            foreach (var child in newShapesEl.Elements())
+            foreach (var r in rectsEl.Elements("AxisAlignedRectangleSave"))
             {
-                switch (child.Name.LocalName)
-                {
-                    case "AxisAlignedRectangleSave":
-                        shapes.Shapes.Add(new AARectSave
-                        {
-                            Name = (string?)child.Element("Name") ?? string.Empty,
-                            X = FloatEl(child, "X"),
-                            Y = FloatEl(child, "Y"),
-                            ScaleX = FloatEl(child, "ScaleX", 16f),
-                            ScaleY = FloatEl(child, "ScaleY", 16f),
-                        });
-                        break;
-                    case "CircleSave":
-                        shapes.Shapes.Add(new CircleSave
-                        {
-                            Name = (string?)child.Element("Name") ?? string.Empty,
-                            X = FloatEl(child, "X"),
-                            Y = FloatEl(child, "Y"),
-                            Radius = FloatEl(child, "Radius", 16f),
-                        });
-                        break;
-                    case "PolygonSave":
-                        var poly = new PolygonSave
-                        {
-                            Name = (string?)child.Element("Name") ?? string.Empty,
-                            X = FloatEl(child, "X"),
-                            Y = FloatEl(child, "Y"),
-                        };
-                        var polyPointsEl = child.Element("Points");
-                        if (polyPointsEl != null)
-                        {
-                            foreach (var v in polyPointsEl.Elements("Vector2Save"))
-                            {
-                                poly.Points.Add(new Vector2Save
-                                {
-                                    X = FloatEl(v, "X"),
-                                    Y = FloatEl(v, "Y"),
-                                });
-                            }
-                        }
-                        shapes.Shapes.Add(poly);
-                        break;
-                }
-            }
-            return shapes;
-        }
-
-        // Old format fallback: separate typed containers (rects, then circles, then polygons).
-        var aarctsEl = el.Element("AxisAlignedRectangleSaves");
-        if (aarctsEl != null)
-        {
-            foreach (var r in aarctsEl.Elements("AxisAlignedRectangleSave"))
-            {
-                shapes.Shapes.Add(new AARectSave
+                var rect = new AARectSave
                 {
                     Name = (string?)r.Element("Name") ?? string.Empty,
                     X = FloatEl(r, "X"),
                     Y = FloatEl(r, "Y"),
                     ScaleX = FloatEl(r, "ScaleX", 16f),
                     ScaleY = FloatEl(r, "ScaleY", 16f),
-                });
-            }
-        }
-
-        var circlesEl = el.Element("CircleSaves");
-        if (circlesEl != null)
-        {
-            foreach (var c in circlesEl.Elements("CircleSave"))
-            {
-                shapes.Shapes.Add(new CircleSave
-                {
-                    Name = (string?)c.Element("Name") ?? string.Empty,
-                    X = FloatEl(c, "X"),
-                    Y = FloatEl(c, "Y"),
-                    Radius = FloatEl(c, "Radius", 16f),
-                });
+                };
+                ReadColor(r, rect);
+                shapes.Shapes.Add(rect);
             }
         }
 
@@ -414,25 +394,45 @@ public class AnimationChainListSave
                     X = FloatEl(p, "X"),
                     Y = FloatEl(p, "Y"),
                 };
-
                 var pointsEl = p.Element("Points");
                 if (pointsEl != null)
                 {
                     foreach (var v in pointsEl.Elements("Vector2Save"))
-                    {
-                        poly.Points.Add(new Vector2Save
-                        {
-                            X = FloatEl(v, "X"),
-                            Y = FloatEl(v, "Y"),
-                        });
-                    }
+                        poly.Points.Add(new Vector2Save { X = FloatEl(v, "X"), Y = FloatEl(v, "Y") });
                 }
-
+                ReadColor(p, poly);
                 shapes.Shapes.Add(poly);
             }
         }
 
+        var circlesEl = el.Element("CircleSaves");
+        if (circlesEl != null)
+        {
+            foreach (var c in circlesEl.Elements("CircleSave"))
+            {
+                var circle = new CircleSave
+                {
+                    Name = (string?)c.Element("Name") ?? string.Empty,
+                    X = FloatEl(c, "X"),
+                    Y = FloatEl(c, "Y"),
+                    Radius = FloatEl(c, "Radius", 16f),
+                };
+                ReadColor(c, circle);
+                shapes.Shapes.Add(circle);
+            }
+        }
+
         return shapes;
+    }
+
+    // Reads FRB1's per-shape Z/Alpha/Red/Green/Blue, falling back to FRB1 defaults when absent.
+    private static void ReadColor(XElement el, Frb1ShapeData target)
+    {
+        target.Z = FloatEl(el, "Z");
+        target.Alpha = FloatEl(el, "Alpha", 1f);
+        target.Red = FloatEl(el, "Red", 1f);
+        target.Green = FloatEl(el, "Green", 1f);
+        target.Blue = FloatEl(el, "Blue", 1f);
     }
 
     private static float FloatEl(XElement parent, string name, float defaultValue = 0f)
