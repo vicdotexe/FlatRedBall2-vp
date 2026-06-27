@@ -1,0 +1,3 @@
+# Round-trip fixtures must keep their exact bytes (CRLF, no BOM) on every platform
+# so byte-identical serialization tests pass on Windows and Linux CI alike.
+*.achx -text
