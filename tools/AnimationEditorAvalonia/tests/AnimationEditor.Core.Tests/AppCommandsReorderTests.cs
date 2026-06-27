@@ -338,6 +338,68 @@ public class AppCommandsReorderTests
         Assert.Equal(circB, frame.ShapesSave.Shapes[1]);
     }
 
+    // ── MoveShapeToBottom ─────────────────────────────────────────────────────
+
+    [Fact]
+    public void MoveShapeToBottom_FromMiddle_MovesShapeToEnd()
+    {
+        var ctx   = TestHelpers.SetupFreshAcls();
+        var chain = TestHelpers.MakeChain(ctx.Acls, "Walk", 1);
+        var frame = chain.Frames[0];
+        var rectA = new AARectSave { Name = "A" };
+        var rectB = new AARectSave { Name = "B" };
+        var rectC = new AARectSave { Name = "C" };
+        frame.ShapesSave!.Shapes.Add(rectA);
+        frame.ShapesSave!.Shapes.Add(rectB);
+        frame.ShapesSave!.Shapes.Add(rectC);
+
+        ctx.AppCommands.MoveShapeToBottom(rectA, frame);
+
+        Assert.Equal(rectB, frame.ShapesSave.Shapes[0]);
+        Assert.Equal(rectC, frame.ShapesSave.Shapes[1]);
+        Assert.Equal(rectA, frame.ShapesSave.Shapes[2]);
+    }
+
+    // ── MoveShapeToTop ────────────────────────────────────────────────────────
+
+    [Fact]
+    public void MoveShapeToTop_FromMiddle_MovesShapeToFront()
+    {
+        var ctx   = TestHelpers.SetupFreshAcls();
+        var chain = TestHelpers.MakeChain(ctx.Acls, "Walk", 1);
+        var frame = chain.Frames[0];
+        var rectA = new AARectSave { Name = "A" };
+        var rectB = new AARectSave { Name = "B" };
+        var rectC = new AARectSave { Name = "C" };
+        frame.ShapesSave!.Shapes.Add(rectA);
+        frame.ShapesSave!.Shapes.Add(rectB);
+        frame.ShapesSave!.Shapes.Add(rectC);
+
+        ctx.AppCommands.MoveShapeToTop(rectC, frame);
+
+        Assert.Equal(rectC, frame.ShapesSave.Shapes[0]);
+        Assert.Equal(rectA, frame.ShapesSave.Shapes[1]);
+        Assert.Equal(rectB, frame.ShapesSave.Shapes[2]);
+    }
+
+    [Fact]
+    public void MoveShapeToTop_Undo_RestoresOriginalOrder()
+    {
+        var ctx   = TestHelpers.SetupFreshAcls();
+        var chain = TestHelpers.MakeChain(ctx.Acls, "Walk", 1);
+        var frame = chain.Frames[0];
+        var rectA = new AARectSave { Name = "A" };
+        var rectB = new AARectSave { Name = "B" };
+        frame.ShapesSave!.Shapes.Add(rectA);
+        frame.ShapesSave!.Shapes.Add(rectB);
+
+        ctx.AppCommands.MoveShapeToTop(rectB, frame);
+        ctx.UndoManager.Undo();
+
+        Assert.Equal(rectA, frame.ShapesSave.Shapes[0]);
+        Assert.Equal(rectB, frame.ShapesSave.Shapes[1]);
+    }
+
     // ── MoveShape — cross-type ────────────────────────────────────────────────
 
     [Fact]

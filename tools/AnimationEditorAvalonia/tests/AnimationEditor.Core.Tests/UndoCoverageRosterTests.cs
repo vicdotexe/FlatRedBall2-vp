@@ -74,6 +74,8 @@ public class UndoCoverageRosterTests
         [nameof(IAppCommands.MoveFrameToTop)]               = Category.MutatingUndoable,
         [nameof(IAppCommands.MoveFrameToBottom)]            = Category.MutatingUndoable,
         [nameof(IAppCommands.MoveShape)]                    = Category.MutatingUndoable,
+        [nameof(IAppCommands.MoveShapeToTop)]               = Category.MutatingUndoable,
+        [nameof(IAppCommands.MoveShapeToBottom)]            = Category.MutatingUndoable,
         [nameof(IAppCommands.HandleReorder)]                = Category.MutatingUndoable,
         [nameof(IAppCommands.FlipFrameHorizontally)]        = Category.MutatingUndoable,
         [nameof(IAppCommands.FlipFrameVertically)]          = Category.MutatingUndoable,
@@ -222,6 +224,14 @@ public class UndoCoverageRosterTests
             ctx => Sync(() => ctx.AppCommands.MoveFrameToBottom(Zebra(ctx).Frames[0], Zebra(ctx))));
         yield return Row(nameof(IAppCommands.MoveShape),
             ctx => Sync(() => ctx.AppCommands.MoveShape(Rect(ctx), Zebra(ctx).Frames[0], +1)));
+        yield return Row(nameof(IAppCommands.MoveShapeToTop),
+            // The .achx format serializes shapes in FRB1's per-type lists, so the round-trip oracle
+            // only sees order changes *within* a type — cross-type position is not persisted (a V2
+            // unified-order format would change this). Move the *second* circle so the circles list
+            // actually reorders; moving the first circle would be a no-op in the serialized output.
+            ctx => Sync(() => ctx.AppCommands.MoveShapeToTop(SecondCircle(ctx), Zebra(ctx).Frames[0])));
+        yield return Row(nameof(IAppCommands.MoveShapeToBottom),
+            ctx => Sync(() => ctx.AppCommands.MoveShapeToBottom(Rect(ctx), Zebra(ctx).Frames[0]))); // Rect is not already last
         yield return Row(nameof(IAppCommands.HandleReorder),
             ctx => Sync(() => ctx.AppCommands.HandleReorder(+1))); // selection is set up by Arrange
         yield return Row(nameof(IAppCommands.FlipFrameHorizontally),
@@ -351,6 +361,7 @@ public class UndoCoverageRosterTests
     private static AnimationChainSave Alpha(TestServices ctx) => ctx.Acls.AnimationChains[1];
     private static AARectSave Rect(TestServices ctx) => Zebra(ctx).Frames[0].ShapesSave!.AARectSaves.First();
     private static CircleSave Circle(TestServices ctx) => Zebra(ctx).Frames[0].ShapesSave!.CircleSaves.First();
+    private static CircleSave SecondCircle(TestServices ctx) => Zebra(ctx).Frames[0].ShapesSave!.CircleSaves.ElementAt(1);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 

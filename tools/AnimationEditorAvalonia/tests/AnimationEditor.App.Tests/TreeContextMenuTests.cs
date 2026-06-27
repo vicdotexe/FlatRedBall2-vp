@@ -114,4 +114,98 @@ public class TreeContextMenuTests
         }
         finally { window.Close(); }
     }
+
+    // ── Shape menus (issue #458): parity with the frame menu ──────────────────
+
+    // Builds a chain → frame holding two shapes so reorder items (guarded by
+    // position) are present, and returns the frame + both shapes.
+    private static (AnimationFrameSave Frame, AARectSave Rect, CircleSave Circle)
+        SetupFrameWithTwoShapes(TestServices ctx)
+    {
+        var chain = new AnimationChainSave { Name = "Walk" };
+        var frame = new AnimationFrameSave { TextureName = "run.png", ShapesSave = new ShapesSave() };
+        var rect   = new AARectSave { Name = "Rect" };
+        var circle = new CircleSave { Name = "Circle" };
+        frame.ShapesSave.Shapes.Add(rect);    // index 0 → "first"
+        frame.ShapesSave.Shapes.Add(circle);  // index 1 → "last"
+        chain.Frames.Add(frame);
+        ctx.ProjectManager.AnimationChainListSave!.AnimationChains.Add(chain);
+        return (frame, rect, circle);
+    }
+
+    [AvaloniaFact]
+    public void RectMenu_HasCopyPasteDuplicateRenameAndMatchFrameSize()
+    {
+        var (window, ctx) = CreateWindow();
+        try
+        {
+            var (_, rect, _) = SetupFrameWithTwoShapes(ctx);
+            var items = OpenMenuFor(window, rect, "Rect");
+
+            int copy = IndexOfItem(items, "Copy");
+            Assert.True(copy >= 0);
+            Assert.Equal(copy + 1, IndexOfItem(items, "Paste"));
+            Assert.Equal(copy + 2, IndexOfItem(items, "Duplicate"));
+            Assert.True(IndexOfItem(items, "Rename…")        >= 0);
+            Assert.True(IndexOfItem(items, "Match Frame Size") >= 0);
+            Assert.True(IndexOfItem(items, "Delete Rectangle") >= 0);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void RectMenu_FirstOfTwoShapes_ShowsMoveDownButNotMoveUp()
+    {
+        var (window, ctx) = CreateWindow();
+        try
+        {
+            // Rect is at index 0 → only the "move toward the end" items make sense.
+            var (_, rect, _) = SetupFrameWithTwoShapes(ctx);
+            var items = OpenMenuFor(window, rect, "Rect");
+
+            Assert.True(IndexOfItem(items, "v  Move Down")      >= 0);
+            Assert.True(IndexOfItem(items, "vv Move To Bottom") >= 0);
+            Assert.Equal(-1, IndexOfItem(items, "^  Move Up"));
+            Assert.Equal(-1, IndexOfItem(items, "^^ Move To Top"));
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void CircleMenu_HasCopyPasteDuplicateRename_AndNoMatchFrameSize()
+    {
+        var (window, ctx) = CreateWindow();
+        try
+        {
+            var (_, _, circle) = SetupFrameWithTwoShapes(ctx);
+            var items = OpenMenuFor(window, circle, "Circle");
+
+            int copy = IndexOfItem(items, "Copy");
+            Assert.True(copy >= 0);
+            Assert.Equal(copy + 1, IndexOfItem(items, "Paste"));
+            Assert.Equal(copy + 2, IndexOfItem(items, "Duplicate"));
+            Assert.True(IndexOfItem(items, "Rename…")      >= 0);
+            Assert.True(IndexOfItem(items, "Delete Circle") >= 0);
+            // Match Frame Size is rect-only.
+            Assert.Equal(-1, IndexOfItem(items, "Match Frame Size"));
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void CommitInlineRename_Rectangle_RenamesShape()
+    {
+        var (window, ctx) = CreateWindow();
+        try
+        {
+            var (_, rect, _) = SetupFrameWithTwoShapes(ctx);
+            var vm = new TreeNodeVm { Header = "Rect", Data = rect };
+
+            window.CommitInlineRenamePublic(vm, "Renamed");
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("Renamed", rect.Name);
+        }
+        finally { window.Close(); }
+    }
 }

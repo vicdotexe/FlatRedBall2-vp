@@ -2300,6 +2300,7 @@ public partial class MainWindow : Window
 
         if (vm?.Data is AARectSave rect)
         {
+            AddShapeReorderItems(rect, _objectFinder.GetAnimationFrameContaining(rect));
             AddMenuItem("Match Frame Size", () =>
             {
                 var frame = _selectedState.SelectedFrame;
@@ -2310,6 +2311,13 @@ public partial class MainWindow : Window
                     _appCommands.SaveCurrentAnimationChainList();
                 }
             });
+            AddSeparator();
+            AddMenuItem("Copy",  () => _ = HandleCopyAsync());
+            AddMenuItem("Paste", () => _ = HandlePasteAsync());
+            AddMenuItem("Duplicate", () => _appCommands.DuplicateShape(rect));
+            AddSeparator();
+            AddMenuItem("Rename…", () => BeginInlineRename(vm!, rect.Name));
+            AddSeparator();
             AddMenuItem("Delete Rectangle", () =>
             {
                 var frame = _objectFinder.GetAnimationFrameContaining(rect);
@@ -2319,6 +2327,13 @@ public partial class MainWindow : Window
         }
         else if (vm?.Data is CircleSave circle)
         {
+            AddShapeReorderItems(circle, _objectFinder.GetAnimationFrameContaining(circle));
+            AddMenuItem("Copy",  () => _ = HandleCopyAsync());
+            AddMenuItem("Paste", () => _ = HandlePasteAsync());
+            AddMenuItem("Duplicate", () => _appCommands.DuplicateShape(circle));
+            AddSeparator();
+            AddMenuItem("Rename…", () => BeginInlineRename(vm!, circle.Name));
+            AddSeparator();
             AddMenuItem("Delete Circle", () =>
             {
                 var frame = _objectFinder.GetAnimationFrameContaining(circle);
@@ -2404,6 +2419,23 @@ public partial class MainWindow : Window
         AddSeparator();
         AddMenuItem("Sort Animations Alphabetically",
             () => _appCommands.SortAnimationsAlphabetically());
+    }
+
+    // Adds the four reorder items (To Top / Up / Down / To Bottom) for a shape,
+    // guarded by the shape's position within its frame's combined shape list — the
+    // same convention the frame menu uses. No-op when the frame has one shape or less.
+    private void AddShapeReorderItems(object shape, AnimationFrameSave? frame)
+    {
+        var shapes = frame?.ShapesSave?.Shapes;
+        if (shapes is null || shapes.Count <= 1) return;
+        int  index   = shapes.IndexOf(shape);
+        bool isFirst = index == 0;
+        bool isLast  = index == shapes.Count - 1;
+        if (!isFirst) AddMenuItem("^^ Move To Top",   () => _appCommands.MoveShapeToTop(shape, frame!));
+        if (!isFirst) AddMenuItem("^  Move Up",        () => _appCommands.MoveShape(shape, frame!, -1));
+        if (!isLast)  AddMenuItem("v  Move Down",      () => _appCommands.MoveShape(shape, frame!, +1));
+        if (!isLast)  AddMenuItem("vv Move To Bottom", () => _appCommands.MoveShapeToBottom(shape, frame!));
+        AddSeparator();
     }
 
     private void AddMenuItem(string header, Action onClick)
@@ -3453,6 +3485,8 @@ public partial class MainWindow : Window
                 // has temporarily lost focus (e.g. immediately after ALT+arrow reorder, where
                 // focus shifts before our Background-priority re-focus post runs).
                 var vm = AnimTree.SelectedItem as TreeNodeVm
+                      ?? (_selectedState.SelectedShape is { } ss
+                              ? TreeBuilder.FindNodeForData(_treeRoots, ss) : null)
                       ?? (_selectedState.SelectedFrame is { } sf
                               ? TreeBuilder.FindNodeForData(_treeRoots, sf) : null)
                       ?? (_selectedState.SelectedChain is { } sc
@@ -3464,6 +3498,10 @@ public partial class MainWindow : Window
                         BeginInlineRename(vm, chain.Name);
                     else if (vm.Data is AnimationFrameSave frame)
                         BeginInlineRename(vm, frame.HasCustomName ? frame.Name : string.Empty);
+                    else if (vm.Data is AARectSave rect)
+                        BeginInlineRename(vm, rect.Name);
+                    else if (vm.Data is CircleSave circle)
+                        BeginInlineRename(vm, circle.Name);
                 }
                 else
                     WireframeCtrl.ToggleDebugMode();
@@ -4206,6 +4244,20 @@ public partial class MainWindow : Window
         {
             if (!string.IsNullOrEmpty(newName))
                 _appCommands.RenameFrame(frame, newName);
+        }
+        else if (vm.Data is AARectSave rect)
+        {
+            if (!string.IsNullOrEmpty(newName) && newName != rect.Name)
+                _appCommands.SetRectProps(
+                    _objectFinder.GetAnimationFrameContaining(rect),
+                    rect, newName, rect.X, rect.Y, rect.ScaleX, rect.ScaleY);
+        }
+        else if (vm.Data is CircleSave circle)
+        {
+            if (!string.IsNullOrEmpty(newName) && newName != circle.Name)
+                _appCommands.SetCircleProps(
+                    _objectFinder.GetAnimationFrameContaining(circle),
+                    circle, newName, circle.X, circle.Y, circle.Radius);
         }
 
         AnimTree.Focus();

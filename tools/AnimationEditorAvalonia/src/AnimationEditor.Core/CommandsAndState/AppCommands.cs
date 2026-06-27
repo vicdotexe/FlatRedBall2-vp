@@ -562,6 +562,28 @@ namespace AnimationEditor.Core.CommandsAndState
                 delta > 0 ? "Move Shape Down" : "Move Shape Up"));
         }
 
+        public void MoveShapeToTop(object shape, AnimationFrameSave frame)
+        {
+            var shapes = frame.ShapesSave?.Shapes;
+            if (shapes is null || !shapes.Contains(shape)) return;
+            _undoManager.Execute(new ReorderCommand<object>(
+                shapes,
+                () => { shapes.Remove(shape); shapes.Insert(0, shape); },
+                this, _events, () => RefreshTreeNode(frame),
+                "Move Shape to Top"));
+        }
+
+        public void MoveShapeToBottom(object shape, AnimationFrameSave frame)
+        {
+            var shapes = frame.ShapesSave?.Shapes;
+            if (shapes is null || !shapes.Contains(shape)) return;
+            _undoManager.Execute(new ReorderCommand<object>(
+                shapes,
+                () => { shapes.Remove(shape); shapes.Add(shape); },
+                this, _events, () => RefreshTreeNode(frame),
+                "Move Shape to Bottom"));
+        }
+
         /// <summary>
         /// Moves the currently-selected shape, frame, or chain up (<paramref name="delta"/> = -1)
         /// or down (<paramref name="delta"/> = +1) in the tree.

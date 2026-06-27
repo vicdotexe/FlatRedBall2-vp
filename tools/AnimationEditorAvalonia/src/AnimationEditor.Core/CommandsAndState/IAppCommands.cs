@@ -101,6 +101,8 @@ namespace AnimationEditor.Core.CommandsAndState
         void MoveFrameToTop(AnimationFrameSave frame, AnimationChainSave chain);
         void MoveFrameToBottom(AnimationFrameSave frame, AnimationChainSave chain);
         void MoveShape(object shape, AnimationFrameSave frame, int delta);
+        void MoveShapeToTop(object shape, AnimationFrameSave frame);
+        void MoveShapeToBottom(object shape, AnimationFrameSave frame);
         void HandleReorder(int delta);
         void FlipFrameHorizontally(AnimationFrameSave frame);
         void FlipFrameVertically(AnimationFrameSave frame);
