@@ -79,12 +79,6 @@ Invoke these with the Skill tool when working on specific topics:
 - **InternalsVisibleTo**: `FlatRedBall2.Tests` accesses internal members (PhysicsUpdate, AddEntity, etc.)
 - **CollisionDispatcher**: `internal static` class — shape-pair resolution uses concrete type matching
 
-## Known Stubs (Not Yet Implemented)
-
-Do not attempt to use these — they exist as API placeholders:
-- DebugRenderer: All draw methods are no-ops
-- Tiled integration: `TileMapCollisions` uses MonoGame.Extended 6.0 preview
-
 ## Test-First Discipline (Repo-Wide, Non-Negotiable)
 
 **Every code change that alters behavior must either (a) start with a failing test that the change makes pass, or (b) include an explicit, written explanation of why a test was not feasible.** This applies to the entire repository — engine (`src/`), tools (`tools/`), samples, anything. There is no third option. Silently skipping tests is not allowed.

@@ -23,6 +23,7 @@ FlatRedBall2 is a 2D game engine built on MonoGame. It provides physics, collisi
 - **Screen subclasses** — override `CustomInitialize` (create factories, entities, collision relationships, UI)
 - **Collision relationships** — call `AddCollisionRelationship` in screen's `CustomInitialize`
 - **Game1.cs** — initialize `FlatRedBallService.Default`, call `Update`/`Draw` each frame
+- **Save/load** — the engine offers nothing here; use standard .NET (`System.IO` + `System.Text.Json`, or your serializer of choice). There is no FRB2 save API to search for.
 
 ## Frame Loop Order
 
@@ -39,35 +40,7 @@ Each frame runs in this order:
 
 ## Bootstrapping a Game
 
-```csharp
-// Game1.cs
-public Game1()
-{
-    _graphics = new GraphicsDeviceManager(this);
-    Content.RootDirectory = "Content";
-    FlatRedBallService.Default.PrepareWindow<GameplayScreen>(_graphics);
-}
-
-protected override void Initialize()
-{
-    base.Initialize();
-    FlatRedBallService.Default.Initialize(this);
-    FlatRedBallService.Default.Start<GameplayScreen>();
-}
-
-protected override void Update(GameTime gameTime)
-{
-    if (Keyboard.GetState().IsKeyDown(Keys.Escape)) Exit();
-    FlatRedBallService.Default.Update(gameTime);
-    base.Update(gameTime);
-}
-
-protected override void Draw(GameTime gameTime)
-{
-    FlatRedBallService.Default.Draw();
-    base.Draw(gameTime);
-}
-```
+`Game1.cs` wires the MonoGame loop to FRB: `PrepareWindow<TScreen>` in the constructor, then `FlatRedBallService.Default.Initialize(this)` + `Start<TScreen>()` in `Initialize`, then `Update`/`Draw` each frame. The complete template — including the `GraphicsProfile.HiDef` setup that crashes at startup if omitted — lives in `sample-project-setup`; don't hand-roll it.
 
 ## Key Design Rules
 
@@ -78,10 +51,11 @@ protected override void Draw(GameTime gameTime)
 - **`Entity.Engine`**: Use `CustomInitialize`, not the constructor — `Engine` is null until Factory injects it.
 - **Use Gum for all UI** — HUD, health bars, menus, win/lose screens, any text display. Shapes are for world-space game objects (collision geometry, projectiles, platforms). If you reach for a shape to build UI, stop and use Gum instead.
 
-## Complete Screen Example
+## What a Screen Looks Like
 
-A minimal but complete screen showing factory + entity + collision + input wired together:
+A screen creates its `Factory<T>` instances in `CustomInitialize`, spawns entities with `Create()`, and wires `AddCollisionRelationship` over those factories — the gestalt the per-topic skills show piecewise:
 
+<!-- skill-creator: allow-long-csharp reason="canonical screen gestalt — factory fields + Create + collision wiring composed in one place; the composition is the point and isn't shown together elsewhere" -->
 ```csharp
 public class GameScreen : Screen
 {
@@ -92,21 +66,10 @@ public class GameScreen : Screen
     {
         _playerFactory = new Factory<Player>(this);
         _wallFactory = new Factory<Wall>(this);
-
         _playerFactory.Create();
-
-        // Bottom wall
-        var wall = _wallFactory.Create();
-        wall.X = 0; wall.Y = -Camera.OrthogonalHeight / 2f;
-        wall.Rectangle.Width = Camera.OrthogonalWidth; wall.Rectangle.Height = 40;
 
         AddCollisionRelationship<Player, Wall>(_playerFactory, _wallFactory)
             .MoveFirstOnCollision();
-    }
-
-    public override void CustomActivity(FrameTime time)
-    {
-        // Screen-level logic here — runs after entities and collision
     }
 }
 ```
@@ -119,8 +82,7 @@ public class GameScreen : Screen
 | `Content` | `ContentLoader` | Load textures, fonts via `.mgcb` pipeline |
 | `Random` | `GameRandom` | Seeded random with helpers (`Between`, `RadialVector2`) |
 | `Time` | `TimeManager` | Frame timing, async delays |
-| `Audio` | `AudioManager` | **Stub — throws NotImplementedException** |
-| `DebugRenderer` | `DebugRenderer` | **Stub — all draw methods are no-ops** |
+| `Audio` | `AudioManager` | Load/play `SoundEffect` and `Song`, music, volume (see `audio`) |
 
 ## Which Skill to Read Next
 
