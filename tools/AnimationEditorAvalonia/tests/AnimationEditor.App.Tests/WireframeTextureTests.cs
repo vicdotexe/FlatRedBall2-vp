@@ -45,6 +45,76 @@ public class WireframeTextureTests
         return path;
     }
 
+    // ── Undecodable texture must not crash (issue #479) ───────────────────────
+
+    /// <summary>
+    /// Regression for issue #479: <see cref="SKBitmap.Decode"/> returns <c>null</c> (it does
+    /// not throw) for a file that exists but cannot be decoded as an image — a zero-byte file,
+    /// a corrupt/truncated PNG, a mislabeled non-image, or a locked file. The old code handed
+    /// that null straight to <c>SKImage.FromBitmap</c>, which threw <see cref="ArgumentNullException"/>
+    /// on the dispatcher and terminated the process.
+    ///
+    /// <see cref="WireframeControl.LoadTexture"/> must instead fail gracefully: not throw, and
+    /// leave the control in a coherent unloaded state — even when a valid texture was loaded first.
+    /// </summary>
+    [AvaloniaFact]
+    public void Wireframe_LoadTexture_UndecodableFile_DoesNotThrow_LeavesUnloaded()
+    {
+        var ctx = ResetSingletons();
+        var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        System.IO.Directory.CreateDirectory(dir);
+        try
+        {
+            var goodPng = WriteSolidPng(dir, "good.png", SKColors.Red, size: 32);
+
+            // Zero-byte file: exists on disk, but SKBitmap.Decode returns null.
+            var badPath = System.IO.Path.Combine(dir, "corrupt.png");
+            System.IO.File.WriteAllBytes(badPath, Array.Empty<byte>());
+
+            var ctrl = ctx.CreateWireframeControl();
+
+            // Establish a loaded texture first, so we also verify the failed load clears it.
+            ctrl.LoadTexture(goodPng);
+            Assert.NotNull(ctrl.LoadedTexturePath);
+
+            var ex = Record.Exception(() => ctrl.LoadTexture(badPath));
+            Assert.Null(ex);   // must not throw (was ArgumentNullException via SKImage.FromBitmap)
+
+            Assert.Null(ctrl.LoadedTexturePath);   // coherent unloaded state
+            Assert.Equal((0, 0), ctrl.BitmapSize);
+        }
+        finally { System.IO.Directory.Delete(dir, true); }
+    }
+
+    /// <summary>
+    /// <see cref="WireframeControl.LoadTexture"/> reports success via its return value so callers
+    /// can commit the texture name only when the image actually displays (issue #479 rollback):
+    /// <c>true</c> for a valid image and for an empty/clear path, <c>false</c> for an undecodable
+    /// file or a path that isn't on disk.
+    /// </summary>
+    [AvaloniaFact]
+    public void Wireframe_LoadTexture_ReturnsLoadOutcome()
+    {
+        var ctx = ResetSingletons();
+        var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        System.IO.Directory.CreateDirectory(dir);
+        try
+        {
+            var goodPng = WriteSolidPng(dir, "good.png", SKColors.Green, size: 16);
+            var badPath = System.IO.Path.Combine(dir, "corrupt.png");
+            System.IO.File.WriteAllBytes(badPath, Array.Empty<byte>());
+            var missingPath = System.IO.Path.Combine(dir, "does-not-exist.png");
+
+            var ctrl = ctx.CreateWireframeControl();
+
+            Assert.True(ctrl.LoadTexture(goodPng),      "valid image should load");
+            Assert.False(ctrl.LoadTexture(badPath),     "undecodable file should report failure");
+            Assert.False(ctrl.LoadTexture(missingPath), "missing file should report failure");
+            Assert.True(ctrl.LoadTexture(null),         "empty path is an intentional clear, not a failure");
+        }
+        finally { System.IO.Directory.Delete(dir, true); }
+    }
+
     // ── LoadTexture from frame TextureName ────────────────────────────────────
 
     /// <summary>

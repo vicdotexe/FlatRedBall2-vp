@@ -592,7 +592,16 @@ public class WireframeControl : Control
     /// Load a PNG from disk and show it. Pass null to clear the view.
     /// Saves the camera position for the old texture and restores it for the new one.
     /// </summary>
-    public void LoadTexture(string? filePath)
+    /// <summary>
+    /// Loads <paramref name="filePath"/> as the displayed texture. Returns <c>true</c> when the
+    /// texture is shown (or when <paramref name="filePath"/> is empty, an intentional clear);
+    /// returns <c>false</c> when a non-empty path could not be displayed — the file is missing,
+    /// or it exists but cannot be decoded as an image (corrupt/truncated/mislabeled/locked).
+    /// On failure the control is left in a coherent unloaded state. Callers that persist the
+    /// texture name should commit it only when this returns <c>true</c>, so a file the editor
+    /// can't display never gets saved into the .achx (issue #479).
+    /// </summary>
+    public bool LoadTexture(string? filePath)
     {
         // Lowercased + slash-normalized form used only for cache-key comparison and the
         // _loadedTexturePath identity that downstream filter code keys on. The case-preserving
@@ -604,7 +613,7 @@ public class WireframeControl : Control
         {
             // Texture hasn't changed, but the selected frame may have, so update frame rects.
             RefreshFramesInternal();
-            return;
+            return true;
         }
 
         // Save camera for the texture we're leaving
@@ -621,6 +630,18 @@ public class WireframeControl : Control
         if (casePreserved != null && File.Exists(casePreserved))
         {
             _bitmap = SKBitmap.Decode(casePreserved);
+            if (_bitmap == null)
+            {
+                // SKBitmap.Decode returns null (it does NOT throw) when the file exists but
+                // can't be decoded — corrupt/truncated PNG, zero-byte file, mislabeled or
+                // unsupported format, or a file locked by another process. Handing that null
+                // to SKImage.FromBitmap throws ArgumentNullException on the dispatcher and
+                // terminates the app (issue #479). Leave the control unloaded and report failure.
+                _loadedTexturePath = null;
+                RefreshFramesInternal();
+                return false;
+            }
+
             // Upload pixels into an immutable SKImage on the UI thread so the
             // render thread never touches the SKBitmap directly. Without this,
             // SKCanvas.DrawBitmap on the render thread crashes with AV.
@@ -642,9 +663,15 @@ public class WireframeControl : Control
             {
                 CenterTexture();
             }
+
+            RefreshFramesInternal();
+            return true;
         }
 
+        // casePreserved == null means filePath was empty: an intentional clear (success).
+        // A non-empty path that isn't on disk is a load failure.
         RefreshFramesInternal();
+        return casePreserved == null;
     }
 
     /// <summary>
