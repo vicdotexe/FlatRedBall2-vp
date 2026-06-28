@@ -2624,8 +2624,26 @@ public partial class MainWindow : Window
         string absolutePath = TexturePathHelper.ResolveDisplayPath(inputText, achxFolder);
         string storePath    = TexturePathHelper.ComputeStorePath(absolutePath, achxFolder);
 
+        CommitFrameTexture(frame, storePath, absolutePath);
+    }
+
+    /// <summary>
+    /// Displays <paramref name="absolutePath"/> and, only if it decodes, commits
+    /// <paramref name="storePath"/> as the frame's texture name. If the image can't be loaded
+    /// (corrupt/undecodable/missing — see issue #479), the name is left untouched so no broken
+    /// reference reaches the undo stack or the saved .achx, the wireframe is restored to the
+    /// frame's current texture, and a non-fatal status message is shown.
+    /// </summary>
+    private void CommitFrameTexture(AnimationFrameSave frame, string storePath, string absolutePath)
+    {
+        if (!WireframeCtrl.LoadTexture(absolutePath))
+        {
+            ShowStatusMessage($"⚠ Could not load image: {absolutePath}", isError: true);
+            WireframeCtrl.RefreshAll();   // restore the display to the frame's current texture
+            return;
+        }
+
         _appCommands.SetFrameTextureName(frame, storePath);
-        WireframeCtrl.LoadTexture(absolutePath);
         RefreshPropertyPanel();
     }
 
@@ -2683,9 +2701,7 @@ public partial class MainWindow : Window
                             try
                             {
                                 File.Copy(capturedSource, capturedDest, overwrite: true);
-                                _appCommands.SetFrameTextureName(frame, TexturePathHelper.ComputeStorePath(capturedDest, achxFolder));
-                                WireframeCtrl.LoadTexture(capturedDest);
-                                RefreshPropertyPanel();
+                                CommitFrameTexture(frame, TexturePathHelper.ComputeStorePath(capturedDest, achxFolder), capturedDest);
                             }
                             catch (Exception retryEx)
                             {
@@ -2703,9 +2719,7 @@ public partial class MainWindow : Window
             ? resolvedAbsPath
             : TexturePathHelper.ComputeStorePath(resolvedAbsPath, achxFolder);
 
-        _appCommands.SetFrameTextureName(frame, storePath);
-        WireframeCtrl.LoadTexture(resolvedAbsPath);
-        RefreshPropertyPanel();
+        CommitFrameTexture(frame, storePath, resolvedAbsPath);
     }
 
     private enum TextureCopyChoice { Copy, Keep, Cancel }
@@ -4084,9 +4098,19 @@ public partial class MainWindow : Window
         string newAbsPath = Path.Combine(dir, baseName + "Resize.png");
 
         using (var src = SKBitmap.Decode(absTexPath))
-        using (var resized = new SKBitmap(newW, newH))
-        using (var canvas = new SKCanvas(resized))
         {
+            // The file decoded fine at the top of this method, but the user has since been in a
+            // modal dialog — it could have been deleted, truncated, or locked in the meantime.
+            // SKBitmap.Decode returns null (it does not throw); guard before DrawBitmap so a
+            // race doesn't crash the app on the dispatcher (issue #479).
+            if (src is null)
+            {
+                ShowStatusMessage("⚠ Could not read texture file.", isError: true);
+                return;
+            }
+
+            using var resized = new SKBitmap(newW, newH);
+            using var canvas  = new SKCanvas(resized);
             canvas.DrawBitmap(src, new SKRect(0, 0, newW, newH));
             canvas.Flush();
             using var stream = File.OpenWrite(newAbsPath);
