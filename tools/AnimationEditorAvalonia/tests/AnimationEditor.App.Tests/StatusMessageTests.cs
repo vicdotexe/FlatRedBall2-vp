@@ -67,6 +67,23 @@ public class StatusMessageTests
     }
 
     [AvaloniaFact]
+    public void ErrorBanner_StripsLeadingWarningGlyph_NoDoubleIcon()
+    {
+        var (window, ctx) = CreateWindow();
+        try
+        {
+            // LoadAnimationChain failure reports "⚠ Could not load '<file>': ...".
+            ctx.AppCommands.LoadAnimationChain("hero.achx");
+            Dispatcher.UIThread.RunJobs();
+
+            // The banner renders its own ⚠ icon, so the text must not also start with one.
+            var text = window.FindControl<TextBlock>("ErrorBannerText")!;
+            Assert.DoesNotContain("⚠", text.Text);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public void ErrorBanner_Dismiss_HidesBanner()
     {
         var (window, ctx) = CreateWindow();

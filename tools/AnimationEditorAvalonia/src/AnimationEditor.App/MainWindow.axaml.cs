@@ -3451,7 +3451,9 @@ public partial class MainWindow : Window
     /// </summary>
     private void ShowErrorBanner(string text)
     {
-        ErrorBannerText.Text = text;
+        // The banner draws its own ⚠ icon, so drop a leading warning glyph that callers prepend
+        // (many ShowStatusMessage sites use "⚠ ..."), otherwise the icon shows twice.
+        ErrorBannerText.Text = text.TrimStart('⚠', ' ');
         ErrorBanner.IsVisible = true;
 
         _errorBannerTimer?.Stop();
