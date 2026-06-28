@@ -97,7 +97,7 @@ Imperative. Lead with the *why* behind each rule — the model generalizes from 
 
 ## Process — creating or iterating
 
-There is no automated eval harness; the human reviews skill output by hand.
+There is no automated eval harness; the human reviews skill output by hand. **Show every edit verbatim before applying it** — present the exact lines added and removed, not a paraphrase. The wording is the artifact; a summary hides what actually lands in context.
 
 1. **Read the ground truth first** — the relevant source and its XML docs — so you can point instead of restate.
 2. **Skim a few existing skills** under `frb-skills/` and `.claude/skills/` to match style and depth.

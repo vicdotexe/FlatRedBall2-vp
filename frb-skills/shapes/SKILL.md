@@ -64,6 +64,8 @@ var rect = new AARect
 
 > **Polygon fill:** `IsFilled = true` ear-clip triangulates and fills the interior (works for concave polygons). `IsFilled = false` renders outline only. Set `OutlineThickness = 0` to suppress the border when filled.
 
+> **Dashed/dotted outlines, gradients, drop shadows:** FRB shapes render solid outlines only. For richer visualization, drop into Gum's `RectangleRuntime` — Gum ships with every FRB2 game, so there's nothing to add (see `gum-integration`). Docs: https://docs.flatredball.com/gum/code/standard-visuals/rectangleruntime
+
 ## Cleanup
 
 ```csharp
