@@ -1250,6 +1250,7 @@ public partial class MainWindow : Window
         MenuSave.Click   += OnSaveClick;
         MenuSaveAs.Click += OnSaveAsClick;
         MenuAbout.Click  += OnAboutClick;
+        MenuViewLog.Click += OnViewLogClick;
         MenuCopy.Click          += (_, _) => _ = HandleCopyAsync();
         MenuPaste.Click         += (_, _) => _ = HandlePasteAsync();
         MenuDuplicate.Click     += (_, _) => HandleDuplicate();
@@ -1319,6 +1320,7 @@ public partial class MainWindow : Window
         ToggleHotReload: () => { _appCommands.HotReloadWatcher.IsEnabled = !_appCommands.HotReloadWatcher.IsEnabled; },
         ResizeTexture:   () => _ = DoResizeTextureAsync(),
         ShowHistory:     () => SetHistoryVisible(true),
+        ViewLog:         () => OnViewLogClick(null, null!),
         About:           () => _ = BuildAboutWindow().ShowDialog(this));
 
     private void RefreshRecentFiles()
@@ -1395,6 +1397,24 @@ public partial class MainWindow : Window
 
     private void OnAboutClick(object? sender, RoutedEventArgs e)
         => _ = BuildAboutWindow().ShowDialog(this);
+
+    private void OnViewLogClick(object? sender, RoutedEventArgs e)
+    {
+        var path = Services.CrashLogging.LogFilePath;
+        if (path == null || !File.Exists(path))
+        {
+            ShowStatusMessage("No log yet.");
+            return;
+        }
+        try
+        {
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            ShowStatusMessage($"⚠ Could not open log: {ex.Message}", isError: true);
+        }
+    }
 
     /// <summary>
     /// Returns a fully-configured About window centered on its owner.

@@ -22,4 +22,5 @@ internal sealed record NativeMenuActions(
     Action ToggleHotReload,
     Action ResizeTexture,
     Action ShowHistory,
+    Action ViewLog,
     Action About);

@@ -13,6 +13,10 @@ class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Install crash logging first so even a failure during startup gets recorded.
+        CrashLogging.Install(AppContext.BaseDirectory,
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
+
         string? fileArg = args.Length >= 1 && File.Exists(args[0]) ? args[0] : null;
 
         var singleInstance = new SingleInstanceServer();
@@ -34,9 +38,20 @@ class Program
         // calling setProcessName: afterwards has no visible effect on the Dock label.
         MacOSDockIcon.SetProcessName("Animation Editor");
         App.SingleInstance = singleInstance;
-        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
-
-        singleInstance.Dispose();
+        try
+        {
+            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        }
+        catch (Exception ex)
+        {
+            // Record main-thread startup/run crashes, then let the process die as before.
+            CrashLogging.LogCrash("Main", ex);
+            throw;
+        }
+        finally
+        {
+            singleInstance.Dispose();
+        }
     }
 
     // Avalonia configuration, don't remove; also used by visual designer.

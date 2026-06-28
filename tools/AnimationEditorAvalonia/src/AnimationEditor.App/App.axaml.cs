@@ -34,6 +34,10 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        // Catch UI-thread crashes (e.g. the SKImage.FromBitmap crash in #479, which came
+        // through the dispatcher). The background-thread handlers are installed in Program.Main.
+        Services.CrashLogging.InstallDispatcherHandler();
+
         var services = BuildServices();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -110,6 +114,7 @@ public partial class App : Application
         viewMenu.Add(new NativeMenuItem("Show History") { Command = Cmd(a.ShowHistory) });
 
         var helpMenu = new NativeMenu();
+        helpMenu.Add(new NativeMenuItem("View Log") { Command = Cmd(a.ViewLog) });
         helpMenu.Add(new NativeMenuItem("About Animation Editor") { Command = Cmd(a.About) });
 
         var appMenu = new NativeMenu();
