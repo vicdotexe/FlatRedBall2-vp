@@ -3634,9 +3634,16 @@ public partial class MainWindow : Window
         else if (frames is { Count: > 0 })
         {
             AnimationChainSave? targetChain = null;
+            // With a frame selected, insert right after it (matching Duplicate). With a chain
+            // selected (or nothing), append (null index).
+            int? insertIndex = null;
             if (selectedData is AnimationChainSave c) targetChain = c;
             else if (selectedData is AnimationFrameSave f)
+            {
                 targetChain = _objectFinder.GetAnimationChainContaining(f);
+                int idx = targetChain?.Frames.IndexOf(f) ?? -1;
+                if (idx >= 0) insertIndex = idx + 1;
+            }
 
             if (targetChain is null && acls.AnimationChains.Count > 0)
                 targetChain = acls.AnimationChains[^1];
@@ -3647,7 +3654,7 @@ public partial class MainWindow : Window
                 pasted.ShapesSave ??= new ShapesSave();
 
             FramePasteLogic.AssignUniqueNames(targetChain.Frames, frames);
-            _appCommands.PasteFrames(targetChain, frames);
+            _appCommands.PasteFrames(targetChain, frames, insertIndex);
             _selectedState.SelectedFrame = frames[^1];
             _appCommands.RefreshWireframe();
         }

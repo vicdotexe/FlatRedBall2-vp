@@ -1095,8 +1095,9 @@ namespace AnimationEditor.Core.CommandsAndState
         }
 
         /// <inheritdoc cref="IAppCommands.PasteFrames"/>
-        public void PasteFrames(AnimationChainSave chain, IReadOnlyList<AnimationFrameSave> frames) =>
-            _undoManager.Execute(new AddFramesCommand(frames.ToArray(), chain, this, _events, _selectedState));
+        public void PasteFrames(AnimationChainSave chain, IReadOnlyList<AnimationFrameSave> frames,
+            int? insertIndex = null) =>
+            _undoManager.Execute(new AddFramesCommand(frames.ToArray(), chain, this, _events, _selectedState, insertIndex));
 
         /// <inheritdoc cref="IAppCommands.PasteRectangle"/>
         public void PasteRectangle(AnimationFrameSave frame, AARectSave rectangle) =>
