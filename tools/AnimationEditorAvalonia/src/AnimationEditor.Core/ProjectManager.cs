@@ -161,6 +161,27 @@ namespace AnimationEditor.Core
             return sizeCache;
         }
 
+        /// <summary>
+        /// Resolves <paramref name="textureName"/> (relative to the loaded .achx's directory, or
+        /// absolute) to its pixel size by reading the PNG header. Returns <c>null</c> when the name
+        /// is empty or the PNG can't be read. Used by exporters that need pixel rects while the
+        /// in-memory model holds UV coordinates.
+        /// </summary>
+        public (int Width, int Height)? GetTextureSizeInPixels(string textureName)
+        {
+            if (string.IsNullOrEmpty(textureName)) return null;
+
+            var dir = string.IsNullOrEmpty(FileName)
+                ? string.Empty
+                : System.IO.Path.GetDirectoryName(FileName) ?? string.Empty;
+            var path = System.IO.Path.IsPathRooted(textureName)
+                ? textureName
+                : System.IO.Path.Combine(dir, textureName);
+
+            var size = TryReadPngSize(path);
+            return size == null ? null : (size.Value.W, size.Value.H);
+        }
+
         private static (int W, int H)? TryReadPngSize(string path)
         {
             try

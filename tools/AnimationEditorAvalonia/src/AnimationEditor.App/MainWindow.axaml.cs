@@ -571,6 +571,15 @@ public partial class MainWindow : Window
         _appCommands.ItemsDeleted += label =>
             Dispatcher.UIThread.InvokeAsync(() => ShowItemDeletedToast(label));
 
+        _appCommands.PixiJsExportCompleted += (path, warnings) =>
+            Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                var name = System.IO.Path.GetFileName(path);
+                ShowToast(warnings.Count == 0
+                    ? $"Exported {name}"
+                    : $"Exported {name} — {string.Join(" ", warnings)}");
+            });
+
         ItemDeletedToastUndoBtn.Click += (_, _) =>
         {
             _toastCts?.Cancel();
@@ -1250,6 +1259,7 @@ public partial class MainWindow : Window
         MenuLoad.Click   += OnLoadClick;
         MenuSave.Click   += OnSaveClick;
         MenuSaveAs.Click += OnSaveAsClick;
+        MenuExportPixiJs.Click += OnExportPixiJsClick;
         MenuAbout.Click  += OnAboutClick;
         MenuViewLog.Click += OnViewLogClick;
         MenuCopy.Click          += (_, _) => _ = HandleCopyAsync();
@@ -1393,6 +1403,9 @@ public partial class MainWindow : Window
 
     private void OnSaveAsClick(object? sender, RoutedEventArgs e) =>
         _ = _appCommands.SaveCurrentAnimationChainListAsync();
+
+    private void OnExportPixiJsClick(object? sender, RoutedEventArgs e) =>
+        _ = _appCommands.ExportToPixiJsAsync();
 
     internal const string GitHubUrl = "https://github.com/vchelaru/FlatRedBall2";
 

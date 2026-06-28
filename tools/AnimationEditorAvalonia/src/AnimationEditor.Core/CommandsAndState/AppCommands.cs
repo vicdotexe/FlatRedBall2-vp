@@ -121,6 +121,9 @@ namespace AnimationEditor.Core.CommandsAndState
         /// </summary>
         public event Action<string>? SaveAsCompleted;
 
+        /// <inheritdoc cref="IAppCommands.PixiJsExportCompleted"/>
+        public event Action<string, IReadOnlyList<string>>? PixiJsExportCompleted;
+
         /// <inheritdoc cref="IAppCommands.LoadFailed"/>
         public event Action<string, Exception>? LoadFailed;
 
@@ -273,6 +276,74 @@ namespace AnimationEditor.Core.CommandsAndState
             _ioManager.DeleteRecoveryFile();
             SaveAsCompleted?.Invoke(path);
             _events.RaiseCurrentFileChanged(path);
+        }
+
+        /// <summary>
+        /// Show a file picker and export the current animation chain list as a PixiJS spritesheet
+        /// JSON (<c>SpriteSheetJson</c>). Does nothing if there is no project or the user cancels.
+        /// Fires <see cref="PixiJsExportCompleted"/> with the path and any non-fatal warnings
+        /// (dropped per-frame duration, multiple source textures) on success.
+        /// </summary>
+        public async Task ExportToPixiJsAsync()
+        {
+            var acls = _pm.AnimationChainListSave;
+            if (acls == null) return;
+
+            var path = await FileDialogService.PickSaveFileAsync(
+                "Export to PixiJS", "json", "PixiJS Spritesheet (*.json)");
+            if (string.IsNullOrEmpty(path)) return;
+
+            var result = Export.PixiJsSpriteSheetExporter.Export(acls, _pm.GetTextureSizeInPixels);
+            System.IO.File.WriteAllText(path, result.Json);
+
+            // PixiJS resolves meta.image relative to the JSON, so when exporting elsewhere the
+            // referenced textures must travel with it. Copy each relative texture (preserving any
+            // subdirectory) from the .achx's directory into the export directory.
+            var exportDir = System.IO.Path.GetDirectoryName(path) ?? string.Empty;
+            var sourceDir = string.IsNullOrEmpty(_pm.FileName)
+                ? string.Empty
+                : System.IO.Path.GetDirectoryName(_pm.FileName) ?? string.Empty;
+            var copyWarnings = CopyReferencedTextures(result.ReferencedTextures, sourceDir, exportDir);
+
+            PixiJsExportCompleted?.Invoke(path, result.Warnings.Concat(copyWarnings).ToList());
+        }
+
+        /// <summary>
+        /// Copies each relative texture in <paramref name="textureNames"/> from
+        /// <paramref name="sourceDir"/> to <paramref name="exportDir"/>, preserving any
+        /// subdirectory. No-op when the directories are the same or the source is unknown
+        /// (unsaved project). Rooted (absolute) texture names are left in place. Returns a
+        /// warning per texture that could not be found at the source.
+        /// </summary>
+        private static IReadOnlyList<string> CopyReferencedTextures(
+            IReadOnlyList<string> textureNames, string sourceDir, string exportDir)
+        {
+            var warnings = new List<string>();
+
+            if (string.IsNullOrEmpty(sourceDir) || string.IsNullOrEmpty(exportDir)) return warnings;
+            if (string.Equals(System.IO.Path.GetFullPath(sourceDir),
+                              System.IO.Path.GetFullPath(exportDir),
+                              StringComparison.OrdinalIgnoreCase))
+                return warnings;
+
+            foreach (var name in textureNames)
+            {
+                if (string.IsNullOrEmpty(name) || System.IO.Path.IsPathRooted(name)) continue;
+
+                var src = System.IO.Path.Combine(sourceDir, name);
+                if (!System.IO.File.Exists(src))
+                {
+                    warnings.Add($"Texture '{name}' was not found next to the .achx, so it was not copied.");
+                    continue;
+                }
+
+                var dest = System.IO.Path.Combine(exportDir, name);
+                var destDir = System.IO.Path.GetDirectoryName(dest);
+                if (!string.IsNullOrEmpty(destDir)) System.IO.Directory.CreateDirectory(destDir);
+                System.IO.File.Copy(src, dest, overwrite: true);
+            }
+
+            return warnings;
         }
 
         public void DeleteAnimationChains(List<AnimationChainSave> animationChains)

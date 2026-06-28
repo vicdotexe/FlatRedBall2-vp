@@ -16,6 +16,12 @@ namespace AnimationEditor.Core
         void SaveAnimationChainList(string targetPath);
 
         /// <summary>
+        /// Resolves a frame's texture name to its pixel size (PNG header read), relative to the
+        /// loaded .achx directory. Returns <c>null</c> when the name is empty or unreadable.
+        /// </summary>
+        (int Width, int Height)? GetTextureSizeInPixels(string textureName);
+
+        /// <summary>
         /// Returns the texture names referenced by <paramref name="acls"/> that cannot be
         /// decoded from <paramref name="achxDirectory"/>. An empty list means all textures
         /// are present and valid. Only non-empty texture names are checked; each unique name

@@ -76,5 +76,7 @@ public class AppCommandsSaveFailTests
 
         public IReadOnlyList<string> FindMissingTextures(AnimationChainListSave acls, string achxDirectory)
             => Array.Empty<string>();
+
+        public (int Width, int Height)? GetTextureSizeInPixels(string textureName) => null;
     }
 }

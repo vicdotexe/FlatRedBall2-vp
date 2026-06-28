@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PixiJS SpriteSheetJson",
+  "description": "Structural schema for a PixiJS spritesheet manifest. Transcribed from https://pixijs.download/release/docs/assets.SpriteSheetJson.html. Only `frames` and `meta` are required; within a frame only `frame` is required.",
+  "type": "object",
+  "required": ["frames", "meta"],
+  "properties": {
+    "frames": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/frameData" }
+    },
+    "animations": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "required": ["image", "scale"],
+      "properties": {
+        "image": { "type": "string" },
+        "scale": { "type": "string" },
+        "related_multi_packs": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "rect": {
+      "type": "object",
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "w": { "type": "number" },
+        "h": { "type": "number" }
+      }
+    },
+    "size": {
+      "type": "object",
+      "required": ["w", "h"],
+      "properties": {
+        "w": { "type": "number" },
+        "h": { "type": "number" }
+      }
+    },
+    "point": {
+      "type": "object",
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" }
+      }
+    },
+    "frameData": {
+      "type": "object",
+      "required": ["frame"],
+      "properties": {
+        "frame": { "$ref": "#/definitions/rect" },
+        "rotated": { "type": "boolean" },
+        "trimmed": { "type": "boolean" },
+        "sourceSize": { "$ref": "#/definitions/size" },
+        "spriteSourceSize": { "$ref": "#/definitions/rect" },
+        "anchor": { "$ref": "#/definitions/point" }
+      }
+    }
+  }
+}
