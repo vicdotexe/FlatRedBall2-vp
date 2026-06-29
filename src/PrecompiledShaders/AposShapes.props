@@ -22,7 +22,14 @@
 
     After changing $(AposShapesVersion):
       1. Rebuild a sample on each platform (DesktopGL, BlazorGL) so the content
-         pipeline compiles fresh apos-shapes.xnb files.
+         pipeline compiles fresh apos-shapes.xnb files. Use the PINNED MonoGame
+         toolchain ($(MonoGamePackageVersion) — see below), not a newer preview MGCB:
+           dotnet build samples/PlatformKing/PlatformKing.Desktop/PlatformKing.Desktop.csproj
+             -p:_FRB2HasPrecompiledAposShapes=false -p:SkipAposShapeContent=false
+           dotnet build samples/PlatformKing/PlatformKing.BlazorGL/PlatformKing.BlazorGL.csproj
+             -p:_FRB2HasPrecompiledAposShapes=false -p:SkipAposShapeContent=false
+         Copy DesktopGL apos-shapes.xnb from the Desktop bin/Content/ output; copy
+         BlazorGL apos-shapes.xnb from wwwroot/Content/ when it changes.
       2. Copy the new XNBs into src/PrecompiledShaders/<platform>/.
       3. Copy AposShapesPrecompiled.props and the XNBs into each dotnet template's
          build/ folder (templates/frb2-desktop/build/, templates/frb2-multiplatform/build/).
@@ -37,5 +44,7 @@
   -->
   <PropertyGroup>
     <AposShapesVersion>0.6.10-alpha</AposShapesVersion>
+    <!-- Must match templates' MonoGame package + dotnet-mgcb tool versions. -->
+    <MonoGamePackageVersion>3.8.4.1</MonoGamePackageVersion>
   </PropertyGroup>
 </Project>

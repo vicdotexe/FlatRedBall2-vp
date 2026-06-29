@@ -61,7 +61,9 @@ public class TemplatePackageReferenceTests
         File.ReadAllBytes(expectedPath).ShouldBe(File.ReadAllBytes(actualPath));
     }
 
-    private static string RepoRoot
+    private static string RepoRoot => RepoRootForTests;
+
+    internal static string RepoRootForTests
     {
         get
         {
