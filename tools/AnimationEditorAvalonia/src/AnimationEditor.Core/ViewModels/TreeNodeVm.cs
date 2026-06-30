@@ -89,6 +89,14 @@ public class TreeNodeVm : INotifyPropertyChanged
     /// <summary>True when this node represents a CircleSave shape. Set once at construction time.</summary>
     public bool IsCircleNode { get; set; }
 
+    private bool _isPendingCut;
+    /// <summary>True while this item is part of a pending cut (Ctrl+X, not yet pasted).</summary>
+    public bool IsPendingCut
+    {
+        get => _isPendingCut;
+        set { if (_isPendingCut != value) { _isPendingCut = value; Notify(); } }
+    }
+
     /// <summary>
     /// True when this is a frame node that currently has no shape children.
     /// Used by the tree template to show a spacer that matches the chevron width,

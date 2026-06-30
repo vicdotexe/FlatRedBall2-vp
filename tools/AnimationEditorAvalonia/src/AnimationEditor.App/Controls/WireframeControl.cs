@@ -69,7 +69,10 @@ public class WireframeControl : Control
         /// Null when no frame is selected or origin data is unavailable.
         /// </summary>
         public float? OriginTexX, OriginTexY;
+        public List<SKRect> PendingCutFrameBounds = new();
     }
+
+    private static readonly SKColor CutOutlineColor = new(224, 112, 48, 220);
 
     private sealed class DrawOp : ICustomDrawOperation
     {
@@ -81,7 +84,7 @@ public class WireframeControl : Control
         public Rect Bounds { get; }
         public bool HitTest(Point p) => true;
         public bool Equals(ICustomDrawOperation? other) => false;
-        public void Dispose() { }
+        public void Dispose() => _s.Image?.Dispose();
 
         public void Render(ImmediateDrawingContext ctx)
         {
@@ -143,6 +146,20 @@ public class WireframeControl : Control
                 }
                 canvas.DrawRect(sr, frameFill);
                 canvas.DrawRect(sr, frameStroke);
+            }
+
+            // Pending-cut frames: dashed orange overlay (distinct from selection blue).
+            if (s.PendingCutFrameBounds.Count > 0)
+            {
+                using var cutPaint = new SKPaint
+                {
+                    Color = CutOutlineColor,
+                    Style = SKPaintStyle.Stroke,
+                    StrokeWidth = 2f,
+                    PathEffect = SKPathEffect.CreateDash(new float[] { 6f, 4f }, 0f),
+                };
+                foreach (var bounds in s.PendingCutFrameBounds)
+                    canvas.DrawRect(ToScreen(bounds, s), cutPaint);
             }
 
             // Resize handles on selected frame
@@ -460,6 +477,7 @@ public class WireframeControl : Control
 
     private ISelectedState? _selectedState;
     private IAppState? _appState;
+    private IPendingCutState? _pendingCutState;
     private IAppCommands? _appCommands;
     private IApplicationEvents? _events;
     private IProjectManager? _projectManager;
@@ -475,16 +493,19 @@ public class WireframeControl : Control
         IAppCommands appCommands,
         IApplicationEvents events,
         IProjectManager projectManager,
-        IUndoManager undoManager)
+        IUndoManager undoManager,
+        IPendingCutState pendingCutState)
     {
         _selectedState   = selectedState;
         _appState        = appState;
+        _pendingCutState = pendingCutState;
         _appCommands     = appCommands;
         _events          = events;
         _projectManager  = projectManager;
         _undoManager     = undoManager;
 
         _selectedState.SelectionChanged     += () => Dispatcher.UIThread.InvokeAsync(RefreshAll);
+        _pendingCutState.Changed            += () => Dispatcher.UIThread.InvokeAsync(InvalidateVisual);
         _appCommands.RefreshWireframeRequested += () => Dispatcher.UIThread.InvokeAsync(RefreshAll);
         _events.AchxLoaded                  += _ => Dispatcher.UIThread.InvokeAsync(RefreshAll);
     }
@@ -1050,10 +1071,17 @@ public class WireframeControl : Control
     {
         UpdatePalette();
         var snap   = BuildSnapshot(width, height);
-        var bitmap = new SKBitmap(width, height);
-        using var canvas = new SKCanvas(bitmap);
-        DrawOp.RenderSk(canvas, snap, _palette);
-        return bitmap;
+        try
+        {
+            var bitmap = new SKBitmap(width, height);
+            using var canvas = new SKCanvas(bitmap);
+            DrawOp.RenderSk(canvas, snap, _palette);
+            return bitmap;
+        }
+        finally
+        {
+            snap.Image?.Dispose();
+        }
     }
 
     /// <summary>
@@ -1117,7 +1145,8 @@ public class WireframeControl : Control
     {
         var snap = new RenderSnapshot
         {
-            Image        = _image,
+            // Per-draw-op clone so LoadTexture can dispose _image without racing the render thread.
+            Image        = CloneBitmapAsImage(_bitmap),
             ImageWidth   = _bitmap?.Width ?? 0,
             ImageHeight  = _bitmap?.Height ?? 0,
             PanX         = _panX,
@@ -1133,6 +1162,8 @@ public class WireframeControl : Control
 
         foreach (var fr in _frameRects)
             snap.Frames.Add((fr.Bounds, fr.IsSelected));
+
+        snap.PendingCutFrameBounds.AddRange(BuildPendingCutFrameBounds());
 
         var sel = _frameRects.FirstOrDefault(f => f.IsSelected);
         if (sel != null && !_isMagicWandMode)
@@ -1152,6 +1183,18 @@ public class WireframeControl : Control
         // Move-drag still works via HitTestHandle, which uses _frameRects directly.
 
         return snap;
+    }
+
+    /// <summary>
+    /// Builds an <see cref="SKImage"/> owned by a single <see cref="DrawOp"/> so the UI thread
+    /// can replace <see cref="_image"/> in <see cref="LoadTexture"/> without use-after-dispose on
+    /// the render thread.
+    /// </summary>
+    private static SKImage? CloneBitmapAsImage(SKBitmap? bitmap)
+    {
+        if (bitmap is null) return null;
+        var copy = bitmap.Copy();
+        return SKImage.FromBitmap(copy);
     }
 
     // ── Mouse input ───────────────────────────────────────────────────────────
@@ -1839,6 +1882,37 @@ public class WireframeControl : Control
         }
 
         InvalidateVisual();
+    }
+
+    private List<SKRect> BuildPendingCutFrameBounds()
+    {
+        var result = new List<SKRect>();
+        if (_pendingCutState is null || !_pendingCutState.IsActive || _bitmap is null)
+            return result;
+
+        string? achxFolder = string.IsNullOrEmpty(_projectManager!.FileName)
+            ? null
+            : (Path.GetDirectoryName(_projectManager!.FileName) ?? string.Empty);
+
+        float w = _bitmap.Width;
+        float h = _bitmap.Height;
+
+        foreach (var frame in _pendingCutState.WireframeFrames)
+        {
+            if (string.IsNullOrEmpty(frame.TextureName)) continue;
+            if (achxFolder != null && _loadedTexturePath != null)
+            {
+                var fp = new FilePath(Path.Combine(achxFolder, frame.TextureName));
+                if (!fp.Equals(new FilePath(_loadedTexturePath))) continue;
+            }
+
+            float pixL = frame.LeftCoordinate   * w;
+            float pixT = frame.TopCoordinate    * h;
+            float pixR = frame.RightCoordinate  * w;
+            float pixB = frame.BottomCoordinate * h;
+            result.Add(new SKRect(pixL, pixT, pixR, pixB));
+        }
+        return result;
     }
 
     private void CenterTexture()

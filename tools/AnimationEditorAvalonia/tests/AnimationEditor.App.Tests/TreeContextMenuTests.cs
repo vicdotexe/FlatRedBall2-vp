@@ -89,8 +89,9 @@ public class TreeContextMenuTests
 
             int copy = IndexOfItem(items, "Copy");
             Assert.True(copy >= 0);
-            Assert.Equal(copy + 1, IndexOfItem(items, "Paste"));
-            Assert.Equal(copy + 2, IndexOfItem(items, "Duplicate"));
+            Assert.Equal(copy + 1, IndexOfItem(items, "Cut"));
+            Assert.Equal(copy + 2, IndexOfItem(items, "Paste"));
+            Assert.Equal(copy + 3, IndexOfItem(items, "Duplicate"));
         }
         finally { window.Close(); }
     }
@@ -109,8 +110,9 @@ public class TreeContextMenuTests
 
             int copy = IndexOfItem(items, "Copy");
             Assert.True(copy >= 0);
-            Assert.Equal(copy + 1, IndexOfItem(items, "Paste"));
-            Assert.Equal(copy + 2, IndexOfItem(items, "Duplicate"));
+            Assert.Equal(copy + 1, IndexOfItem(items, "Cut"));
+            Assert.Equal(copy + 2, IndexOfItem(items, "Paste"));
+            Assert.Equal(copy + 3, IndexOfItem(items, "Duplicate"));
         }
         finally { window.Close(); }
     }
@@ -144,8 +146,9 @@ public class TreeContextMenuTests
 
             int copy = IndexOfItem(items, "Copy");
             Assert.True(copy >= 0);
-            Assert.Equal(copy + 1, IndexOfItem(items, "Paste"));
-            Assert.Equal(copy + 2, IndexOfItem(items, "Duplicate"));
+            Assert.Equal(copy + 1, IndexOfItem(items, "Cut"));
+            Assert.Equal(copy + 2, IndexOfItem(items, "Paste"));
+            Assert.Equal(copy + 3, IndexOfItem(items, "Duplicate"));
             Assert.True(IndexOfItem(items, "Rename…")        >= 0);
             Assert.True(IndexOfItem(items, "Match Frame Size") >= 0);
             Assert.True(IndexOfItem(items, "Delete Rectangle") >= 0);
@@ -182,8 +185,9 @@ public class TreeContextMenuTests
 
             int copy = IndexOfItem(items, "Copy");
             Assert.True(copy >= 0);
-            Assert.Equal(copy + 1, IndexOfItem(items, "Paste"));
-            Assert.Equal(copy + 2, IndexOfItem(items, "Duplicate"));
+            Assert.Equal(copy + 1, IndexOfItem(items, "Cut"));
+            Assert.Equal(copy + 2, IndexOfItem(items, "Paste"));
+            Assert.Equal(copy + 3, IndexOfItem(items, "Duplicate"));
             Assert.True(IndexOfItem(items, "Rename…")      >= 0);
             Assert.True(IndexOfItem(items, "Delete Circle") >= 0);
             // Match Frame Size is rect-only.

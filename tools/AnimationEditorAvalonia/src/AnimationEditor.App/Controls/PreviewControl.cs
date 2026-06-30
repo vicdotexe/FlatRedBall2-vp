@@ -284,6 +284,9 @@ public class PreviewControl : Control
     private IProjectManager? _projectManager;
     private IUndoManager? _undoManager;
     private ThumbnailService? _thumbnailService;
+    private IPendingCutState? _pendingCutState;
+
+    private static readonly SKColor CutOutlineColor = new(224, 112, 48, 220);
 
     /// <summary>
     /// Called from MainWindow after DI container wires all services.
@@ -296,7 +299,8 @@ public class PreviewControl : Control
         IApplicationEvents events,
         IProjectManager projectManager,
         IUndoManager undoManager,
-        ThumbnailService thumbnailService)
+        ThumbnailService thumbnailService,
+        IPendingCutState pendingCutState)
     {
         _selectedState  = selectedState;
         _appState       = appState;
@@ -305,8 +309,10 @@ public class PreviewControl : Control
         _projectManager = projectManager;
         _undoManager    = undoManager;
         _thumbnailService = thumbnailService;
+        _pendingCutState  = pendingCutState;
 
         _selectedState.SelectionChanged                        += () => Dispatcher.UIThread.InvokeAsync(OnSelectionChanged);
+        _pendingCutState.Changed                               += () => Dispatcher.UIThread.InvokeAsync(InvalidateVisual);
         // Content edits change the union extent, hence the scrollbar range — refresh alongside the repaint.
         _events.AnimationChainsChanged                         += () => Dispatcher.UIThread.InvokeAsync(() => { InvalidateVisual(); RaiseViewChanged(); });
         _events.AchxLoaded                                     += _ => Dispatcher.UIThread.InvokeAsync(OnSelectionChanged);
@@ -1040,12 +1046,13 @@ public class PreviewControl : Control
         }
 
         var list = new List<PreviewShapeInfo>();
+        var pendingShapes = _pendingCutState?.WireframeShapes.ToHashSet() ?? [];
         foreach (var r in frame.ShapesSave!.AARectSaves)
             list.Add(new PreviewShapeInfo(PreviewShapeKind.Rect, r.X, r.Y, r.ScaleX, r.ScaleY,
-                selectedRects.Contains(r)));
+                selectedRects.Contains(r), pendingShapes.Contains(r)));
         foreach (var c in frame.ShapesSave!.CircleSaves)
             list.Add(new PreviewShapeInfo(PreviewShapeKind.Circle, c.X, c.Y, c.Radius, 0f,
-                selectedCircles.Contains(c)));
+                selectedCircles.Contains(c), pendingShapes.Contains(c)));
         return list.ToArray();
     }
 
@@ -1629,7 +1636,8 @@ public class PreviewControl : Control
         PreviewShapeKind Kind,
         float X, float Y,
         float Param1, float Param2,
-        bool IsSelected);
+        bool IsSelected,
+        bool IsPendingCut = false);
 
     private record RenderSnapshot(
         AnimationFrameSave? Frame,
@@ -1761,6 +1769,26 @@ public class PreviewControl : Control
                         canvas.DrawRect(new SKRect(sx - sr, sy - sr, sx + sr, sy + sr), boxPaint);
                     }
                     canvas.DrawCircle(sx, sy, sh.Param1 * om, paint);
+                }
+
+                if (sh.IsPendingCut)
+                {
+                    using var cutPaint = new SKPaint
+                    {
+                        Color = CutOutlineColor,
+                        Style = SKPaintStyle.Stroke,
+                        StrokeWidth = 2f,
+                        IsAntialias = true,
+                        PathEffect = SKPathEffect.CreateDash(new float[] { 6f, 4f }, 0f),
+                    };
+                    if (sh.Kind == PreviewShapeKind.Rect)
+                    {
+                        float hw = sh.Param1 * om;
+                        float hh = sh.Param2 * om;
+                        canvas.DrawRect(new SKRect(sx - hw, sy - hh, sx + hw, sy + hh), cutPaint);
+                    }
+                    else
+                        canvas.DrawCircle(sx, sy, sh.Param1 * om, cutPaint);
                 }
             }
         }

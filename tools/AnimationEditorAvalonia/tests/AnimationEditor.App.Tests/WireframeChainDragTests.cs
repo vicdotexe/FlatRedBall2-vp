@@ -83,7 +83,6 @@ public class WireframeChainDragTests
         ctx.SelectedState.SelectedChain = chain;
 
         var ctrl = ctx.CreateWireframeControl();
-        ctrl.InitializeServices(ctx.SelectedState, ctx.AppState, ctx.AppCommands, ctx.ApplicationEvents, ctx.ProjectManager, ctx.UndoManager);
         ctrl.LoadTexture(png);
         ctrl.SetCamera(0f, 0f, 1f);
         ctrl.RefreshFrames();

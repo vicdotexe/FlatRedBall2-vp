@@ -16,6 +16,7 @@ internal sealed record NativeMenuActions(
     Action Undo,
     Action Redo,
     Action Copy,
+    Action Cut,
     Action Paste,
     Action Duplicate,
     Action ReloadFromDisk,

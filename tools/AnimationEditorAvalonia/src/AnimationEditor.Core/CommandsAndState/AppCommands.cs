@@ -270,6 +270,7 @@ namespace AnimationEditor.Core.CommandsAndState
 
             _events.RaiseCurrentFileChanged(tab.Path.FullPath);
             _events.RaiseAvailableTexturesChanged();
+            EditorProjectModelChanged?.Invoke(tab.Path.FullPath);
             return true;
         }
 
@@ -1312,6 +1313,87 @@ namespace AnimationEditor.Core.CommandsAndState
         public void PasteShapes(AnimationFrameSave frame, IReadOnlyList<AARectSave> rectangles,
             IReadOnlyList<CircleSave> circles)
         {
+            var clones = BuildShapeClones(frame, rectangles, circles);
+            if (clones.Count == 0) return;
+            _undoManager.Execute(new PasteShapesCommand(frame, clones, this, _events, _selectedState));
+        }
+
+        /// <inheritdoc cref="IAppCommands.PasteChainsCut"/>
+        public void PasteChainsCut(IReadOnlyList<AnimationChainSave> chains,
+            IReadOnlyList<AnimationChainSave> sourcesToRemove)
+        {
+            var acls = _pm.AnimationChainListSave;
+            if (acls is null || chains.Count == 0) return;
+
+            var cmds = new List<IUndoableCommand>
+            {
+                new PasteChainsCommand(acls, chains, this, _events, _selectedState),
+                new DeleteChainsCommand(sourcesToRemove, acls, this, _events, _selectedState),
+            };
+            string desc = chains.Count == 1 ? "Cut Animation" : $"Cut {chains.Count} Animations";
+            _undoManager.Execute(new CompositeCommand(cmds, desc));
+        }
+
+        /// <inheritdoc cref="IAppCommands.PasteFramesCut"/>
+        public void PasteFramesCut(AnimationChainSave targetChain,
+            IReadOnlyList<AnimationFrameSave> frames, int? insertIndex,
+            IReadOnlyList<AnimationFrameSave> sourcesToRemove)
+        {
+            if (frames.Count == 0) return;
+            var clones = frames.Select(AnimationCloneHelper.CloneFrame).ToArray();
+            var cmds = new List<IUndoableCommand>
+            {
+                new AddFramesCommand(clones, targetChain, this, _events, _selectedState, insertIndex),
+            };
+            foreach (var group in sourcesToRemove
+                         .Select(f => (Frame: f, Chain: _objectFinder.GetAnimationChainContaining(f)))
+                         .Where(x => x.Chain is not null)
+                         .GroupBy(x => x.Chain!))
+            {
+                cmds.Add(new DeleteFramesCommand(
+                    group.Select(x => x.Frame).ToList(), group.Key, this, _events, _selectedState));
+            }
+            string desc = frames.Count == 1 ? "Cut Frame" : $"Cut {frames.Count} Frames";
+            _undoManager.Execute(new CompositeCommand(cmds, desc));
+        }
+
+        /// <inheritdoc cref="IAppCommands.PasteShapesCut"/>
+        public void PasteShapesCut(AnimationFrameSave targetFrame,
+            IReadOnlyList<AARectSave> rectangles, IReadOnlyList<CircleSave> circles,
+            IReadOnlyList<object> sourcesToRemove, AnimationFrameSave sourceFrame)
+        {
+            var clones = BuildShapeClones(targetFrame, rectangles, circles);
+            if (clones.Count == 0) return;
+
+            var deleteCmds = new List<IUndoableCommand>();
+            foreach (var shape in sourcesToRemove)
+            {
+                switch (shape)
+                {
+                    case AARectSave r:
+                        deleteCmds.Add(new DeleteAxisAlignedRectangleCommand(
+                            r, sourceFrame, this, _events, _selectedState));
+                        break;
+                    case CircleSave c:
+                        deleteCmds.Add(new DeleteCircleCommand(
+                            c, sourceFrame, this, _events, _selectedState));
+                        break;
+                }
+            }
+            if (deleteCmds.Count == 0) return;
+
+            var cmds = new List<IUndoableCommand>
+            {
+                new PasteShapesCommand(targetFrame, clones, this, _events, _selectedState),
+            };
+            cmds.AddRange(deleteCmds);
+            string desc = clones.Count == 1 ? "Cut Shape" : $"Cut {clones.Count} Shapes";
+            _undoManager.Execute(new CompositeCommand(cmds, desc));
+        }
+
+        private List<object> BuildShapeClones(AnimationFrameSave frame,
+            IReadOnlyList<AARectSave> rectangles, IReadOnlyList<CircleSave> circles)
+        {
             frame.ShapesSave ??= new ShapesSave();
             var existingNames = GetShapeNames(frame);
             var clones = new List<object>();
@@ -1329,8 +1411,7 @@ namespace AnimationEditor.Core.CommandsAndState
                 existingNames.Add(copy.Name);
                 clones.Add(copy);
             }
-            if (clones.Count == 0) return;
-            _undoManager.Execute(new PasteShapesCommand(frame, clones, this, _events, _selectedState));
+            return clones;
         }
 
         // ── Hot Reload ────────────────────────────────────────────────────────────

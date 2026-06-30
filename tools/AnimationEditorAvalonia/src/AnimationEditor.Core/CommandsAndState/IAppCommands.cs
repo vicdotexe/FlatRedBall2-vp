@@ -235,6 +235,19 @@ namespace AnimationEditor.Core.CommandsAndState
         void PasteShapes(AnimationFrameSave frame, IReadOnlyList<AARectSave> rectangles,
             IReadOnlyList<CircleSave> circles);
 
+        /// <summary>Paste chains then remove <paramref name="sourcesToRemove"/> in one undo step.</summary>
+        void PasteChainsCut(IReadOnlyList<AnimationChainSave> chains,
+            IReadOnlyList<AnimationChainSave> sourcesToRemove);
+
+        /// <summary>Paste frames then remove <paramref name="sourcesToRemove"/> in one undo step.</summary>
+        void PasteFramesCut(AnimationChainSave targetChain, IReadOnlyList<AnimationFrameSave> frames,
+            int? insertIndex, IReadOnlyList<AnimationFrameSave> sourcesToRemove);
+
+        /// <summary>Paste shapes then remove <paramref name="sourcesToRemove"/> in one undo step.</summary>
+        void PasteShapesCut(AnimationFrameSave targetFrame,
+            IReadOnlyList<AARectSave> rectangles, IReadOnlyList<CircleSave> circles,
+            IReadOnlyList<object> sourcesToRemove, AnimationFrameSave sourceFrame);
+
         /// <summary>Duplicates the homogeneous multi-selection as one undo step.</summary>
         void DuplicateSelection(CopySelectionPayload payload);
     }
