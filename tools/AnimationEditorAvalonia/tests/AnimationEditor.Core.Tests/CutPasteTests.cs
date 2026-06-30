@@ -153,4 +153,17 @@ public class CutPasteTests
         Assert.Same(walkF0, walk.Frames[0]);
         Assert.Same(runF1, run.Frames[1]);
     }
+
+    [Fact]
+    public void SourcesBelongToProject_FalseWhenSourceFromOtherAcls()
+    {
+        var cut = new PendingCutState();
+        var ctxA = TestHelpers.SetupFreshAcls();
+        var ctxB = TestHelpers.SetupFreshAcls();
+        var chain = TestHelpers.MakeChain(ctxA.Acls, "Walk", 1);
+        cut.Set(new CopySelectionPayload { Kind = CopySelectionKind.Chain, Chains = new[] { chain } });
+
+        Assert.True(cut.SourcesBelongToProject(ctxA.Acls, ctxA.ObjectFinder));
+        Assert.False(cut.SourcesBelongToProject(ctxB.Acls, ctxB.ObjectFinder));
+    }
 }

@@ -41,16 +41,7 @@ public class TreeNodeVm : INotifyPropertyChanged
     public bool IsEditing
     {
         get => _isEditing;
-        set
-        {
-            if (_isEditing != value)
-            {
-                _isEditing = value;
-                Notify();
-                Notify(nameof(ShowDefaultHeader));
-                Notify(nameof(ShowCutHeader));
-            }
-        }
+        set { if (_isEditing != value) { _isEditing = value; Notify(); } }
     }
 
     private string _editingText = string.Empty;
@@ -103,23 +94,8 @@ public class TreeNodeVm : INotifyPropertyChanged
     public bool IsPendingCut
     {
         get => _isPendingCut;
-        set
-        {
-            if (_isPendingCut != value)
-            {
-                _isPendingCut = value;
-                Notify();
-                Notify(nameof(ShowDefaultHeader));
-                Notify(nameof(ShowCutHeader));
-            }
-        }
+        set { if (_isPendingCut != value) { _isPendingCut = value; Notify(); } }
     }
-
-    /// <summary>Default header label when not pending cut and not inline-editing.</summary>
-    public bool ShowDefaultHeader => !_isPendingCut && !_isEditing;
-
-    /// <summary>Cut-pending header label (orange accent).</summary>
-    public bool ShowCutHeader => _isPendingCut && !_isEditing;
 
     /// <summary>
     /// True when this is a frame node that currently has no shape children.

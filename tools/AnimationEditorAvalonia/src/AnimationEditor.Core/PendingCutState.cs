@@ -28,6 +28,9 @@ public interface IPendingCutState
 
     /// <summary>Shapes that should show a cut outline in the preview panel.</summary>
     IReadOnlyList<object> WireframeShapes { get; }
+
+    /// <summary>True when every pending-cut source still lives in <paramref name="acls"/>.</summary>
+    bool SourcesBelongToProject(AnimationChainListSave? acls, IObjectFinder finder);
 }
 
 public sealed class PendingCutState : IPendingCutState
@@ -74,4 +77,25 @@ public sealed class PendingCutState : IPendingCutState
             CopySelectionKind.Shape => _payload.Shapes.Contains(data),
             _ => false,
         };
+
+    public bool SourcesBelongToProject(AnimationChainListSave? acls, IObjectFinder finder)
+    {
+        if (_payload is null || acls is null) return false;
+        return _payload.Kind switch
+        {
+            CopySelectionKind.Chain => _payload.Chains.All(acls.AnimationChains.Contains),
+            CopySelectionKind.Frame => _payload.Frames.All(f =>
+                acls.AnimationChains.Any(c => c.Frames.Contains(f))),
+            CopySelectionKind.Shape => _payload.Shapes.All(s => s switch
+            {
+                AARectSave r => BelongsToProject(finder.GetAnimationFrameContaining(r), acls),
+                CircleSave c => BelongsToProject(finder.GetAnimationFrameContaining(c), acls),
+                _ => false,
+            }),
+            _ => false,
+        };
+    }
+
+    private static bool BelongsToProject(AnimationFrameSave? frame, AnimationChainListSave acls) =>
+        frame is not null && acls.AnimationChains.Any(c => c.Frames.Contains(frame));
 }

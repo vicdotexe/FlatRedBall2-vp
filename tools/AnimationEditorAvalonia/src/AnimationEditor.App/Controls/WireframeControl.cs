@@ -84,7 +84,7 @@ public class WireframeControl : Control
         public Rect Bounds { get; }
         public bool HitTest(Point p) => true;
         public bool Equals(ICustomDrawOperation? other) => false;
-        public void Dispose() { }
+        public void Dispose() => _s.Image?.Dispose();
 
         public void Render(ImmediateDrawingContext ctx)
         {
@@ -1071,10 +1071,17 @@ public class WireframeControl : Control
     {
         UpdatePalette();
         var snap   = BuildSnapshot(width, height);
-        var bitmap = new SKBitmap(width, height);
-        using var canvas = new SKCanvas(bitmap);
-        DrawOp.RenderSk(canvas, snap, _palette);
-        return bitmap;
+        try
+        {
+            var bitmap = new SKBitmap(width, height);
+            using var canvas = new SKCanvas(bitmap);
+            DrawOp.RenderSk(canvas, snap, _palette);
+            return bitmap;
+        }
+        finally
+        {
+            snap.Image?.Dispose();
+        }
     }
 
     /// <summary>
@@ -1138,7 +1145,8 @@ public class WireframeControl : Control
     {
         var snap = new RenderSnapshot
         {
-            Image        = _image,
+            // Snapshot so LoadTexture can dispose _image without racing the render thread.
+            Image        = _image?.Snapshot(),
             ImageWidth   = _bitmap?.Width ?? 0,
             ImageHeight  = _bitmap?.Height ?? 0,
             PanX         = _panX,

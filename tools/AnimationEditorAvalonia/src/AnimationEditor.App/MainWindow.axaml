@@ -389,10 +389,18 @@
                             <Setter Property="IsHitTestVisible" Value="True" />
                             <Setter Property="Focusable" Value="True" />
                         </Style>
+                        <!-- Pending cut (Ctrl+X): light orange wash across the full row -->
+                        <Style Selector="Border.cut-pending">
+                            <Setter Property="Background" Value="#28E07030" />
+                            <Setter Property="CornerRadius" Value="2" />
+                            <Setter Property="Padding" Value="2,1" />
+                        </Style>
                     </TreeView.Styles>
                     <TreeView.ItemTemplate>
                         <TreeDataTemplate x:DataType="models:TreeNodeVm"
                                           ItemsSource="{Binding Children}">
+                            <Border Classes.cut-pending="{Binding IsPendingCut}"
+                                    HorizontalAlignment="Stretch">
                             <Grid ColumnDefinitions="*,Auto,Auto" HorizontalAlignment="Stretch">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                     <!-- Node kind icons: SVG files are the single source of truth for path data. -->
@@ -430,25 +438,12 @@
                                              Path="avares://AnimationEditor/Assets/icons/svg/IconCircle.svg"
                                              CurrentColor="{DynamicResource IconInkDim}" />
                                     <Panel>
-                                        <!-- Display mode -->
                                         <TextBlock Text="{Binding Header}"
                                                    Foreground="{DynamicResource Ink}"
                                                    Padding="2,1"
                                                    VerticalAlignment="Center"
-                                                   IsVisible="{Binding ShowDefaultHeader}"
+                                                   IsVisible="{Binding !IsEditing}"
                                                    DoubleTapped="OnHeaderTextDoubleTapped" />
-                                        <!-- Pending-cut indicator: orange left bar (distinct from selection) -->
-                                        <Border IsVisible="{Binding ShowCutHeader}"
-                                                BorderBrush="#E07030"
-                                                BorderThickness="2,0,0,0"
-                                                Padding="4,0,0,0"
-                                                VerticalAlignment="Stretch"
-                                                IsHitTestVisible="False">
-                                            <TextBlock Text="{Binding Header}"
-                                                       Foreground="#E07030"
-                                                       Padding="2,1"
-                                                       VerticalAlignment="Center" />
-                                        </Border>
                                         <!-- Inline-edit mode: match TextBlock font/padding so it sits in the same spot -->
                                         <TextBox Text="{Binding EditingText, Mode=TwoWay}"
                                                  IsVisible="{Binding IsEditing}"
@@ -486,6 +481,7 @@
                                         Click="OnAddFrameBtnClick"
                                         DoubleTapped="OnAddFrameBtnDoubleTapped" />
                             </Grid>
+                            </Border>
                         </TreeDataTemplate>
                     </TreeView.ItemTemplate>
                 </TreeView>

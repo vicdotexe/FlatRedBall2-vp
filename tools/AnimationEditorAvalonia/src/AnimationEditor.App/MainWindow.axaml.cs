@@ -394,6 +394,8 @@ public partial class MainWindow : Window
     {
         if (tab == _tabManager.ActiveTab) return;
 
+        ClearPendingCut();
+
         // Save the leaving tab's undo history and in-memory model before the editor switches.
         var leavingTab = _tabManager.ActiveTab;
         if (leavingTab != null)
@@ -422,6 +424,7 @@ public partial class MainWindow : Window
 
     private void ActivateUntitledTabContent(TabEntry tab)
     {
+        ClearPendingCut();
         _projectManager.AnimationChainListSave =
             tab.CachedEditorModel ?? new AnimationChainListSave();
         _projectManager.FileName = null;
@@ -599,8 +602,7 @@ public partial class MainWindow : Window
         _appCommands.EditorProjectModelChanged += path =>
             Dispatcher.UIThread.InvokeAsync(() =>
             {
-                _pendingCutState.Clear();
-                SyncPendingCutHighlights();
+                ClearPendingCut();
                 SyncTabCacheFromEditor(path);
             });
 
@@ -3889,6 +3891,12 @@ public partial class MainWindow : Window
 
         var selectedData = SelectedData;
         bool completingCut = _pendingCutState.IsActive;
+        if (completingCut && !_pendingCutState.SourcesBelongToProject(acls, _objectFinder))
+        {
+            _pendingCutState.Clear();
+            SyncPendingCutHighlights();
+            completingCut = false;
+        }
 
         if (chains is { Count: > 0 })
         {
@@ -3962,6 +3970,13 @@ public partial class MainWindow : Window
             Walk(root);
         WireframeCtrl.InvalidateVisual();
         PreviewCtrl.InvalidateVisual();
+    }
+
+    private void ClearPendingCut()
+    {
+        if (!_pendingCutState.IsActive) return;
+        _pendingCutState.Clear();
+        SyncPendingCutHighlights();
     }
 
     private bool TreeMultiSelectionAlreadySynced(IReadOnlyList<object> dataObjects)

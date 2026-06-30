@@ -270,6 +270,7 @@ namespace AnimationEditor.Core.CommandsAndState
 
             _events.RaiseCurrentFileChanged(tab.Path.FullPath);
             _events.RaiseAvailableTexturesChanged();
+            EditorProjectModelChanged?.Invoke(tab.Path.FullPath);
             return true;
         }
 
