@@ -90,6 +90,36 @@ public class FrameDragReorderHeadlessTests
     }
 
     [AvaloniaFact]
+    public void SelectSingleFrame_FromMultiSelection_CollapsesTreeToThatFrame()
+    {
+        var (window, ctx) = CreateWindow();
+        try
+        {
+            var chain = MakeChain(ctx.ProjectManager.AnimationChainListSave!, "Walk", 4);
+            RebuildTree(window);
+
+            var tree = window.FindControl<TreeView>("AnimTree")!;
+            var frameNodes = ChainNode(window, chain).Children.ToList();
+            foreach (var node in frameNodes)
+                tree.SelectedItems!.Add(node);
+            Assert.Equal(4, tree.SelectedItems!.Count);
+
+            // A plain click on one already-selected frame collapses to just that frame —
+            // the bug was that the first click left the tree multi-selected.
+            var target = chain.Frames[1];
+            typeof(MainWindow)
+                .GetMethod("SelectSingleFrame", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .Invoke(window, new object[] { target });
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Single(tree.SelectedItems!);
+            Assert.Same(target, ((TreeNodeVm)tree.SelectedItems![0]!).Data);
+            Assert.Same(target, ctx.SelectedState.SelectedFrame);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public void MoveFrames_MultiSelect_OneUndoRevertsEntireMove()
     {
         var (window, ctx) = CreateWindow();

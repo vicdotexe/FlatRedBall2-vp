@@ -2089,9 +2089,18 @@ public partial class MainWindow : Window
 
     private void SelectSingleFrame(AnimationFrameSave frame)
     {
-        _selectedState.SelectedNodes = new List<object> { frame };
-        _selectedState.SelectedFrame = frame;
-        SyncTreeSelection();
+        var vm = TreeBuilder.FindNodeForData(_treeRoots, frame);
+        if (vm is null) return;
+
+        // The tree still visually holds the whole multi-selection (the select-on-press was
+        // suppressed), and SyncTreeSelection won't collapse it because the clicked frame is
+        // already among SelectedItems. Drive the tree directly: clear the others silently,
+        // then set the single item so the normal selection cascade updates SelectedState.
+        bool prior = _suppressTreeSelectionHandling;
+        _suppressTreeSelectionHandling = true;
+        try { AnimTree.SelectedItems?.Clear(); }
+        finally { _suppressTreeSelectionHandling = prior; }
+        AnimTree.SelectedItem = vm;
     }
 
     private async void OnTreeFrameDragPointerMoved(object? sender, PointerEventArgs e)
