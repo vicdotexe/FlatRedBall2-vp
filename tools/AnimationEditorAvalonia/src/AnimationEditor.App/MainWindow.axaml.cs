@@ -45,6 +45,7 @@ public partial class MainWindow : Window
     private readonly IIoManager _ioManager;
     private readonly IObjectFinder _objectFinder;
     private readonly IUndoManager _undoManager;
+    private readonly IPendingCutState _pendingCutState;
     private readonly Services.ThumbnailService _thumbnailService;
     private readonly IFileAssociationService _fileAssociation;
     private readonly PngFolderWatcher _pngFolderWatcher = new();
@@ -124,6 +125,7 @@ public partial class MainWindow : Window
         IIoManager ioManager,
         IObjectFinder objectFinder,
         IUndoManager undoManager,
+        IPendingCutState pendingCutState,
         Services.ThumbnailService thumbnailService,
         IFileAssociationService fileAssociation,
         string applicationDataRoot)
@@ -138,6 +140,7 @@ public partial class MainWindow : Window
         _ioManager = ioManager;
         _objectFinder = objectFinder;
         _undoManager = undoManager;
+        _pendingCutState = pendingCutState;
         _thumbnailService = thumbnailService;
         _fileAssociation = fileAssociation;
 
@@ -166,8 +169,8 @@ public partial class MainWindow : Window
         WireTabBar();
         WireDefaultHandlerBanner();
 
-        WireframeCtrl.InitializeServices(_selectedState, _appState, _appCommands, _events, _projectManager, _undoManager);
-        PreviewCtrl.InitializeServices(_selectedState, _appState, _appCommands, _events, _projectManager, _undoManager, _thumbnailService);
+        WireframeCtrl.InitializeServices(_selectedState, _appState, _appCommands, _events, _projectManager, _undoManager, _pendingCutState);
+        PreviewCtrl.InitializeServices(_selectedState, _appState, _appCommands, _events, _projectManager, _undoManager, _thumbnailService, _pendingCutState);
         FilesPanel.Initialize(_thumbnailService, this, msg => ShowStatusMessage(msg, isError: true));
         _pngFolderWatcher.FolderContentsChanged += () =>
             Dispatcher.UIThread.InvokeAsync(RefreshFilesPanel);
@@ -391,6 +394,8 @@ public partial class MainWindow : Window
     {
         if (tab == _tabManager.ActiveTab) return;
 
+        ClearPendingCut();
+
         // Save the leaving tab's undo history and in-memory model before the editor switches.
         var leavingTab = _tabManager.ActiveTab;
         if (leavingTab != null)
@@ -419,6 +424,7 @@ public partial class MainWindow : Window
 
     private void ActivateUntitledTabContent(TabEntry tab)
     {
+        ClearPendingCut();
         _projectManager.AnimationChainListSave =
             tab.CachedEditorModel ?? new AnimationChainListSave();
         _projectManager.FileName = null;
@@ -594,7 +600,14 @@ public partial class MainWindow : Window
                 ShowStatusMessage($"⚠ Reload skipped for '{Path.GetFileName(path)}': {reason}", isError: true));
 
         _appCommands.EditorProjectModelChanged += path =>
-            Dispatcher.UIThread.InvokeAsync(() => SyncTabCacheFromEditor(path));
+            Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                ClearPendingCut();
+                SyncTabCacheFromEditor(path);
+            });
+
+        _pendingCutState.Changed += () =>
+            Dispatcher.UIThread.InvokeAsync(SyncPendingCutHighlights);
 
         // Tree events — fully wired (WireTreeView connects these after tree is constructed)
         _appCommands.RefreshTreeViewRequested           += () => Dispatcher.UIThread.InvokeAsync(RefreshTreeView);
@@ -1323,6 +1336,7 @@ public partial class MainWindow : Window
         MenuViewLog.Click += OnViewLogClick;
         MenuSettings.Click += OnSettingsClick;
         MenuCopy.Click          += (_, _) => _ = HandleCopyAsync();
+        MenuCut.Click           += (_, _) => _ = HandleCutAsync();
         MenuPaste.Click         += (_, _) => _ = HandlePasteAsync();
         MenuDuplicate.Click     += (_, _) => HandleDuplicate();
         MenuResizeTexture.Click += (_, _) => _ = DoResizeTextureAsync();
@@ -1385,6 +1399,7 @@ public partial class MainWindow : Window
         Undo:            () => _undoManager.Undo(),
         Redo:            () => _undoManager.Redo(),
         Copy:            () => _ = HandleCopyAsync(),
+        Cut:             () => _ = HandleCutAsync(),
         Paste:           () => _ = HandlePasteAsync(),
         Duplicate:       () => HandleDuplicate(),
         ReloadFromDisk:  () => { if (!string.IsNullOrEmpty(_projectManager.FileName)) _appCommands.ReloadAchxFromDisk(_projectManager.FileName); },
@@ -2466,6 +2481,7 @@ public partial class MainWindow : Window
             });
             AddSeparator();
             AddMenuItem("Copy",  () => _ = HandleCopyAsync());
+            AddMenuItem("Cut",   () => _ = HandleCutAsync());
             AddMenuItem("Paste", () => _ = HandlePasteAsync());
             AddMenuItem("Duplicate", () => _appCommands.DuplicateShape(rect));
             AddSeparator();
@@ -2482,6 +2498,7 @@ public partial class MainWindow : Window
         {
             AddShapeReorderItems(circle, _objectFinder.GetAnimationFrameContaining(circle));
             AddMenuItem("Copy",  () => _ = HandleCopyAsync());
+            AddMenuItem("Cut",   () => _ = HandleCutAsync());
             AddMenuItem("Paste", () => _ = HandlePasteAsync());
             AddMenuItem("Duplicate", () => _appCommands.DuplicateShape(circle));
             AddSeparator();
@@ -2512,6 +2529,7 @@ public partial class MainWindow : Window
             AddMenuItem("Add Circle",               () => _appCommands.AddCircle(frame2));
             AddSeparator();
             AddMenuItem("Copy",  () => _ = HandleCopyAsync());
+            AddMenuItem("Cut",   () => _ = HandleCutAsync());
             AddMenuItem("Paste", () => _ = HandlePasteAsync());
             if (chain2 is not null)
                 AddMenuItem("Duplicate", () => _appCommands.DuplicateFrame(frame2, chain2));
@@ -2545,6 +2563,7 @@ public partial class MainWindow : Window
             AddMenuItem("Add Multiple Frames…", () => _ = AskAddMultipleFramesAsync(chain));
             AddSeparator();
             AddMenuItem("Copy",  () => _ = HandleCopyAsync());
+            AddMenuItem("Cut",   () => _ = HandleCutAsync());
             AddMenuItem("Paste", () => _ = HandlePasteAsync());
             AddSubMenu("Duplicate",
                 ("Original",        () => _appCommands.DuplicateChain(chain)),
@@ -3667,6 +3686,12 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 _ = HandleCopyAsync();
             }
+            else if (e.Key == Key.X && HasCommandModifier(e.KeyModifiers))
+            {
+                if (IsTextInputFocused()) return;
+                e.Handled = true;
+                _ = HandleCutAsync();
+            }
             else if (e.Key == Key.V && HasCommandModifier(e.KeyModifiers))
             {
                 if (IsTextInputFocused()) return;
@@ -3799,6 +3824,7 @@ public partial class MainWindow : Window
     }
 
     private Task HandleCopyAsync()  => RunGuardedAsync(HandleCopyCoreAsync,  "Copy");
+    private Task HandleCutAsync()   => RunGuardedAsync(HandleCutCoreAsync,   "Cut");
     private Task HandlePasteAsync() => RunGuardedAsync(HandlePasteCoreAsync, "Paste");
 
     private async Task HandleCopyCoreAsync()
@@ -3820,6 +3846,31 @@ public partial class MainWindow : Window
         }
 
         await clipboard.SetTextAsync(ClipboardPayload.SerializeFromPayload(payload));
+        _pendingCutState.Clear();
+        SyncPendingCutHighlights();
+    }
+
+    private async Task HandleCutCoreAsync()
+    {
+        if (IsTextInputFocused()) return;
+        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+        if (clipboard is null) return;
+
+        if (!SelectionCopyContext.TryGet(
+                _selectedState, _objectFinder, _projectManager.AnimationChainListSave,
+                out var payload, out var failureMessage))
+        {
+            if (failureMessage is not null)
+            {
+                ShowStatusMessage(failureMessage, isError: true);
+                await clipboard.SetTextAsync(string.Empty);
+            }
+            return;
+        }
+
+        await clipboard.SetTextAsync(ClipboardPayload.SerializeFromPayload(payload));
+        _pendingCutState.Set(payload);
+        SyncPendingCutHighlights();
     }
 
     private async Task HandlePasteCoreAsync()
@@ -3839,14 +3890,26 @@ public partial class MainWindow : Window
         if (acls is null) return;
 
         var selectedData = SelectedData;
+        bool completingCut = _pendingCutState.IsActive;
+        if (completingCut && !_pendingCutState.SourcesBelongToProject(acls, _objectFinder))
+        {
+            _pendingCutState.Clear();
+            SyncPendingCutHighlights();
+            completingCut = false;
+        }
 
         if (chains is { Count: > 0 })
         {
+            if (completingCut && _pendingCutState.Kind != CopySelectionKind.Chain) return;
             QueuePastedChainExpandFromSources(chains, chains);
-            _appCommands.PasteChains(chains);
+            if (completingCut)
+                _appCommands.PasteChainsCut(chains, _pendingCutState.Chains);
+            else
+                _appCommands.PasteChains(chains);
         }
         else if (frames is { Count: > 0 })
         {
+            if (completingCut && _pendingCutState.Kind != CopySelectionKind.Frame) return;
             var (targetChain, insertIndex) = PastePlacementLogic.ResolveFramePasteTarget(
                 acls, selectedData, _objectFinder, _selectedState);
             if (targetChain is null) return;
@@ -3854,20 +3917,66 @@ public partial class MainWindow : Window
             foreach (var pasted in frames)
                 pasted.ShapesSave ??= new ShapesSave();
 
-            _appCommands.PasteFrames(targetChain, frames, insertIndex);
-            // Refresh synchronously so SyncTreeSelection can resolve new frame nodes.
+            if (completingCut)
+                _appCommands.PasteFramesCut(targetChain, frames, insertIndex, _pendingCutState.Frames);
+            else
+                _appCommands.PasteFrames(targetChain, frames, insertIndex);
             RefreshChainNode(targetChain);
             _appCommands.RefreshWireframe();
             SyncTreeSelection();
         }
         else if (rectangles is { Count: > 0 } || circles is { Count: > 0 })
         {
+            if (completingCut && _pendingCutState.Kind != CopySelectionKind.Shape) return;
             var frame = _selectedState.SelectedFrame;
             if (frame is null) return;
-            _appCommands.PasteShapes(frame, rectangles ?? [], circles ?? []);
+
+            if (completingCut)
+            {
+                var sourceFrame = _pendingCutState.Shapes[0] switch
+                {
+                    AARectSave r => _objectFinder.GetAnimationFrameContaining(r),
+                    CircleSave c => _objectFinder.GetAnimationFrameContaining(c),
+                    _ => null,
+                };
+                if (sourceFrame is null) return;
+                _appCommands.PasteShapesCut(
+                    frame, rectangles ?? [], circles ?? [], _pendingCutState.Shapes, sourceFrame);
+            }
+            else
+            {
+                _appCommands.PasteShapes(frame, rectangles ?? [], circles ?? []);
+            }
             RefreshFrameNode(frame);
             SyncTreeSelection();
         }
+
+        if (completingCut)
+        {
+            _pendingCutState.Clear();
+            SyncPendingCutHighlights();
+        }
+    }
+
+    private void SyncPendingCutHighlights()
+    {
+        void Walk(TreeNodeVm node)
+        {
+            node.IsPendingCut = node.Data is not null && _pendingCutState.Contains(node.Data);
+            foreach (var child in node.Children)
+                Walk(child);
+        }
+        foreach (var root in _treeRoots)
+            Walk(root);
+        WireframeCtrl.InvalidateVisual();
+        PreviewCtrl.InvalidateVisual();
+    }
+
+    private void ClearPendingCut()
+    {
+        if (!_pendingCutState.IsActive) return;
+        _pendingCutState.Clear();
+        SyncPendingCutHighlights();
     }
 
     private bool TreeMultiSelectionAlreadySynced(IReadOnlyList<object> dataObjects)

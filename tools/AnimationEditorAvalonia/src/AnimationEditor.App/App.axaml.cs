@@ -102,6 +102,7 @@ public partial class App : Application
         editMenu.Add(new NativeMenuItem("Redo")  { Command = Cmd(a.Redo),  Gesture = new KeyGesture(Key.Z, KeyModifiers.Meta | KeyModifiers.Shift) });
         editMenu.Add(new NativeMenuItemSeparator());
         editMenu.Add(new NativeMenuItem("Copy")  { Command = Cmd(a.Copy),  Gesture = new KeyGesture(Key.C, KeyModifiers.Meta) });
+        editMenu.Add(new NativeMenuItem("Cut")   { Command = Cmd(a.Cut),   Gesture = new KeyGesture(Key.X, KeyModifiers.Meta) });
         editMenu.Add(new NativeMenuItem("Paste") { Command = Cmd(a.Paste), Gesture = new KeyGesture(Key.V, KeyModifiers.Meta) });
         editMenu.Add(new NativeMenuItem("Duplicate") { Command = Cmd(a.Duplicate), Gesture = new KeyGesture(Key.D, KeyModifiers.Meta) });
         editMenu.Add(new NativeMenuItemSeparator());
@@ -166,6 +167,9 @@ public partial class App : Application
         sc.AddSingleton<UndoManager>();
         sc.AddSingleton<IUndoManager>(sp => sp.GetRequiredService<UndoManager>());
 
+        sc.AddSingleton<PendingCutState>();
+        sc.AddSingleton<IPendingCutState>(sp => sp.GetRequiredService<PendingCutState>());
+
         sc.AddSingleton<AppCommands>(sp =>
             new AppCommands(
                 sp.GetRequiredService<IProjectManager>(),
@@ -195,6 +199,7 @@ public partial class App : Application
             sp.GetRequiredService<IIoManager>(),
             sp.GetRequiredService<IObjectFinder>(),
             sp.GetRequiredService<IUndoManager>(),
+            sp.GetRequiredService<IPendingCutState>(),
             sp.GetRequiredService<ThumbnailService>(),
             sp.GetRequiredService<IFileAssociationService>(),
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)));
