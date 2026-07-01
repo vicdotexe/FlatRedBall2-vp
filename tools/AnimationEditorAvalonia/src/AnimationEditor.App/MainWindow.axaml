@@ -293,8 +293,18 @@
                     <DockPanel Margin="10,0">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2"
                                     VerticalAlignment="Center">
-                            <!-- Search icon button (placeholder — no handler yet) -->
-                            <Button Width="24" Height="24"
+                            <!-- Inline search box: hidden until the search icon is clicked. -->
+                            <TextBox x:Name="SearchBox"
+                                     Width="140" Height="24"
+                                     Padding="6,2"
+                                     FontSize="11"
+                                     VerticalAlignment="Center"
+                                     VerticalContentAlignment="Center"
+                                     IsVisible="False"
+                                     PlaceholderText="Filter animations…" />
+                            <!-- Search icon button: toggles the inline search box. -->
+                            <Button x:Name="SearchToggleBtn"
+                                    Width="24" Height="24"
                                     Padding="0"
                                     Background="Transparent"
                                     BorderThickness="0"

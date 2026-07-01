@@ -382,6 +382,29 @@ public static class TreeBuilder
         return null;
     }
 
+    // ── Search / filter ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Case-insensitive substring match of a single chain name against a search
+    /// <paramref name="query"/>. A <c>null</c>, empty, or whitespace-only query
+    /// matches every name (no filter active). Leading/trailing whitespace in the
+    /// query is ignored.
+    /// </summary>
+    public static bool MatchesFilter(string chainName, string? query)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return true;
+        return chainName.Contains(query.Trim(), System.StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Returns the subset of <paramref name="chainNames"/> that match
+    /// <paramref name="query"/> under <see cref="MatchesFilter"/>, preserving input
+    /// order. An empty/whitespace query returns every name; a query matching nothing
+    /// returns an empty list.
+    /// </summary>
+    public static List<string> FilterChainNames(IEnumerable<string> chainNames, string? query) =>
+        chainNames.Where(n => MatchesFilter(n, query)).ToList();
+
     // ── Node search ───────────────────────────────────────────────────────────
 
     /// <summary>

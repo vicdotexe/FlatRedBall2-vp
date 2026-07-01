@@ -1834,6 +1834,9 @@ public partial class MainWindow : Window
         ExpandAllBtn.Click  += (_, _) => SetAllExpanded(true);
         CollapseAllBtn.Click += (_, _) => SetAllExpanded(false);
 
+        // Search box: icon toggles the inline box; typing filters the tree by chain name.
+        WireTreeSearch();
+
         // Blank-space double-tap: expand / collapse the node
         AnimTree.DoubleTapped += OnAnimTreeDoubleTapped;
 
@@ -1859,6 +1862,54 @@ public partial class MainWindow : Window
     {
         foreach (var node in _treeRoots)
             TreeNodeVm.SetExpandedRecursive(node, expanded);
+    }
+
+    // Current ANIMATIONS tree filter text. Empty/whitespace = no filter (full tree).
+    // RebuildTreeView honours this so only matching chain nodes are shown.
+    private string _treeFilterQuery = string.Empty;
+
+    private void WireTreeSearch()
+    {
+        SearchToggleBtn.Click += (_, _) => ToggleSearchBox();
+
+        SearchBox.TextChanged += (_, _) =>
+        {
+            _treeFilterQuery = SearchBox.Text ?? string.Empty;
+            RebuildTreeView();
+        };
+
+        // Escape clears the filter and collapses the box; handled tunnel-phase so it
+        // doesn't reach the TreeView (which would otherwise steal the key).
+        SearchBox.AddHandler(
+            InputElement.KeyDownEvent,
+            (object? _, KeyEventArgs e) =>
+            {
+                if (e.Key == Key.Escape)
+                {
+                    CollapseSearchBox();
+                    e.Handled = true;
+                }
+            },
+            RoutingStrategies.Tunnel);
+    }
+
+    private void ToggleSearchBox()
+    {
+        if (SearchBox.IsVisible)
+            CollapseSearchBox();
+        else
+        {
+            SearchBox.IsVisible = true;
+            Dispatcher.UIThread.Post(() => SearchBox.Focus(), DispatcherPriority.Background);
+        }
+    }
+
+    // Hides the box and clears the query, restoring the full tree. Clearing the text
+    // fires TextChanged, which rebuilds the tree unfiltered.
+    private void CollapseSearchBox()
+    {
+        SearchBox.IsVisible = false;
+        SearchBox.Text = string.Empty;
     }
 
     private void AddAnimationChainAndBeginInlineRename()
@@ -2452,9 +2503,11 @@ public partial class MainWindow : Window
             }
 
             // Empty expandedChainNames (not null) collapses every chain; null would
-            // default them all to expanded.
+            // default them all to expanded. When a search filter is active, only chain
+            // nodes whose name matches the query are added (children stay intact).
             foreach (var node in TreeBuilder.BuildTree(acls, System.Array.Empty<string>()))
-                _treeRoots.Add(node);
+                if (TreeBuilder.MatchesFilter(node.Header, _treeFilterQuery))
+                    _treeRoots.Add(node);
             RefreshFilesPanel();
 
             RefreshTreeThumbnails();
