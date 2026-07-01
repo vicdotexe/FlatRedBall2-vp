@@ -608,6 +608,11 @@
                         BorderThickness="0,0,0,1"
                         Background="{DynamicResource BgRail}"
                         Padding="4,3">
+                    <!-- Horizontal scroll (not wrap/collapse) keeps every control reachable via a
+                         drag/wheel-scroll when the window is narrower than the toolbar's natural
+                         width (#510), without changing control order or hiding anything. -->
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Disabled">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="2">
                         <!-- Texture label + combo hidden for now — multi-texture support is planned for a future milestone.
                              Do not remove; set IsVisible="True" and re-enable when the multi-texture feature is implemented. -->
@@ -747,6 +752,7 @@
                                    Margin="4,0,0,0"
                                    IsVisible="False" />
                     </StackPanel>
+                    </ScrollViewer>
                 </Border>
 
                 <!-- Wireframe panel fills top. The control draws its texture under a manual
@@ -782,6 +788,11 @@
                             BorderThickness="0,0,0,1"
                             Background="{DynamicResource BgRail}"
                             Padding="4,3">
+                        <!-- Horizontal scroll (not wrap/collapse) keeps every control reachable via a
+                             drag/wheel-scroll when the window is narrower than the toolbar's natural
+                             width (#510), without changing control order or hiding anything. -->
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Disabled">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="2">
                             <ToggleButton x:Name="OnionSkinToggle"
                                           Height="26"
@@ -855,6 +866,7 @@
                                 </DockPanel>
                             </Border>
                         </StackPanel>
+                        </ScrollViewer>
                     </Border>
 
                     <!-- Preview panel fills remaining height of the block. Unlike the Wireframe
