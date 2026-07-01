@@ -1903,15 +1903,11 @@ public partial class MainWindow : Window
             RoutingStrategies.Tunnel);
     }
 
-    // Query-change path: hard-set each chain row's visibility to whether it matches the
-    // query. This is the only place allowed to HIDE a chain (typing/refining shrinks the
-    // set); an empty query shows all. The selected row stays visible via its IsVisible binding.
-    private void ApplyQueryFilter()
-    {
-        foreach (var node in _treeRoots)
-            if (node.Data is AnimationChainSave)
-                node.PinnedVisible = TreeBuilder.MatchesFilter(node.Header, _treeFilterQuery);
-    }
+    // Query-change path: the only place allowed to HIDE a chain (typing/refining shrinks
+    // the set); an empty query shows all. The selected row stays visible via its IsVisible
+    // binding. Logic lives in the pure, unit-tested TreeBuilder.ApplyQueryFilter.
+    private void ApplyQueryFilter() =>
+        TreeBuilder.ApplyQueryFilter(_treeRoots, _treeFilterQuery);
 
     private void ToggleSearchBox()
     {
@@ -2489,6 +2485,10 @@ public partial class MainWindow : Window
             // Capture filter state BEFORE the diff mutates the tree: which chains are
             // currently visible, and which existing chains have nodes. Used for the
             // grow-only visibility recompute below.
+            // NOTE: this reads PinnedVisible only — a chain visible *solely* via the
+            // IsSelected half of the row's `PinnedVisible || IsSelected` binding is not
+            // captured here. That's benign: SyncTreeSelection re-applies the selection
+            // after the diff, so the selected row is re-shown regardless of PinnedVisible.
             var chains = acls.AnimationChains;
             var previouslyVisible = _treeRoots
                 .Where(n => n.Data is AnimationChainSave && n.PinnedVisible)

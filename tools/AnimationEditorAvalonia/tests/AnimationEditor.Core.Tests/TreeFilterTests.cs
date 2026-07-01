@@ -1,51 +1,92 @@
 using System.Collections.Generic;
+using System.Linq;
 using AnimationEditor.Core.ViewModels;
 using FlatRedBall2.Animation.Content;
 using Xunit;
 
 namespace AnimationEditor.Core.Tests;
 
-// Pure tests for the ANIMATIONS tree search/filter predicate (issue #517).
+// Pure tests for the ANIMATIONS tree search/filter (issue #517). These exercise the same
+// functions production runs: ApplyQueryFilter on keystroke, ComputeVisibleAfterModelChange
+// on model mutation.
 public class TreeFilterTests
 {
-    private static readonly string[] Chains = { "walkLeft", "slowWalk", "Idle", "RunRight" };
+    private static readonly string[] Names = { "walkLeft", "slowWalk", "Idle", "RunRight" };
 
-    // ── Query-change path (can shrink) — FilterChainNames / MatchesFilter ──────
+    // Builds the root chain nodes exactly as the tree holds them: Header == chain name,
+    // Data == the chain (the guard ApplyQueryFilter keys on).
+    private static List<TreeNodeVm> ChainNodes(params string[] names) =>
+        names.Select(n => new TreeNodeVm
+        {
+            Header = n,
+            Data = new AnimationChainSave { Name = n },
+            IsChainNode = true,
+        }).ToList();
+
+    private static List<string> VisibleNames(IEnumerable<TreeNodeVm> roots) =>
+        roots.Where(n => n.PinnedVisible).Select(n => n.Header).ToList();
+
+    // ── Query-change path (can shrink) — ApplyQueryFilter ─────────────────────
 
     [Fact]
-    public void FilterChainNames_EmptyQuery_ReturnsAll()
+    public void ApplyQueryFilter_CaseInsensitive_MatchesRegardlessOfCase()
     {
-        var result = TreeBuilder.FilterChainNames(Chains, "");
-        Assert.Equal(Chains, result);
+        var roots = ChainNodes(Names);
+        TreeBuilder.ApplyQueryFilter(roots, "WALK");
+        Assert.Equal(new List<string> { "walkLeft", "slowWalk" }, VisibleNames(roots));
     }
 
     [Fact]
-    public void FilterChainNames_WhitespaceQuery_ReturnsAll()
+    public void ApplyQueryFilter_EmptyQuery_AllVisible()
     {
-        var result = TreeBuilder.FilterChainNames(Chains, "   ");
-        Assert.Equal(Chains, result);
+        var roots = ChainNodes(Names);
+        TreeBuilder.ApplyQueryFilter(roots, "");
+        Assert.Equal(Names, VisibleNames(roots));
     }
 
     [Fact]
-    public void FilterChainNames_CaseInsensitive_MatchesRegardlessOfCase()
-    {
-        var result = TreeBuilder.FilterChainNames(Chains, "WALK");
-        Assert.Equal(new List<string> { "walkLeft", "slowWalk" }, result);
-    }
-
-    [Fact]
-    public void FilterChainNames_MidStringSubstring_Matches()
+    public void ApplyQueryFilter_MidStringSubstring_Matches()
     {
         // "walk" appears mid-string in "slowWalk", not just as a prefix.
-        var result = TreeBuilder.FilterChainNames(Chains, "walk");
-        Assert.Equal(new List<string> { "walkLeft", "slowWalk" }, result);
+        var roots = ChainNodes(Names);
+        TreeBuilder.ApplyQueryFilter(roots, "walk");
+        Assert.Equal(new List<string> { "walkLeft", "slowWalk" }, VisibleNames(roots));
     }
 
     [Fact]
-    public void FilterChainNames_NoMatch_ReturnsEmpty()
+    public void ApplyQueryFilter_NoMatch_AllHidden()
     {
-        var result = TreeBuilder.FilterChainNames(Chains, "zzz");
-        Assert.Empty(result);
+        var roots = ChainNodes(Names);
+        TreeBuilder.ApplyQueryFilter(roots, "zzz");
+        Assert.Empty(VisibleNames(roots));
+    }
+
+    // The guard: a non-chain node (e.g. a frame) is never toggled by the query filter.
+    [Fact]
+    public void ApplyQueryFilter_NonChainNode_LeftVisible()
+    {
+        var frameNode = new TreeNodeVm { Header = "Frame 1", Data = new AnimationFrameSave(), IsFrameNode = true };
+        var roots = new List<TreeNodeVm> { frameNode };
+
+        TreeBuilder.ApplyQueryFilter(roots, "walk"); // frame header doesn't match
+
+        Assert.True(frameNode.PinnedVisible); // untouched, stays visible
+    }
+
+    [Fact]
+    public void ApplyQueryFilter_SurroundingWhitespace_TrimsAndMatches()
+    {
+        var roots = ChainNodes("walkLeft", "Idle");
+        TreeBuilder.ApplyQueryFilter(roots, "  walk  "); // trimmed to "walk"
+        Assert.Equal(new List<string> { "walkLeft" }, VisibleNames(roots));
+    }
+
+    [Fact]
+    public void ApplyQueryFilter_WhitespaceQuery_AllVisible()
+    {
+        var roots = ChainNodes(Names);
+        TreeBuilder.ApplyQueryFilter(roots, "   ");
+        Assert.Equal(Names, VisibleNames(roots));
     }
 
     // ── Sticky model-change path (grow-only) — ComputeVisibleAfterModelChange ──
@@ -69,6 +110,42 @@ public class TreeFilterTests
             brandNew: new List<AnimationChainSave> { newChain });
 
         Assert.Contains(newChain, visible);
+    }
+
+    // Two distinct chains share the name "Idle"; only the one that was visible stays so —
+    // reference identity, not name, drives the grow-only keep.
+    [Fact]
+    public void ComputeVisibleAfterModelChange_DuplicateNames_ReferenceIdentityKeepsRightOne()
+    {
+        var visibleIdle = new AnimationChainSave { Name = "Idle" };
+        var hiddenIdle = new AnimationChainSave { Name = "Idle" };
+        var current = new List<AnimationChainSave> { visibleIdle, hiddenIdle };
+
+        var visible = TreeBuilder.ComputeVisibleAfterModelChange(
+            previouslyVisible: new List<AnimationChainSave> { visibleIdle },
+            currentChains: current,
+            query: "walk", // neither name matches
+            brandNew: new List<AnimationChainSave>());
+
+        Assert.Contains(visibleIdle, visible);
+        Assert.DoesNotContain(hiddenIdle, visible);
+    }
+
+    [Fact]
+    public void ComputeVisibleAfterModelChange_EmptyQuery_AllVisible()
+    {
+        var a = new AnimationChainSave { Name = "walkLeft" };
+        var b = new AnimationChainSave { Name = "Idle" };
+        var current = new List<AnimationChainSave> { a, b };
+
+        var visible = TreeBuilder.ComputeVisibleAfterModelChange(
+            previouslyVisible: new List<AnimationChainSave>(),
+            currentChains: current,
+            query: "",
+            brandNew: new List<AnimationChainSave>());
+
+        Assert.Contains(a, visible);
+        Assert.Contains(b, visible);
     }
 
     // A hidden, non-matching chain must not reappear on an unrelated model change.
@@ -103,6 +180,25 @@ public class TreeFilterTests
         Assert.Contains(chain, visible);
     }
 
+    // A chain that was visible but has since been removed from the model must not survive
+    // in the result (result is scoped to currentChains).
+    [Fact]
+    public void ComputeVisibleAfterModelChange_PreviouslyVisibleButRemoved_NotInResult()
+    {
+        var kept = new AnimationChainSave { Name = "walkLeft" };
+        var deleted = new AnimationChainSave { Name = "walkRight" };
+        var current = new List<AnimationChainSave> { kept }; // deleted no longer present
+
+        var visible = TreeBuilder.ComputeVisibleAfterModelChange(
+            previouslyVisible: new List<AnimationChainSave> { kept, deleted },
+            currentChains: current,
+            query: "walk",
+            brandNew: new List<AnimationChainSave>());
+
+        Assert.DoesNotContain(deleted, visible);
+        Assert.Contains(kept, visible);
+    }
+
     // The chain being edited stays visible even after it's renamed out of the filter.
     [Fact]
     public void ComputeVisibleAfterModelChange_RenamedOutOfFilter_StaysVisible()
@@ -133,5 +229,22 @@ public class TreeFilterTests
             brandNew: new List<AnimationChainSave> { restored }); // restored == new to the tree
 
         Assert.Contains(restored, visible);
+    }
+
+    [Fact]
+    public void ComputeVisibleAfterModelChange_WhitespaceQuery_AllVisible()
+    {
+        var a = new AnimationChainSave { Name = "walkLeft" };
+        var b = new AnimationChainSave { Name = "Idle" };
+        var current = new List<AnimationChainSave> { a, b };
+
+        var visible = TreeBuilder.ComputeVisibleAfterModelChange(
+            previouslyVisible: new List<AnimationChainSave>(),
+            currentChains: current,
+            query: "   ",
+            brandNew: new List<AnimationChainSave>());
+
+        Assert.Contains(a, visible);
+        Assert.Contains(b, visible);
     }
 }

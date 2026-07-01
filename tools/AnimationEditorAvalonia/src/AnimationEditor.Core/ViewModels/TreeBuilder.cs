@@ -397,13 +397,23 @@ public static class TreeBuilder
     }
 
     /// <summary>
-    /// Returns the subset of <paramref name="chainNames"/> that match
-    /// <paramref name="query"/> under <see cref="MatchesFilter"/>, preserving input
-    /// order. An empty/whitespace query returns every name; a query matching nothing
-    /// returns an empty list. This is the query-change path: it may shrink the set.
+    /// Query-change path: sets each chain (root) node's
+    /// <see cref="TreeNodeVm.PinnedVisible"/> to whether its header matches
+    /// <paramref name="query"/> under <see cref="MatchesFilter"/>. This is the <b>only</b>
+    /// filter path allowed to hide a row — typing/refining the query shrinks the visible
+    /// set; an empty/whitespace query shows every chain. Non-chain nodes (frames, shapes)
+    /// are left untouched: they are hidden only when their parent chain is.
+    /// <para>
+    /// Contrast with <see cref="ComputeVisibleAfterModelChange"/>, the grow-only path used
+    /// when the model mutates but the query is unchanged.
+    /// </para>
     /// </summary>
-    public static List<string> FilterChainNames(IEnumerable<string> chainNames, string? query) =>
-        chainNames.Where(n => MatchesFilter(n, query)).ToList();
+    public static void ApplyQueryFilter(IEnumerable<TreeNodeVm> roots, string? query)
+    {
+        foreach (var node in roots)
+            if (node.Data is AnimationChainSave)
+                node.PinnedVisible = MatchesFilter(node.Header, query);
+    }
 
     /// <summary>
     /// Computes which chains should be visible after a <b>model mutation</b> while the

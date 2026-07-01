@@ -85,6 +85,22 @@ public class HeadlessTreeViewTests
         method.Invoke(window, null);
     }
 
+    /// <summary>
+    /// Sets the private <c>_treeFilterQuery</c> field and invokes the private
+    /// <c>ApplyQueryFilter</c> method — mirroring exactly what the search box's
+    /// TextChanged handler does on a keystroke.
+    /// </summary>
+    private static void SetFilterAndApply(MainWindow window, string query)
+    {
+        typeof(MainWindow)
+            .GetField("_treeFilterQuery", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(window, query);
+        typeof(MainWindow)
+            .GetMethod("ApplyQueryFilter", BindingFlags.NonPublic | BindingFlags.Instance,
+                       null, Type.EmptyTypes, null)!
+            .Invoke(window, null);
+    }
+
     private static List<string?> ContextMenuHeaders(MainWindow window)
     {
         var tree = GetTree(window);
@@ -970,6 +986,43 @@ public class HeadlessTreeViewTests
             Assert.False(roots[0].IsExpanded);   // pre-existing chain stays collapsed
             Assert.Same(pasted, roots[1].Data);
             Assert.True(roots[1].IsExpanded);    // pasted chain defaults to expanded
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void RefreshTreeView_GrowOnly_KeepsFilteredChainVisibleAfterRenamedOutOfFilter()
+    {
+        // Issue #517 (sticky filter): RefreshTreeView must capture which chains are visible
+        // BEFORE the diff mutates the tree, then apply grow-only visibility. The chain the
+        // user is editing must not vanish when a model change renames it out of the filter,
+        // and a chain that was never visible must not leak back in.
+        var (window, ctx) = CreateWindow();
+        try
+        {
+            var walk = new AnimationChainSave { Name = "walkLeft" };
+            var idle = new AnimationChainSave { Name = "Idle" };
+            ctx.ProjectManager.AnimationChainListSave!.AnimationChains.Add(walk);
+            ctx.ProjectManager.AnimationChainListSave!.AnimationChains.Add(idle);
+
+            TriggerRefreshTreeView(window);
+            Dispatcher.UIThread.RunJobs();
+
+            // Filter "walk": walkLeft visible, Idle hidden.
+            SetFilterAndApply(window, "walk");
+            var roots    = GetRoots(GetTree(window));
+            var walkNode = roots.First(n => ReferenceEquals(n.Data, walk));
+            var idleNode = roots.First(n => ReferenceEquals(n.Data, idle));
+            Assert.True(walkNode.PinnedVisible);
+            Assert.False(idleNode.PinnedVisible);
+
+            // Rename the visible chain OUT of the filter, then refresh via the diff path.
+            walk.Name = "sleeping";
+            TriggerRefreshTreeView(window);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(walkNode.PinnedVisible);  // grow-only kept the edited chain visible
+            Assert.False(idleNode.PinnedVisible); // never-visible chain did not leak in
         }
         finally { window.Close(); }
     }
