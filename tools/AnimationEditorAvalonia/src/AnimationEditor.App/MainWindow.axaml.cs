@@ -1881,14 +1881,19 @@ public partial class MainWindow : Window
             ApplyQueryFilter();
         };
 
-        // ✕ clears the filter but leaves the box open (discoverable exit affordance).
+        // Two-stage ✕: with text, clear it (box stays open); when already empty, collapse.
         SearchClearBtn.Click += (_, _) =>
         {
-            SearchBox.Text = string.Empty; // fires TextChanged → ApplyQueryFilter restores all
-            SearchBox.Focus();
+            if (TreeSearchBoxLogic.ClearShouldCollapse(SearchBox.Text))
+                CollapseSearchBox();
+            else
+            {
+                SearchBox.Text = string.Empty; // fires TextChanged → ApplyQueryFilter restores all
+                SearchBox.Focus();
+            }
         };
 
-        // Escape clears the filter and collapses the box; handled tunnel-phase so it
+        // Escape collapses the box (and clears the filter); handled tunnel-phase so it
         // doesn't reach the TreeView (which would otherwise steal the key).
         SearchBox.AddHandler(
             InputElement.KeyDownEvent,
@@ -1901,6 +1906,12 @@ public partial class MainWindow : Window
                 }
             },
             RoutingStrategies.Tunnel);
+
+        // Click-away collapses the box — EXCEPT when focus moves into the tree, so the
+        // sticky-filter workflow (filter, click a result, edit, click another) keeps the
+        // box and filter alive. Deferred to Background so the new focus target has settled.
+        SearchBox.LostFocus += (_, _) =>
+            Dispatcher.UIThread.Post(CollapseSearchBoxOnClickAway, DispatcherPriority.Background);
     }
 
     // Query-change path: the only place allowed to HIDE a chain (typing/refining shrinks
@@ -1911,21 +1922,39 @@ public partial class MainWindow : Window
 
     private void ToggleSearchBox()
     {
-        if (SearchBox.IsVisible)
-            CollapseSearchBox();
-        else
-        {
-            SearchBox.IsVisible = true;
-            Dispatcher.UIThread.Post(() => SearchBox.Focus(), DispatcherPriority.Background);
-        }
+        if (SearchBox.IsVisible) CollapseSearchBox();
+        else ExpandSearchBox();
     }
 
-    // Hides the box and clears the query, restoring the full tree. Clearing the text
-    // fires TextChanged, which rebuilds the tree unfiltered.
+    // Pattern B: the box replaces the 🔍 icon (they are never both visible) and takes focus.
+    private void ExpandSearchBox()
+    {
+        SearchToggleBtn.IsVisible = false;
+        SearchBox.IsVisible = true;
+        Dispatcher.UIThread.Post(() => SearchBox.Focus(), DispatcherPriority.Background);
+    }
+
+    // Hides the box, restores the 🔍 icon, and clears the query (restoring the full tree).
+    // Clearing the text fires TextChanged, which re-applies the empty filter.
     private void CollapseSearchBox()
     {
         SearchBox.IsVisible = false;
+        SearchToggleBtn.IsVisible = true;
         SearchBox.Text = string.Empty;
+    }
+
+    // Collapses the box when focus has left both the box and the tree. Keeping the box open
+    // while focus is in the tree is what preserves the sticky click-a-result workflow.
+    private void CollapseSearchBoxOnClickAway()
+    {
+        if (!SearchBox.IsVisible) return;
+        var focused = FocusManager?.GetFocusedElement() as Avalonia.Visual;
+        bool focusInBox  = focused is not null &&
+            (ReferenceEquals(focused, SearchBox) || focused.GetVisualAncestors().Contains(SearchBox));
+        bool focusInTree = focused is not null &&
+            (ReferenceEquals(focused, AnimTree) || focused.GetVisualAncestors().Contains(AnimTree));
+        if (!focusInBox && !focusInTree)
+            CollapseSearchBox();
     }
 
     private void AddAnimationChainAndBeginInlineRename()

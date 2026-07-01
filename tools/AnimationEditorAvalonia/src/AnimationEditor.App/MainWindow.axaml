@@ -309,12 +309,13 @@
                                             Width="20" Height="20"
                                             Padding="0"
                                             Margin="0,0,2,0"
+                                            Focusable="False"
                                             Background="Transparent"
                                             BorderThickness="0"
                                             Foreground="{DynamicResource InkMid}"
                                             HorizontalContentAlignment="Center"
                                             VerticalContentAlignment="Center"
-                                            ToolTip.Tip="Clear filter">
+                                            ToolTip.Tip="Clear filter (empties, then closes)">
                                         <TextBlock Text="&#x2715;" FontSize="10" />
                                     </Button>
                                 </TextBox.InnerRightContent>
