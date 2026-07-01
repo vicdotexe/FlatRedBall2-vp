@@ -623,9 +623,12 @@
                                 <Button x:Name="GridSizePlusBtn" DockPanel.Dock="Right"
                                         Classes="flanker" Content="+" Width="22"
                                         BorderBrush="{DynamicResource LineBrush}" BorderThickness="1,0,0,0" />
+                                <!-- MinWidth/MinHeight 0 (#501): keep the field from overflowing its
+                                     center slot over the −/+ buttons; Fluent forces a min ~64×32. -->
                                 <TextBox x:Name="GridSizeInput" Text="16"
                                          HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                                          Background="Transparent" BorderThickness="0" Padding="4,0" FontSize="11"
+                                         MinWidth="0" MinHeight="0"
                                          Height="26" VerticalAlignment="Center"
                                          KeyDown="OnGridSizeInputKeyDown" />
                             </DockPanel>
@@ -659,6 +662,10 @@
                                             <Setter Property="TextAlignment" Value="Center"/>
                                             <Setter Property="VerticalContentAlignment" Value="Center"/>
                                             <Setter Property="Padding" Value="4,0"/>
+                                            <!-- MinWidth/MinHeight 0 (#501): keep the field within its
+                                                 center slot so its focus highlight cannot overflow the
+                                                 −/+ buttons; Fluent forces a min ~64×32. -->
+                                            <Setter Property="MinWidth" Value="0"/>
                                             <Setter Property="MinHeight" Value="0"/>
                                             <Setter Property="FontSize" Value="11"/>
                                         </Style>
@@ -840,9 +847,14 @@
                                         <Button x:Name="SpeedUpBtn" DockPanel.Dock="Right"
                                                 Classes="flanker" Content="+" Width="22"
                                                 BorderBrush="{DynamicResource LineBrush}" BorderThickness="1,0,0,0" />
+                                        <!-- MinWidth/MinHeight 0 (#501): Fluent forces a TextBox min size
+                                             (~64×32); in this fixed-width pill the center slot is narrower,
+                                             so without this the textbox overflows centered and its focus
+                                             highlight bleeds over the −/+ buttons. -->
                                         <TextBox x:Name="SpeedInput" Text="1.0"
                                                  HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                                                  Background="Transparent" BorderThickness="0" Padding="4,0" FontSize="11"
+                                                 MinWidth="0" MinHeight="0"
                                                  Height="26" VerticalAlignment="Center" />
                                     </DockPanel>
                                 </Border>
