@@ -57,6 +57,7 @@ public class PreviewControl : Control
     // wires F3 and the Help menu item to flip this in lock-step with the wireframe panel.
     private bool _showDiagnostics;
     private readonly RollingAverage _drawTimes = new(10);
+    private DispatcherTimer? _diagnosticsTimer;
 
     /// <summary>
     /// Shows/hides the draw-time diagnostics overlay. Toggled at runtime from MainWindow
@@ -65,7 +66,29 @@ public class PreviewControl : Control
     public bool DiagnosticsEnabled
     {
         get => _showDiagnostics;
-        set { _showDiagnostics = value; InvalidateVisual(); }
+        set
+        {
+            if (_showDiagnostics == value) return;
+            _showDiagnostics = value;
+            // The panel only repaints on demand (playback/zoom/pan), so an idle overlay would show
+            // a frozen ms/frame. While diagnostics are on, tick a 1 fps repaint so the readout stays
+            // live even when nothing else changes; stop it otherwise to keep the panel idle.
+            if (value)
+            {
+                _diagnosticsTimer ??= CreateDiagnosticsTimer();
+                _diagnosticsTimer.Start();
+            }
+            else
+                _diagnosticsTimer?.Stop();
+            InvalidateVisual();
+        }
+    }
+
+    private DispatcherTimer CreateDiagnosticsTimer()
+    {
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        timer.Tick += (_, _) => InvalidateVisual();
+        return timer;
     }
 
     // -- Settings --------------------------------------------------------------
@@ -351,8 +374,8 @@ public class PreviewControl : Control
         // A resize changes the viewport extent, hence the scrollbar range — refresh the host's scrollbars.
         SizeChanged += (_, _) => RaiseViewChanged();
 
-        // Stop the smooth-zoom timer if the control leaves the tree mid-animation.
-        DetachedFromVisualTree += (_, _) => StopZoomTimer();
+        // Stop the smooth-zoom and diagnostics timers if the control leaves the tree.
+        DetachedFromVisualTree += (_, _) => { StopZoomTimer(); _diagnosticsTimer?.Stop(); };
 
         // Subscriptions are deferred to InitializeServices (called from MainWindow)
 

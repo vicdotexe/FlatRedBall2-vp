@@ -315,6 +315,7 @@ public class WireframeControl : Control
     // smooth-zoom). Toggle via DiagnosticsEnabled; MainWindow wires F3 and the Help menu item.
     private bool _showDiagnostics;
     private readonly RollingAverage _drawTimes = new(10);
+    private DispatcherTimer? _diagnosticsTimer;
     private static readonly Typeface _dbgTypeface = new("Consolas, Courier New");
     // ImmutableSolidColorBrush has no thread affinity and is safe to use from the compositor thread.
     private static readonly IImmutableBrush _dbgBg = new ImmutableSolidColorBrush(Color.FromArgb(210, 0, 0, 0));
@@ -331,7 +332,29 @@ public class WireframeControl : Control
     public bool DiagnosticsEnabled
     {
         get => _showDiagnostics;
-        set { _showDiagnostics = value; InvalidateVisual(); }
+        set
+        {
+            if (_showDiagnostics == value) return;
+            _showDiagnostics = value;
+            // The panel only repaints on demand (pan/zoom/selection), so an idle overlay would show
+            // a frozen ms/frame. While diagnostics are on, tick a 1 fps repaint so the readout stays
+            // live even when nothing else changes; stop it otherwise to keep the panel idle.
+            if (value)
+            {
+                _diagnosticsTimer ??= CreateDiagnosticsTimer();
+                _diagnosticsTimer.Start();
+            }
+            else
+                _diagnosticsTimer?.Stop();
+            InvalidateVisual();
+        }
+    }
+
+    private DispatcherTimer CreateDiagnosticsTimer()
+    {
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        timer.Tick += (_, _) => InvalidateVisual();
+        return timer;
     }
 
     // Camera-stats panel. Sits below the ms/frame box (drawn by the custom op via DrawTimeOverlay),
@@ -532,8 +555,8 @@ public class WireframeControl : Control
             RaiseViewChanged();
         };
 
-        // Stop the smooth-zoom timer if the control leaves the tree mid-animation.
-        DetachedFromVisualTree += (_, _) => StopZoomTimer();
+        // Stop the smooth-zoom and diagnostics timers if the control leaves the tree.
+        DetachedFromVisualTree += (_, _) => { StopZoomTimer(); _diagnosticsTimer?.Stop(); };
 
         // Subscriptions are deferred to InitializeServices (called from MainWindow)
     }
