@@ -3469,12 +3469,37 @@ public partial class MainWindow : Window
                 PropGreen.Value      = frame.Green.HasValue ? frame.Green.Value : (decimal?)null;
                 PropBlue.Value       = frame.Blue.HasValue  ? frame.Blue.Value  : (decimal?)null;
                 PropAlpha.Value      = frame.Alpha.HasValue ? frame.Alpha.Value : (decimal?)null;
-                PropColorMode.SelectedIndex = frame.ColorOperation switch
+
+                // Ghost the sticky effective value in each blank field: an omitted channel holds
+                // whatever an earlier frame last set (climbing back), or the operation's identity
+                // (Add → 0, else 255) when nothing ever set it. This makes a blank field read as the
+                // value a runtime actually applies, instead of implying "reset to default".
+                var chain = _selectedState.SelectedChain;
+                int frameIndex = chain?.Frames.IndexOf(frame) ?? -1;
+                var effective = frameIndex >= 0
+                    ? EffectiveFrameColor.Resolve(chain!.Frames, frameIndex)
+                    : default;
+                int rgbDefault = EffectiveFrameColor.ChannelDefault(effective.Operation);
+                PropRed.PlaceholderText   = (effective.Red   ?? rgbDefault).ToString();
+                PropGreen.PlaceholderText = (effective.Green ?? rgbDefault).ToString();
+                PropBlue.PlaceholderText  = (effective.Blue  ?? rgbDefault).ToString();
+                PropAlpha.PlaceholderText = (effective.Alpha ?? 255).ToString();
+
+                if (frame.ColorOperation is ColorOperation op)
                 {
-                    ColorOperation.Multiply => 1,
-                    ColorOperation.Add      => 2,
-                    _                       => 0, // None / null
-                };
+                    PropColorMode.SelectedIndex = op == ColorOperation.Multiply ? 1 : 2;
+                }
+                else if (effective.Operation is ColorOperation inherited)
+                {
+                    // Unset here but inherited from an earlier frame — ghost it as a combo placeholder
+                    // (SelectedIndex -1 shows PlaceholderText) so the combo matches the sticky preview.
+                    PropColorMode.SelectedIndex = -1;
+                    PropColorMode.PlaceholderText = $"{inherited} (inherited)";
+                }
+                else
+                {
+                    PropColorMode.SelectedIndex = 0; // None
+                }
                 PropTextureName.Text = TexturePathHelper.ComputeDisplayPath(
                     frame.TextureName, _projectManager.FileName);
 

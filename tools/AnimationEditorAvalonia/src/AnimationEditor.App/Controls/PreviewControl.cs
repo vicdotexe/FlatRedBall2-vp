@@ -309,7 +309,8 @@ public class PreviewControl : Control
                                         _appState!.OffsetMultiplier,
                                         _hGuides.ToArray(), _vGuides.ToArray(),
                                         _draggedGuideIdx, _draggingHGuide,
-                                        BuildShapeInfos(), frameOffX, frameOffY);
+                                        BuildShapeInfos(), frameOffX, frameOffY,
+                                        ResolveColor(chain, displayFrame), ResolveColor(chain, onionFrame));
         UpdatePalette();
         var bitmap = new SKBitmap(width, height);
         using var canvas = new SKCanvas(bitmap);
@@ -906,7 +907,8 @@ public class PreviewControl : Control
                 _appState!.OffsetMultiplier,
                 _hGuides.ToArray(), _vGuides.ToArray(),
                 _draggedGuideIdx, _draggingHGuide,
-                BuildShapeInfos(), frameOffX, frameOffY),
+                BuildShapeInfos(), frameOffX, frameOffY,
+                ResolveColor(chain, displayFrame), ResolveColor(chain, onionFrame)),
             _thumbnailService.ImageCache, _palette, _showDiagnostics ? _drawTimes : null));
     }
 
@@ -1699,7 +1701,21 @@ public class PreviewControl : Control
         bool   DraggingHGuide,
         PreviewShapeInfo[] Shapes,
         // Display-frame offset, already resolved for snap vs interpolate (see ResolveFrameOffset).
-        float  FrameOffsetX, float FrameOffsetY);
+        float  FrameOffsetX, float FrameOffsetY,
+        // Sticky per-channel color for the live frame and onion frame — an omitted channel holds
+        // whatever an earlier frame last set, matching runtime, rather than resetting each frame.
+        ResolvedFrameColor FrameColor, ResolvedFrameColor OnionColor);
+
+    /// <summary>
+    /// Resolves a frame's sticky effective color within its chain. Returns an all-unset result
+    /// when the frame isn't part of <paramref name="chain"/> (e.g. no selection).
+    /// </summary>
+    private static ResolvedFrameColor ResolveColor(AnimationChainSave? chain, AnimationFrameSave? frame)
+    {
+        if (chain is null || frame is null) return default;
+        int idx = chain.Frames.IndexOf(frame);
+        return idx < 0 ? default : EffectiveFrameColor.Resolve(chain.Frames, idx);
+    }
 
     // -- Shared SkiaSharp rendering (used by both live and off-screen paths) --
 
@@ -1722,7 +1738,7 @@ public class PreviewControl : Control
         {
             float ocx = cx + s.OnionFrame.RelativeX * s.OffsetMultiplier * s.Zoom;
             float ocy = cy - s.OnionFrame.RelativeY * s.OffsetMultiplier * s.Zoom;
-            DrawFrameCore(canvas, s.OnionFrame, onionImg, ocx, ocy, s.Zoom, alpha: 0.4f);
+            DrawFrameCore(canvas, s.OnionFrame, s.OnionColor, onionImg, ocx, ocy, s.Zoom, alpha: 0.4f);
         }
 
         if (s.Frame is not null &&
@@ -1731,7 +1747,7 @@ public class PreviewControl : Control
         {
             float fcx = cx + s.FrameOffsetX * s.OffsetMultiplier * s.Zoom;
             float fcy = cy - s.FrameOffsetY * s.OffsetMultiplier * s.Zoom;
-            DrawFrameCore(canvas, s.Frame, img, fcx, fcy, s.Zoom, alpha: 1.0f);
+            DrawFrameCore(canvas, s.Frame, s.FrameColor, img, fcx, fcy, s.Zoom, alpha: 1.0f);
         }
 
         // Origin crosshair (toggled by ShowGuides)
@@ -1995,7 +2011,7 @@ public class PreviewControl : Control
     }
 
     private static void DrawFrameCore(
-        SKCanvas canvas, AnimationFrameSave frame, SKImage img,
+        SKCanvas canvas, AnimationFrameSave frame, ResolvedFrameColor color, SKImage img,
         float cx, float cy, float zoom, float alpha)
     {
         var (sx, sy, sw, sh) = ComputeSourceRect(frame, img.Width, img.Height);
@@ -2009,11 +2025,12 @@ public class PreviewControl : Control
 
         using var paint = new SKPaint
         {
-            // Per-frame Alpha previews as opacity (reference render); runtimes apply it however they choose.
-            Color = new SKColor(255, 255, 255, FramePreviewOpacity.Resolve(frame.Alpha, alpha))
+            // Sticky effective alpha previews as opacity (reference render); an omitted channel holds
+            // the last set value, matching runtime. Runtimes apply it however they choose.
+            Color = new SKColor(255, 255, 255, FramePreviewOpacity.Resolve(color.Alpha, alpha))
         };
-        // Reference render of the frame's color operation; runtimes apply it however they choose.
-        using var colorFilter = FrameColorFilter.Create(frame.ColorOperation, frame.Red, frame.Green, frame.Blue);
+        // Reference render of the frame's sticky effective color operation; runtimes apply it however they choose.
+        using var colorFilter = FrameColorFilter.Create(color.Operation, color.Red, color.Green, color.Blue);
         if (colorFilter is not null)
             paint.ColorFilter = colorFilter;
         var sampling = zoom >= 1
