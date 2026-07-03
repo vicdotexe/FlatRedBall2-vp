@@ -78,6 +78,7 @@ public class UndoCoverageRosterTests
         [nameof(IAppCommands.MoveFrameToTop)]               = Category.MutatingUndoable,
         [nameof(IAppCommands.MoveFrameToBottom)]            = Category.MutatingUndoable,
         [nameof(IAppCommands.MoveFrames)]                   = Category.MutatingUndoable,
+        [nameof(IAppCommands.MoveFramesRelative)]           = Category.MutatingUndoable,
         [nameof(IAppCommands.MoveShape)]                    = Category.MutatingUndoable,
         [nameof(IAppCommands.MoveShapeToTop)]               = Category.MutatingUndoable,
         [nameof(IAppCommands.MoveShapeToBottom)]            = Category.MutatingUndoable,
@@ -234,6 +235,10 @@ public class UndoCoverageRosterTests
             // Within-chain drag move: frame 0 → end of Zebra (3 frames) reorders to 1,2,0.
             ctx => Sync(() => ctx.AppCommands.MoveFrames(
                 new[] { Zebra(ctx).Frames[0] }, Zebra(ctx), Zebra(ctx), insertIndex: 3)));
+        yield return Row(nameof(IAppCommands.MoveFramesRelative),
+            // Rigid multi-frame shift: frames 0 and 1 of Zebra (3 frames) move down → 2,0,1.
+            ctx => Sync(() => ctx.AppCommands.MoveFramesRelative(
+                new[] { Zebra(ctx).Frames[0], Zebra(ctx).Frames[1] }, Zebra(ctx), +1)));
         yield return Row(nameof(IAppCommands.MoveShape),
             ctx => Sync(() => ctx.AppCommands.MoveShape(Rect(ctx), Zebra(ctx).Frames[0], +1)));
         yield return Row(nameof(IAppCommands.MoveShapeToTop),
