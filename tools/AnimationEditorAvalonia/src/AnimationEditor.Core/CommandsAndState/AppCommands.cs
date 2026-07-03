@@ -687,6 +687,50 @@ namespace AnimationEditor.Core.CommandsAndState
                 frames, sourceChain, targetChain, insertIndex, this, _events, _selectedState));
         }
 
+        /// <inheritdoc cref="IAppCommands.MoveFramesRelative"/>
+        public void MoveFramesRelative(IReadOnlyList<AnimationFrameSave> frames,
+            AnimationChainSave chain, int delta)
+        {
+            if (delta == 0 || frames.Count == 0) return;
+
+            var indices = frames
+                .Select(f => chain.Frames.IndexOf(f))
+                .Where(i => i >= 0)
+                .Distinct()
+                .OrderBy(i => i)
+                .ToList();
+            if (indices.Count == 0) return;
+
+            // Rigid group: if shifting either edge by delta would cross a boundary, no-op.
+            if (indices[0] + delta < 0) return;
+            if (indices[^1] + delta > chain.Frames.Count - 1) return;
+
+            var selected = new HashSet<int>(indices);
+
+            _undoManager.Execute(new ReorderCommand<AnimationFrameSave>(
+                chain.Frames,
+                () =>
+                {
+                    var reordered = new AnimationFrameSave[chain.Frames.Count];
+                    // Selected frames land at their shifted slots (gaps preserved)...
+                    foreach (int i in indices)
+                        reordered[i + delta] = chain.Frames[i];
+                    // ...and the rest slot into the remaining holes in original order.
+                    int cursor = 0;
+                    for (int i = 0; i < chain.Frames.Count; i++)
+                    {
+                        if (selected.Contains(i)) continue;
+                        while (reordered[cursor] is not null) cursor++;
+                        reordered[cursor] = chain.Frames[i];
+                    }
+                    chain.Frames.Clear();
+                    foreach (var frame in reordered)
+                        chain.Frames.Add(frame);
+                },
+                this, _events, () => RefreshTreeNode(chain),
+                delta > 0 ? "Move Frames Down" : "Move Frames Up"));
+        }
+
         public void MoveShape(object shape, AnimationFrameSave frame, int delta)
         {
             var shapes = frame.ShapesSave?.Shapes;
@@ -749,7 +793,17 @@ namespace AnimationEditor.Core.CommandsAndState
                 if (ownerFrame is not null) MoveShape(circle, ownerFrame, delta);
             }
             else if (frame is not null && chain is not null)
-                MoveFrame(frame, chain, delta);
+            {
+                // Reorder the whole multi-selection together (gaps preserved); fall back to
+                // the single-frame move when only the primary frame is selected.
+                var frames = _selectedState.SelectedFrames
+                    .Where(chain.Frames.Contains)
+                    .ToList();
+                if (frames.Count > 1)
+                    MoveFramesRelative(frames, chain, delta);
+                else
+                    MoveFrame(frame, chain, delta);
+            }
             else if (chain is not null)
                 MoveChain(chain, delta);
         }

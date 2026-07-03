@@ -1,6 +1,8 @@
 using AnimationEditor.Core;
 using AnimationEditor.Core.CommandsAndState;
 using FlatRedBall2.Animation.Content;
+using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 
 namespace AnimationEditor.Core.Tests;
@@ -97,6 +99,140 @@ public class AppCommandsReorderTests
         var ex = Record.Exception(() => ctx.AppCommands.HandleReorder(+1));
 
         Assert.Null(ex);
+    }
+
+    // ── HandleReorder — multiple frames selected ─────────────────────────────
+
+    [Fact]
+    public void HandleReorder_MultiFrameContiguous_DeltaPos1_MovesBlockDown()
+    {
+        var ctx   = TestHelpers.SetupFreshAcls();
+        var chain = TestHelpers.MakeChain(ctx.Acls, "Walk", 4);
+        var f = chain.Frames.ToArray();
+        ctx.SelectedState.SelectedFrame = f[0];
+        ctx.SelectedState.SelectedNodes = new List<object> { f[0], f[1] };
+
+        ctx.AppCommands.HandleReorder(+1);
+
+        // Block {f0,f1} shifts down one; f2 fills the vacated top slot.
+        Assert.Equal(new[] { f[2], f[0], f[1], f[3] }, chain.Frames.ToArray());
+    }
+
+    [Fact]
+    public void HandleReorder_MultiFrameContiguous_DeltaNeg1_MovesBlockUp()
+    {
+        var ctx   = TestHelpers.SetupFreshAcls();
+        var chain = TestHelpers.MakeChain(ctx.Acls, "Walk", 4);
+        var f = chain.Frames.ToArray();
+        ctx.SelectedState.SelectedFrame = f[2];
+        ctx.SelectedState.SelectedNodes = new List<object> { f[2], f[3] };
+
+        ctx.AppCommands.HandleReorder(-1);
+
+        Assert.Equal(new[] { f[0], f[2], f[3], f[1] }, chain.Frames.ToArray());
+    }
+
+    [Fact]
+    public void HandleReorder_MultiFrameNonContiguous_DeltaPos1_PreservesGaps()
+    {
+        var ctx   = TestHelpers.SetupFreshAcls();
+        var chain = TestHelpers.MakeChain(ctx.Acls, "Walk", 6);
+        var f = chain.Frames.ToArray();
+        ctx.SelectedState.SelectedFrame = f[0];
+        ctx.SelectedState.SelectedNodes = new List<object> { f[0], f[2], f[4] };
+
+        ctx.AppCommands.HandleReorder(+1);
+
+        // 0,2,4 → 1,3,5; gaps preserved, non-selected fill remaining slots in order.
+        Assert.Equal(new[] { f[1], f[0], f[3], f[2], f[5], f[4] }, chain.Frames.ToArray());
+    }
+
+    [Fact]
+    public void HandleReorder_MultiFrameNonContiguous_DeltaNeg1_PreservesGaps()
+    {
+        var ctx   = TestHelpers.SetupFreshAcls();
+        var chain = TestHelpers.MakeChain(ctx.Acls, "Walk", 6);
+        var f = chain.Frames.ToArray();
+        ctx.SelectedState.SelectedFrame = f[1];
+        ctx.SelectedState.SelectedNodes = new List<object> { f[1], f[3], f[5] };
+
+        ctx.AppCommands.HandleReorder(-1);
+
+        // 1,3,5 → 0,2,4; gaps preserved.
+        Assert.Equal(new[] { f[1], f[0], f[3], f[2], f[5], f[4] }, chain.Frames.ToArray());
+    }
+
+    [Fact]
+    public void HandleReorder_MultiFrameAtBottom_DeltaPos1_IsNoOp()
+    {
+        var ctx   = TestHelpers.SetupFreshAcls();
+        var chain = TestHelpers.MakeChain(ctx.Acls, "Walk", 4);
+        var f = chain.Frames.ToArray();
+        ctx.SelectedState.SelectedFrame = f[2];
+        ctx.SelectedState.SelectedNodes = new List<object> { f[2], f[3] };
+
+        ctx.AppCommands.HandleReorder(+1);
+
+        // Bottommost selected frame is already at the end — whole group is clamped.
+        Assert.Equal(f, chain.Frames.ToArray());
+    }
+
+    [Fact]
+    public void HandleReorder_MultiFrameAtTop_DeltaNeg1_IsNoOp()
+    {
+        var ctx   = TestHelpers.SetupFreshAcls();
+        var chain = TestHelpers.MakeChain(ctx.Acls, "Walk", 4);
+        var f = chain.Frames.ToArray();
+        ctx.SelectedState.SelectedFrame = f[0];
+        ctx.SelectedState.SelectedNodes = new List<object> { f[0], f[1] };
+
+        ctx.AppCommands.HandleReorder(-1);
+
+        Assert.Equal(f, chain.Frames.ToArray());
+    }
+
+    [Fact]
+    public void HandleReorder_MultiFrameNonContiguousBlockedEdge_DeltaPos1_IsNoOp()
+    {
+        var ctx   = TestHelpers.SetupFreshAcls();
+        var chain = TestHelpers.MakeChain(ctx.Acls, "Walk", 5);
+        var f = chain.Frames.ToArray();
+        ctx.SelectedState.SelectedFrame = f[0];
+        ctx.SelectedState.SelectedNodes = new List<object> { f[0], f[2], f[4] };
+
+        ctx.AppCommands.HandleReorder(+1);
+
+        // f4 is already at the end, so the rigid group can't move; nothing shifts.
+        Assert.Equal(f, chain.Frames.ToArray());
+    }
+
+    [Fact]
+    public void HandleReorder_MultiFrame_SingleUndo_RevertsWholeMove()
+    {
+        var ctx   = TestHelpers.SetupFreshAcls();
+        var chain = TestHelpers.MakeChain(ctx.Acls, "Walk", 6);
+        var f = chain.Frames.ToArray();
+        ctx.SelectedState.SelectedFrame = f[0];
+        ctx.SelectedState.SelectedNodes = new List<object> { f[0], f[2], f[4] };
+
+        ctx.AppCommands.HandleReorder(+1);
+        ctx.UndoManager.Undo();
+
+        Assert.Equal(f, chain.Frames.ToArray());
+    }
+
+    [Fact]
+    public void HandleReorder_MultiFrame_KeepsAllFramesSelected()
+    {
+        var ctx   = TestHelpers.SetupFreshAcls();
+        var chain = TestHelpers.MakeChain(ctx.Acls, "Walk", 6);
+        var f = chain.Frames.ToArray();
+        ctx.SelectedState.SelectedFrame = f[0];
+        ctx.SelectedState.SelectedNodes = new List<object> { f[0], f[2], f[4] };
+
+        ctx.AppCommands.HandleReorder(+1);
+
+        Assert.Equal(new[] { f[0], f[2], f[4] }, ctx.SelectedState.SelectedFrames.ToArray());
     }
 
     // ── HandleReorder — rectangle selected ───────────────────────────────────

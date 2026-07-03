@@ -142,6 +142,17 @@ namespace AnimationEditor.Core.CommandsAndState
         /// </summary>
         void MoveFrames(IReadOnlyList<AnimationFrameSave> frames,
             AnimationChainSave sourceChain, AnimationChainSave targetChain, int insertIndex);
+
+        /// <summary>
+        /// Shifts <paramref name="frames"/> within <paramref name="chain"/> by
+        /// <paramref name="delta"/> slots (−1 = up, +1 = down) as one rigid group, preserving
+        /// the gaps between non-contiguous frames, as a single undo step. The whole group is
+        /// clamped at the chain boundaries: if the shift would push any selected frame past an
+        /// end, nothing moves. Drives the Alt+Arrow keyboard reorder — unlike the drag-drop
+        /// <see cref="MoveFrames"/> path, it does not collapse the selection into a contiguous block.
+        /// </summary>
+        void MoveFramesRelative(IReadOnlyList<AnimationFrameSave> frames,
+            AnimationChainSave chain, int delta);
         void MoveShape(object shape, AnimationFrameSave frame, int delta);
         void MoveShapeToTop(object shape, AnimationFrameSave frame);
         void MoveShapeToBottom(object shape, AnimationFrameSave frame);
