@@ -391,6 +391,10 @@
                         <Style Selector="TreeViewItem">
                             <Setter Property="IsExpanded"
                                     Value="{ReflectionBinding IsExpanded, Mode=TwoWay}" />
+                            <!-- Tighten the row: drop the Fluent 32px min-height slack and padding so
+                                 rows hug their content (icon/text) instead of floating in centered air. -->
+                            <Setter Property="MinHeight" Value="0" />
+                            <Setter Property="Padding" Value="0" />
                             <!-- Search filter: hide rows the filter excludes, but always keep the
                                  selected row visible (safety net for off-filter programmatic selection). -->
                             <Setter Property="IsVisible">
@@ -403,18 +407,19 @@
                                 </Setter.Value>
                             </Setter>
                         </Style>
-                        <!-- Expand chevron hit area to a full-height square; icon stays 12×12 centered. -->
+                        <!-- Narrow the expand/collapse indent column to shift tree content left;
+                             the 12×12 chevron icon stays centered within it. -->
                         <Style Selector="TreeViewItem /template/ Panel#PART_ExpandCollapseChevronContainer">
                             <Setter Property="Margin" Value="0" />
-                            <Setter Property="Width" Value="{DynamicResource TreeViewItemMinHeight}" />
+                            <Setter Property="Width" Value="10" />
                         </Style>
                         <!-- The Fluent theme's :empty style overrides the panel width to 12px for
                              leaf items, causing their content to start ~20px left of non-leaf items.
-                             Override it here with the same full width so leaf and non-leaf items
+                             Override it here with the same width so leaf and non-leaf items
                              always indent identically.  The ToggleButton inside is already hidden for
                              :empty items by the Fluent theme; the panel becomes an invisible spacer. -->
                         <Style Selector="TreeViewItem:empty /template/ Panel#PART_ExpandCollapseChevronContainer">
-                            <Setter Property="Width" Value="{DynamicResource TreeViewItemMinHeight}" />
+                            <Setter Property="Width" Value="10" />
                         </Style>
                         <Style Selector="TreeViewItem /template/ ToggleButton#PART_ExpandCollapseChevron">
                             <Setter Property="VerticalAlignment" Value="Stretch" />
