@@ -195,8 +195,6 @@ jobs:
   release:
     needs: [meta, build]
     runs-on: ubuntu-latest
-    env:
-      VPK_TOKEN: ${{ github.token }}
 
     steps:
       - name: Install .NET SDK
@@ -240,8 +238,7 @@ jobs:
               '--channel', $channel,
               '--tag', '${{ needs.meta.outputs.tag }}',
               '--releaseName', '${{ needs.meta.outputs.title }}',
-              '--targetCommitish', '${{ github.sha }}',
-              '--token', '${{ github.token }}'
+              '--targetCommitish', '${{ github.sha }}'
             )
 
             if ('${{ needs.meta.outputs.prerelease }}' -eq 'true') {
