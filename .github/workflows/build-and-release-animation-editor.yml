@@ -154,6 +154,8 @@ jobs:
 
       - name: Download previous channel release for delta generation
         shell: pwsh
+        env:
+          VPK_TOKEN: ${{ github.token }}
         run: |
           $channel = "${{ matrix.rid }}-${{ needs.meta.outputs.channel }}"
 
@@ -192,6 +194,8 @@ jobs:
   release:
     needs: [meta, build]
     runs-on: ubuntu-latest
+    env:
+      VPK_TOKEN: ${{ github.token }}
 
     steps:
       - name: Install .NET SDK
@@ -254,7 +258,7 @@ jobs:
             vpk @arguments
 
             if ($LASTEXITCODE -ne 0) {
-              exit $LASTEXITCODE
+              Write-Warning "Unable to obtain a delta baseline for '$channel'. The release will contain a full package only."
             }
 
             $firstUpload = $false
