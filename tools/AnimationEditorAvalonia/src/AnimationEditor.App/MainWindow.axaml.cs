@@ -1586,26 +1586,86 @@ public partial class MainWindow : Window
     /// Builds the content panel for the About dialog.
     /// Extracted for testability.
     /// </summary>
-    internal static Control BuildAboutContent(Services.AppUpdateService? appUpdateService = null)
+    internal static Control BuildAboutContent(
+        Services.AppUpdateService? appUpdateService = null)
     {
-        var ver = typeof(MainWindow).Assembly.GetName().Version;
-        var versionText = appUpdateService?.AppVersion;
         Services.AvailableAppUpdate? availableUpdate = null;
 
-        var linkButton = new Button { Content = GitHubUrl };
+        var canCheckForUpdates =
+            appUpdateService?.CanCheckForUpdates == true;
+
+        var currentChannel = appUpdateService?.CurrentChannel;
+
+        var channels = new[]
+        {
+        Services.AppUpdateChannel.Release,
+        Services.AppUpdateChannel.PreRelease,
+        Services.AppUpdateChannel.Test,
+    };
+
+        var initialChannel = currentChannel
+            ?? Services.AppUpdateChannel.Release;
+
+        var initialChannelIndex = initialChannel switch
+        {
+            Services.AppUpdateChannel.Release => 0,
+            Services.AppUpdateChannel.PreRelease => 1,
+            Services.AppUpdateChannel.Test => 2,
+            _ => 0,
+        };
+
+        var channelSelector = new ComboBox
+        {
+            ItemsSource = channels,
+            SelectedIndex = initialChannelIndex,
+            IsEnabled = canCheckForUpdates,
+            MinWidth = 150,
+        };
+
+        Services.AppUpdateChannel GetSelectedChannel()
+        {
+            var selectedIndex = channelSelector.SelectedIndex;
+
+            if (selectedIndex < 0 || selectedIndex >= channels.Length)
+            {
+                throw new InvalidOperationException(
+                    "Select an update channel before checking for updates.");
+            }
+
+            return channels[selectedIndex];
+        }
+
+        var linkButton = new Button
+        {
+            Content = GitHubUrl,
+        };
+
         linkButton.Click += (_, _) =>
         {
             try
             {
-                Process.Start(new ProcessStartInfo(GitHubUrl) { UseShellExecute = true });
+                Process.Start(
+                    new ProcessStartInfo(GitHubUrl)
+                    {
+                        UseShellExecute = true,
+                    });
             }
-            catch { }
+            catch
+            {
+                // Opening the external browser is best-effort.
+            }
         };
 
         var updateStatus = new TextBlock
         {
             IsVisible = false,
             TextWrapping = TextWrapping.Wrap,
+        };
+
+        var channelGuidance = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            FontSize = 10
         };
 
         var downloadButton = new Button
@@ -1617,38 +1677,134 @@ public partial class MainWindow : Window
 
         var checkButton = new Button
         {
-            Content = "Check for Updates",
-            IsEnabled = appUpdateService is not null,
+            Content = "Check",
+            IsEnabled = canCheckForUpdates,
         };
+
+        void ResetAvailableUpdate()
+        {
+            availableUpdate = null;
+
+            downloadButton.IsVisible = false;
+            downloadButton.IsEnabled = false;
+            downloadButton.Content = "Download and Restart";
+        }
+
+        void UpdateChannelGuidance()
+        {
+            var selectedChannel = GetSelectedChannel();
+
+            channelGuidance.Text = selectedChannel switch
+            {
+                Services.AppUpdateChannel.Release =>
+                    "Release is the recommended channel for normal use.",
+
+                Services.AppUpdateChannel.PreRelease =>
+                    "PreRelease contains upcoming work intended for broader testing.",
+
+                Services.AppUpdateChannel.Test =>
+                    "Warning: Test builds may come from an unmerged branch or a specific "
+                    + "commit. They may be unstable, incomplete, or incompatible with "
+                    + "newer project files. Back up important projects before switching.",
+
+                _ => string.Empty,
+            };
+        }
 
         if (appUpdateService is null)
         {
             updateStatus.IsVisible = true;
             updateStatus.Text = "Update service unavailable.";
         }
+        else if (!appUpdateService.SupportsAutomaticUpdates)
+        {
+            updateStatus.IsVisible = true;
+            updateStatus.Text =
+                "Automatic updates are available only in managed installer "
+                + "or portable releases.";
+        }
+        else if (appUpdateService.CurrentChannel is null)
+        {
+            updateStatus.IsVisible = true;
+            updateStatus.Text =
+                "This package has an unrecognized update channel and cannot check "
+                + "for updates.";
+        }
+
+        channelSelector.SelectionChanged += (_, _) =>
+        {
+            ResetAvailableUpdate();
+            UpdateChannelGuidance();
+
+            if (canCheckForUpdates)
+            {
+                updateStatus.IsVisible = false;
+            }
+        };
 
         checkButton.Click += async (_, _) =>
         {
             if (appUpdateService is null)
+            {
                 return;
+            }
+
+            var selectedChannel = GetSelectedChannel();
+            var selectedChannelName = selectedChannel.GetDisplayName();
 
             checkButton.IsEnabled = false;
-            downloadButton.IsEnabled = false;
-            downloadButton.IsVisible = false;
+            channelSelector.IsEnabled = false;
+
+            ResetAvailableUpdate();
+
             updateStatus.IsVisible = true;
-            updateStatus.Text = "Checking for updates...";
+            updateStatus.Text = string.Empty;
+
+            checkButton.Content = $"Checking...";
 
             try
             {
-                availableUpdate = await appUpdateService.CheckForUpdatesAsync();
+                availableUpdate = await appUpdateService
+                    .CheckForUpdatesAsync(selectedChannel);
 
                 if (availableUpdate is null)
                 {
-                    updateStatus.Text = "No updates available.";
+                    if (currentChannel == selectedChannel)
+                    {
+                        updateStatus.Text =
+                            $"You’re on the latest {selectedChannelName} build.";
+                    }
+                    else
+                    {
+                        updateStatus.Text =
+                            $"No {selectedChannelName} build is currently available to switch to.";
+                    }
+
                     return;
                 }
 
-                updateStatus.Text = $"Update available: {availableUpdate.Version}";
+                if (availableUpdate.IsChannelSwitch)
+                {
+                    updateStatus.Text =
+                        $"Found latest {selectedChannelName}: {availableUpdate.Version}.";
+
+                    if (availableUpdate.IsDowngrade)
+                    {
+                        updateStatus.Text +=
+                            " This installs an older or same-version build.";
+                    }
+
+                    downloadButton.Content =
+                        $"Switch to {selectedChannelName} and Restart";
+                }
+                else
+                {
+                    updateStatus.Text =
+                        $"Update available: {availableUpdate.Version}";
+
+                    downloadButton.Content = "Download and Restart";
+                }
+
                 downloadButton.IsVisible = true;
                 downloadButton.IsEnabled = true;
             }
@@ -1658,19 +1814,31 @@ public partial class MainWindow : Window
             }
             finally
             {
-                checkButton.IsEnabled = true;
+                checkButton.IsEnabled = canCheckForUpdates;
+                channelSelector.IsEnabled = canCheckForUpdates;
+                checkButton.Content = "Check";
             }
         };
 
         downloadButton.Click += async (_, _) =>
         {
             if (appUpdateService is null || availableUpdate is null)
+            {
                 return;
+            }
 
             checkButton.IsEnabled = false;
+            channelSelector.IsEnabled = false;
             downloadButton.IsEnabled = false;
+
+            var targetChannelName =
+                availableUpdate.TargetChannel.GetDisplayName();
+
             updateStatus.IsVisible = true;
-            updateStatus.Text = $"Downloading {availableUpdate.Version} and restarting...";
+
+            updateStatus.Text = availableUpdate.IsChannelSwitch
+                ? $"Switching to {targetChannelName} {availableUpdate.Version} and restarting..."
+                : $"Downloading update {availableUpdate.Version} and restarting...";
 
             try
             {
@@ -1679,10 +1847,36 @@ public partial class MainWindow : Window
             catch (Exception ex)
             {
                 updateStatus.Text = $"Update download failed: {ex.Message}";
-                checkButton.IsEnabled = true;
+
+                checkButton.IsEnabled = canCheckForUpdates;
+                channelSelector.IsEnabled = canCheckForUpdates;
                 downloadButton.IsVisible = true;
                 downloadButton.IsEnabled = true;
             }
+        };
+
+        UpdateChannelGuidance();
+
+        var currentBuildText = appUpdateService is null
+            ? "Version Unknown · Channel Unknown"
+            : $"Version {appUpdateService.AppVersion} · "
+            + $"Channel {appUpdateService.CurrentChannelDisplayName}";
+
+        var channelControls = new StackPanel
+        {
+            
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Children =
+        {
+            new TextBlock
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                Text = "Updates:",
+            },
+            channelSelector,
+            checkButton,
+        },
         };
 
         var updateButtons = new StackPanel
@@ -1690,10 +1884,10 @@ public partial class MainWindow : Window
             Orientation = Orientation.Horizontal,
             Spacing = 8,
             Children =
-            {
-                checkButton,
-                downloadButton,
-            }
+        {
+            
+            downloadButton,
+        },
         };
 
         return new StackPanel
@@ -1701,14 +1895,29 @@ public partial class MainWindow : Window
             Margin = new Avalonia.Thickness(20),
             Spacing = 8,
             Children =
+        {
+            new TextBlock
             {
-                new TextBlock { Text = "AnimationEditor", FontSize = 16 },
-                new TextBlock { Text = $"Version {versionText}" },
-                new TextBlock { Text = "© FlatRedBall Contributors" },
-                updateButtons,
-                updateStatus,
-                linkButton,
-            }
+                Text = "AnimationEditor",
+                FontSize = 16,
+            },
+
+            new TextBlock
+            {
+                Text = currentBuildText,
+            },
+
+            new TextBlock
+            {
+                Text = "© FlatRedBall Contributors",
+            },
+
+            channelControls,
+            channelGuidance,
+            updateStatus,
+            updateButtons,
+            linkButton,
+        },
         };
     }
 

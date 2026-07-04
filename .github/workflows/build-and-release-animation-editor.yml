@@ -17,13 +17,11 @@ jobs:
   meta:
     runs-on: ubuntu-latest
     outputs:
-      version:    ${{ steps.meta.outputs.version }}
-      tag:        ${{ steps.meta.outputs.tag }}
-      title:      ${{ steps.meta.outputs.title }}
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      title: ${{ steps.meta.outputs.title }}
       prerelease: ${{ steps.meta.outputs.prerelease }}
-      draft:      ${{ steps.meta.outputs.draft }}
-      publish:    ${{ steps.meta.outputs.publish }}
-      channel:    ${{ steps.meta.outputs.channel }}
+      channel: ${{ steps.meta.outputs.channel }}
 
     steps:
       - name: Compute version, tag, title, and release metadata
@@ -32,33 +30,35 @@ jobs:
         run: |
           $now = Get-Date
           $kind = "${{ github.event.inputs.release_kind }}"
+          $refName = "${{ github.ref_name }}"
+          $runNumber = $env:GITHUB_RUN_NUMBER
 
-          # SemVer-compatible and unique for each distinct workflow run.
+          # Release and prerelease are intended to represent main.
+          # Test may run from any branch selected in the Actions UI.
+          if ($kind -in @('release', 'prerelease') -and $refName -ne 'main') {
+            throw "'$kind' releases must be run from main. Selected ref: '$refName'."
+          }
+
+          # Valid SemVer and unique per workflow run.
           # Example: 2026.7.123
-          $version = "$($now.Year).$($now.Month).$($env:GITHUB_RUN_NUMBER)"
+          $version = "$($now.Year).$($now.Month).$runNumber"
 
           switch ($kind) {
             'release' {
               $prefix = 'Release'
-              $prerelease = 'false'
-              $draft = 'false'
-              $publish = 'true'
+              $isPrerelease = 'false'
               $channel = 'release'
             }
 
             'prerelease' {
               $prefix = 'PreRelease'
-              $prerelease = 'true'
-              $draft = 'false'
-              $publish = 'true'
+              $isPrerelease = 'true'
               $channel = 'prerelease'
             }
 
             'test' {
               $prefix = 'Test'
-              $prerelease = 'true'
-              $draft = 'true'
-              $publish = 'false'
+              $isPrerelease = 'true'
               $channel = 'test'
             }
 
@@ -67,34 +67,47 @@ jobs:
             }
           }
 
-          $title = "$prefix " + $now.ToString('MMMM d, yyyy') + " (Build $($env:GITHUB_RUN_NUMBER))"
-          $tag = "ae-${prefix}_" + $now.ToString('MMMM_dd_yyyy') + "-$($env:GITHUB_RUN_NUMBER)"
+          $testBranchSuffix = if ($kind -eq 'test') {
+            " [$refName]"
+          }
+          else {
+            ''
+          }
+
+          $title = "Animation Editor $prefix " +
+                   $now.ToString('MMMM d, yyyy') +
+                   "$testBranchSuffix (Build $runNumber)"
+
+          $tag = "ae-$prefix" +
+                 "_" + $now.ToString('MMMM_dd_yyyy') +
+                 "-$runNumber"
 
           "version=$version" >> $env:GITHUB_OUTPUT
           "tag=$tag" >> $env:GITHUB_OUTPUT
-          "title=Animation Editor $title" >> $env:GITHUB_OUTPUT
-          "prerelease=$prerelease" >> $env:GITHUB_OUTPUT
-          "draft=$draft" >> $env:GITHUB_OUTPUT
-          "publish=$publish" >> $env:GITHUB_OUTPUT
+          "title=$title" >> $env:GITHUB_OUTPUT
+          "prerelease=$isPrerelease" >> $env:GITHUB_OUTPUT
           "channel=$channel" >> $env:GITHUB_OUTPUT
 
+  # Uncomment when you are ready to restore test gating.
+  #
   # test:
   #   runs-on: ubuntu-latest
-
+  #
   #   steps:
   #     - name: Checkout code
   #       uses: actions/checkout@v4
-
+  #
   #     - name: Install .NET SDK
   #       uses: actions/setup-dotnet@v4
   #       with:
   #         dotnet-version: '10.0.x'
-
+  #
   #     - name: Test AnimationEditor solution
   #       run: dotnet test tools/AnimationEditorAvalonia/AnimationEditorAvalonia.slnx -c Release
 
   build:
-    needs: [meta] #[meta, test]
+    needs: [meta]
+    # Change to [meta, test] after restoring the test job.
 
     strategy:
       fail-fast: false
@@ -154,7 +167,13 @@ jobs:
 
       - name: Download previous channel release for delta generation
         shell: pwsh
+        env:
+          VPK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          if ([string]::IsNullOrWhiteSpace($env:VPK_TOKEN)) {
+            throw "VPK_TOKEN was not provided to this step."
+          }
+
           $channel = "${{ matrix.rid }}-${{ needs.meta.outputs.channel }}"
 
           vpk download github `
@@ -162,13 +181,14 @@ jobs:
             --channel $channel `
             --pre ${{ needs.meta.outputs.prerelease }} `
             --outputDir dist/out `
-            --token ${{ secrets.GITHUB_TOKEN }}
+            --token $env:VPK_TOKEN
 
           if ($LASTEXITCODE -ne 0) {
-            Write-Warning "No prior published release was found for '$channel'. Continuing without a delta baseline."
+            Write-Warning "Unable to download a delta baseline for '$channel'. This release will contain a full package only."
+            exit 0
           }
 
-      - name: Package portable Velopack release
+      - name: Package Velopack release
         shell: pwsh
         run: |
           $channel = "${{ matrix.rid }}-${{ needs.meta.outputs.channel }}"
@@ -213,9 +233,17 @@ jobs:
 
       - name: Create or update GitHub Release
         shell: pwsh
+        env:
+          VPK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          if ([string]::IsNullOrWhiteSpace($env:VPK_TOKEN)) {
+            throw "VPK_TOKEN was not provided to this step."
+          }
+
           $repoUrl = "https://github.com/${{ github.repository }}"
-          $releaseFolders = Get-ChildItem -Path dist -Directory | Sort-Object Name
+          $releaseFolders = @(
+            Get-ChildItem -Path dist -Directory | Sort-Object Name
+          )
 
           if ($releaseFolders.Count -eq 0) {
             throw "No Velopack release artifacts were found."
@@ -224,28 +252,25 @@ jobs:
           $firstUpload = $true
 
           foreach ($folder in $releaseFolders) {
-            # Artifact name is velopack-{rid}-{releaseKind}.
-            # Remove the prefix to reconstruct the corresponding Velopack channel.
+            # Artifact name: velopack-{rid}-{releaseKind}
+            # Example: velopack-win-x64-test
             $channel = $folder.Name -replace '^velopack-', ''
 
             $arguments = @(
               'upload',
               'github',
               '--repoUrl', $repoUrl,
+              '--token', $env:VPK_TOKEN,
               '--outputDir', $folder.FullName,
               '--channel', $channel,
               '--tag', '${{ needs.meta.outputs.tag }}',
               '--releaseName', '${{ needs.meta.outputs.title }}',
               '--targetCommitish', '${{ github.sha }}',
-              '--token', '${{ secrets.GITHUB_TOKEN }}'
+              '--publish'
             )
 
             if ('${{ needs.meta.outputs.prerelease }}' -eq 'true') {
               $arguments += @('--pre', 'true')
-            }
-
-            if ('${{ needs.meta.outputs.publish }}' -eq 'true') {
-              $arguments += @('--publish', 'true')
             }
 
             if (-not $firstUpload) {
@@ -256,7 +281,7 @@ jobs:
             vpk @arguments
 
             if ($LASTEXITCODE -ne 0) {
-              Write-Warning "Unable to obtain a delta baseline for '$channel'. The release will contain a full package only."
+              exit $LASTEXITCODE
             }
 
             $firstUpload = $false
