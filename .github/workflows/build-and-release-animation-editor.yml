@@ -154,8 +154,6 @@ jobs:
 
       - name: Download previous channel release for delta generation
         shell: pwsh
-        env:
-          VPK_TOKEN: ${{ github.token }}
         run: |
           $channel = "${{ matrix.rid }}-${{ needs.meta.outputs.channel }}"
 
@@ -163,7 +161,8 @@ jobs:
             --repoUrl "https://github.com/${{ github.repository }}" `
             --channel $channel `
             --pre ${{ needs.meta.outputs.prerelease }} `
-            --outputDir dist/out
+            --outputDir dist/out `
+            --token ${{ secrets.GITHUB_TOKEN }}
 
           if ($LASTEXITCODE -ne 0) {
             Write-Warning "No prior published release was found for '$channel'. Continuing without a delta baseline."
@@ -182,7 +181,7 @@ jobs:
             --runtime ${{ matrix.rid }} `
             --channel $channel `
             --outputDir dist/out `
-            --token ${{ github.token }}
+            --token ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Velopack artifact
         uses: actions/upload-artifact@v4
@@ -238,7 +237,8 @@ jobs:
               '--channel', $channel,
               '--tag', '${{ needs.meta.outputs.tag }}',
               '--releaseName', '${{ needs.meta.outputs.title }}',
-              '--targetCommitish', '${{ github.sha }}'
+              '--targetCommitish', '${{ github.sha }}',
+              '--token', '${{ secrets.GITHUB_TOKEN }}'
             )
 
             if ('${{ needs.meta.outputs.prerelease }}' -eq 'true') {
