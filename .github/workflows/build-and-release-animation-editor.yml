@@ -67,7 +67,7 @@ jobs:
             }
           }
 
-          $title = "$prefix " + $now.ToString('MMMM d, yyyy')
+          $title = "$prefix " + $now.ToString('MMMM d, yyyy') + " (Build $($env:GITHUB_RUN_NUMBER))"
           $tag = "ae-${prefix}_" + $now.ToString('MMMM_dd_yyyy') + "-$($env:GITHUB_RUN_NUMBER)"
 
           "version=$version" >> $env:GITHUB_OUTPUT
