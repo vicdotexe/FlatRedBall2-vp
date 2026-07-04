@@ -22,9 +22,9 @@ internal sealed class TestServices
     public ObjectFinder ObjectFinder { get; }
     public UndoManager UndoManager { get; }
     public AppCommands AppCommands { get; }
-    public PendingCutState PendingCutState { get; }
     public ThumbnailService ThumbnailService { get; }
     public IFileAssociationService FileAssociationService { get; } = new NullFileAssociationService();
+    public AppUpdateService AppUpdateService { get; } = new AppUpdateService();
 
     /// <summary>
     /// Unique-per-instance temp application-data root. Injected into the <see cref="MainWindow"/>
@@ -43,7 +43,6 @@ internal sealed class TestServices
         IoManager         = new IoManager(AppState);
         ObjectFinder      = new ObjectFinder(ProjectManager);
         UndoManager       = new UndoManager();
-        PendingCutState   = new PendingCutState();
         AppCommands       = new AppCommands(ProjectManager, SelectedState, ApplicationEvents,
                                             IoManager, ObjectFinder, UndoManager);
         ThumbnailService  = new ThumbnailService(ProjectManager);
@@ -52,20 +51,20 @@ internal sealed class TestServices
     public MainWindow CreateMainWindow() =>
         new MainWindow(
             ProjectManager, SelectedState, AppCommands, AppState,
-            ApplicationEvents, IoManager, ObjectFinder, UndoManager, PendingCutState,
-            ThumbnailService, FileAssociationService, SettingsRoot);
+            ApplicationEvents, IoManager, ObjectFinder, UndoManager, ThumbnailService,
+            FileAssociationService, AppUpdateService, SettingsRoot);
 
     public WireframeControl CreateWireframeControl()
     {
         var ctrl = new WireframeControl();
-        ctrl.InitializeServices(SelectedState, AppState, AppCommands, ApplicationEvents, ProjectManager, UndoManager, PendingCutState);
+        ctrl.InitializeServices(SelectedState, AppState, AppCommands, ApplicationEvents, ProjectManager, UndoManager);
         return ctrl;
     }
 
     public PreviewControl CreatePreviewControl()
     {
         var ctrl = new PreviewControl();
-        ctrl.InitializeServices(SelectedState, AppState, AppCommands, ApplicationEvents, ProjectManager, UndoManager, ThumbnailService, PendingCutState);
+        ctrl.InitializeServices(SelectedState, AppState, AppCommands, ApplicationEvents, ProjectManager, UndoManager, ThumbnailService);
         return ctrl;
     }
 }

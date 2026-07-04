@@ -1,4 +1,5 @@
-﻿using AnimationEditor.App.Theming;
+﻿using AnimationEditor.App.Services;
+using AnimationEditor.App.Theming;
 using AnimationEditor.Core;
 using AnimationEditor.Core.CommandsAndState;
 using AnimationEditor.Core.CommandsAndState.Commands;
@@ -13,12 +14,13 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
-using Avalonia.Media;
-using Avalonia.VisualTree;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using FlatRedBall2.Animation;
 using FlatRedBall2.Animation.Content;
 using SkiaSharp;
@@ -49,6 +51,7 @@ public partial class MainWindow : Window
     private readonly Services.ThumbnailService _thumbnailService;
     private readonly IFileAssociationService _fileAssociation;
     private readonly PngFolderWatcher _pngFolderWatcher = new();
+    private readonly Services.AppUpdateService _appUpdateService;
 
     private AppSettingsModel _appSettings = new();
     private readonly TabManager _tabManager = new();
@@ -144,6 +147,7 @@ public partial class MainWindow : Window
         IPendingCutState pendingCutState,
         Services.ThumbnailService thumbnailService,
         IFileAssociationService fileAssociation,
+        Services.AppUpdateService appUpdateService,
         string applicationDataRoot)
     {
         _applicationDataRoot = applicationDataRoot;
@@ -159,6 +163,7 @@ public partial class MainWindow : Window
         _pendingCutState = pendingCutState;
         _thumbnailService = thumbnailService;
         _fileAssociation = fileAssociation;
+        _appUpdateService = appUpdateService;
 
         InitializeComponent();
 
@@ -1505,7 +1510,7 @@ public partial class MainWindow : Window
     internal const string GitHubUrl = "https://github.com/vchelaru/FlatRedBall2";
 
     private void OnAboutClick(object? sender, RoutedEventArgs e)
-        => _ = BuildAboutWindow().ShowDialog(this);
+        => _ = BuildAboutWindow(_appUpdateService).ShowDialog(this);
 
     private void OnSettingsClick(object? sender, RoutedEventArgs e)
     {
@@ -1566,25 +1571,26 @@ public partial class MainWindow : Window
     /// Returns a fully-configured About window centered on its owner.
     /// Extracted for testability.
     /// </summary>
-    internal static Window BuildAboutWindow() =>
+    internal static Window BuildAboutWindow(Services.AppUpdateService? appUpdateService = null) =>
         new Window
         {
             Title = "About AnimationEditor",
             Width = 420,
-            Height = 220,
+            Height = 280,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             CanResize = false,
-            Content = BuildAboutContent(),
+            Content = BuildAboutContent(appUpdateService),
         };
 
     /// <summary>
     /// Builds the content panel for the About dialog.
     /// Extracted for testability.
     /// </summary>
-    internal static Control BuildAboutContent()
+    internal static Control BuildAboutContent(Services.AppUpdateService? appUpdateService = null)
     {
         var ver = typeof(MainWindow).Assembly.GetName().Version;
-        var versionText = ver is null ? "unknown" : $"{ver.Major}.{ver.Minor}.{ver.Build}";
+        var versionText = appUpdateService?.AppVersion;
+        Services.AvailableAppUpdate? availableUpdate = null;
 
         var linkButton = new Button { Content = GitHubUrl };
         linkButton.Click += (_, _) =>
@@ -1596,6 +1602,100 @@ public partial class MainWindow : Window
             catch { }
         };
 
+        var updateStatus = new TextBlock
+        {
+            IsVisible = false,
+            TextWrapping = TextWrapping.Wrap,
+        };
+
+        var downloadButton = new Button
+        {
+            Content = "Download and Restart",
+            IsVisible = false,
+            IsEnabled = false,
+        };
+
+        var checkButton = new Button
+        {
+            Content = "Check for Updates",
+            IsEnabled = appUpdateService is not null,
+        };
+
+        if (appUpdateService is null)
+        {
+            updateStatus.IsVisible = true;
+            updateStatus.Text = "Update service unavailable.";
+        }
+
+        checkButton.Click += async (_, _) =>
+        {
+            if (appUpdateService is null)
+                return;
+
+            checkButton.IsEnabled = false;
+            downloadButton.IsEnabled = false;
+            downloadButton.IsVisible = false;
+            updateStatus.IsVisible = true;
+            updateStatus.Text = "Checking for updates...";
+
+            try
+            {
+                availableUpdate = await appUpdateService.CheckForUpdatesAsync();
+
+                if (availableUpdate is null)
+                {
+                    updateStatus.Text = "No updates available.";
+                    return;
+                }
+
+                updateStatus.Text = $"Update available: {availableUpdate.Version}";
+                downloadButton.IsVisible = true;
+                downloadButton.IsEnabled = true;
+            }
+            catch (Exception ex)
+            {
+                updateStatus.Text = $"Update check failed: {ex.Message}";
+            }
+            finally
+            {
+                checkButton.IsEnabled = true;
+            }
+        };
+
+        downloadButton.Click += async (_, _) =>
+        {
+            if (appUpdateService is null || availableUpdate is null)
+                return;
+
+            checkButton.IsEnabled = false;
+            downloadButton.IsEnabled = false;
+            updateStatus.IsVisible = true;
+            updateStatus.Text = $"Downloading {availableUpdate.Version} and restarting...";
+
+            try
+            {
+                await appUpdateService.DownloadAndRestartAsync(availableUpdate);
+            }
+            catch (Exception ex)
+            {
+                updateStatus.Text = $"Update download failed: {ex.Message}";
+                checkButton.IsEnabled = true;
+                downloadButton.IsVisible = true;
+                downloadButton.IsEnabled = true;
+            }
+        };
+
+        var updateButtons = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Children =
+            {
+                checkButton,
+                downloadButton,
+            }
+        };
+
         return new StackPanel
         {
             Margin = new Avalonia.Thickness(20),
@@ -1605,6 +1705,8 @@ public partial class MainWindow : Window
                 new TextBlock { Text = "AnimationEditor", FontSize = 16 },
                 new TextBlock { Text = $"Version {versionText}" },
                 new TextBlock { Text = "© FlatRedBall Contributors" },
+                updateButtons,
+                updateStatus,
                 linkButton,
             }
         };
