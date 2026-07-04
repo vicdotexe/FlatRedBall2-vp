@@ -119,7 +119,7 @@ public partial class App : Application
         helpMenu.Add(new NativeMenuItem("About Animation Editor") { Command = Cmd(a.About) });
 
         var appMenu = new NativeMenu();
-        appMenu.Add(new NativeMenuItem("File Test") { Menu = fileMenu });
+        appMenu.Add(new NativeMenuItem("File") { Menu = fileMenu });
         appMenu.Add(new NativeMenuItem("Edit") { Menu = editMenu });
         appMenu.Add(new NativeMenuItem("View") { Menu = viewMenu });
         appMenu.Add(new NativeMenuItem("Help") { Menu = helpMenu });
