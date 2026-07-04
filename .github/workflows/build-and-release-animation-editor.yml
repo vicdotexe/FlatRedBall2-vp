@@ -180,8 +180,7 @@ jobs:
             --mainExe ${{ matrix.mainExe }} `
             --runtime ${{ matrix.rid }} `
             --channel $channel `
-            --outputDir dist/out `
-            --token ${{ secrets.GITHUB_TOKEN }}
+            --outputDir dist/out
 
       - name: Upload Velopack artifact
         uses: actions/upload-artifact@v4
