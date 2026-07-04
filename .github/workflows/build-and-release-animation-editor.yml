@@ -181,7 +181,8 @@ jobs:
             --mainExe ${{ matrix.mainExe }} `
             --runtime ${{ matrix.rid }} `
             --channel $channel `
-            --outputDir dist/out
+            --outputDir dist/out `
+            --token ${{ github.token }}
 
       - name: Upload Velopack artifact
         uses: actions/upload-artifact@v4
@@ -239,7 +240,8 @@ jobs:
               '--channel', $channel,
               '--tag', '${{ needs.meta.outputs.tag }}',
               '--releaseName', '${{ needs.meta.outputs.title }}',
-              '--targetCommitish', '${{ github.sha }}'
+              '--targetCommitish', '${{ github.sha }}',
+              '--token', '${{ github.token }}'
             )
 
             if ('${{ needs.meta.outputs.prerelease }}' -eq 'true') {
