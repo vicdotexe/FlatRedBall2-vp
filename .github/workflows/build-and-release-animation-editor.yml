@@ -116,18 +116,22 @@ jobs:
           - rid: win-x64
             os: windows-latest
             mainExe: AnimationEditor.exe
+            icon: tools/AnimationEditorAvalonia/src/AnimationEditor.App/Assets/icons/AppIcon.ico
 
           - rid: linux-x64
             os: ubuntu-latest
             mainExe: AnimationEditor
+            icon: tools/AnimationEditorAvalonia/src/AnimationEditor.App/Assets/icons/achx-icon-256.png
 
           - rid: osx-x64
             os: macos-latest
             mainExe: AnimationEditor
+            icon: tools/AnimationEditorAvalonia/src/AnimationEditor.App/Assets/icons/AppIcon.icns
 
           - rid: osx-arm64
             os: macos-latest
             mainExe: AnimationEditor
+            icon: tools/AnimationEditorAvalonia/src/AnimationEditor.App/Assets/icons/AppIcon.icns
 
     runs-on: ${{ matrix.os }}
 
@@ -195,11 +199,13 @@ jobs:
 
           vpk pack `
             --packId AnimationEditor `
+            --packTitle "Animation Editor" `
             --packVersion ${{ needs.meta.outputs.version }} `
             --packDir dist/publish `
             --mainExe ${{ matrix.mainExe }} `
             --runtime ${{ matrix.rid }} `
             --channel $channel `
+            --icon "${{ matrix.icon }}" `
             --outputDir dist/out
 
       - name: Upload Velopack artifact
