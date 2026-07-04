@@ -15,6 +15,7 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <!-- MainWindow is DI-only; runtime XAML instantiation is intentionally not supported -->
     <NoWarn>$(NoWarn);AVLN3001</NoWarn>
+    <ApplicationIcon>Assets\icons\AppIcon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
