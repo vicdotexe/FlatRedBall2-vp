@@ -126,7 +126,7 @@
                         <MenuItem Header="Show _Render Diagnostics" x:Name="MenuShowDiagnostics"
                                   ToggleType="CheckBox" InputGesture="F3" />
                         <MenuItem Header="View _Log"      x:Name="MenuViewLog" />
-                        <MenuItem Header="_About"         x:Name="MenuAbout" />
+                        <MenuItem Header="_About / Update"         x:Name="MenuAbout" />
                     </MenuItem>
                 </Menu>
                 <!-- Drag region: fills remaining space, handles window move and maximize toggle -->
