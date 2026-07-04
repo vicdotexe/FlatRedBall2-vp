@@ -208,6 +208,15 @@ public partial class MainWindow : Window
             _thumbnailService.Dispose();
             _pngFolderWatcher.Dispose();
         };
+
+        var version = _appUpdateService.CurrentChannel is null
+            ? "Dev Build"
+            : $"{appUpdateService.AppVersion}";
+        var release = appUpdateService is {CurrentChannel: null}
+            ? string.Empty
+            : $" · {appUpdateService.CurrentChannelDisplayName}";
+
+        VersionDisplay.Text = version + release;
     }
 
     // ── Tab bar ───────────────────────────────────────────────────────────────

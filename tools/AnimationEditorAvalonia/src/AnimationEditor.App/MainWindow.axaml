@@ -283,6 +283,11 @@
                                FontFamily="Consolas,Menlo,Monospace"
                                Foreground="{DynamicResource InkMid}"
                                VerticalAlignment="Center" />
+                    <TextBlock x:Name="VersionDisplay" 
+                               FontSize="11"
+                               FontFamily="Consolas,Menlo,Monospace"
+                               Foreground="{DynamicResource InkMid}"
+                               VerticalAlignment="Center"/>
                 </StackPanel>
                 <!-- center: transient status message (last child — fills remaining space) -->
                 <TextBlock x:Name="StatusMessage"
