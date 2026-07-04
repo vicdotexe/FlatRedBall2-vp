@@ -212,7 +212,7 @@ public partial class MainWindow : Window
         var version = _appUpdateService.CurrentChannel is null
             ? "Dev Build"
             : $"{appUpdateService.AppVersion}";
-        var release = appUpdateService is {CurrentChannel: null}
+        var release = appUpdateService is {CurrentChannel: null or AppUpdateChannel.Release}
             ? string.Empty
             : $" · {appUpdateService.CurrentChannelDisplayName}";
 
