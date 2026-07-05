@@ -58,9 +58,6 @@ public sealed record AvailableAppUpdate(
 
 public sealed class AppUpdateService
 {
-    private const string RepositoryUrl =
-        "https://github.com/vicdotexe/FlatRedBall2-vp";
-
     private readonly IVelopackLocator _locator;
     private readonly UpdateManager _defaultManager;
 
@@ -165,10 +162,7 @@ public sealed class AppUpdateService
         UpdateOptions? options = null)
     {
         return new UpdateManager(
-            new GithubSource(
-                repoUrl: RepositoryUrl,
-                accessToken: null,
-                prerelease: true),
+            new VelopackFlowSource(),
             options);
     }
 
