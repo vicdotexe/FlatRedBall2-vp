@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_kind:
-        description: 'Type'
+        description: Type
         type: choice
         options: [release, prerelease, test]
         default: test
@@ -16,6 +16,7 @@ permissions:
 jobs:
   meta:
     runs-on: ubuntu-latest
+
     outputs:
       version: ${{ steps.meta.outputs.version }}
       tag: ${{ steps.meta.outputs.tag }}
@@ -169,37 +170,14 @@ jobs:
       - name: Install Velopack CLI
         run: dotnet tool install -g vpk
 
-      - name: Download previous channel release for delta generation
-        shell: pwsh
-        env:
-          VPK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if ([string]::IsNullOrWhiteSpace($env:VPK_TOKEN)) {
-            throw "VPK_TOKEN was not provided to this step."
-          }
-
-          $channel = "${{ matrix.rid }}-${{ needs.meta.outputs.channel }}"
-
-          vpk download github `
-            --repoUrl "https://github.com/${{ github.repository }}" `
-            --channel $channel `
-            --pre ${{ needs.meta.outputs.prerelease }} `
-            --outputDir dist/out `
-            --token $env:VPK_TOKEN
-
-          if ($LASTEXITCODE -ne 0) {
-            Write-Warning "Unable to download a delta baseline for '$channel'. This release will contain a full package only."
-            exit 0
-          }
-
       - name: Package Velopack release
         shell: pwsh
         run: |
           $channel = "${{ matrix.rid }}-${{ needs.meta.outputs.channel }}"
 
           vpk pack `
-            --packId AnimationEditor `
-            --packTitle "Animation Editor" `
+            --packId frb.animation.editor `
+            --packTitle "AnimationEditor" `
             --packVersion ${{ needs.meta.outputs.version }} `
             --packDir dist/publish `
             --mainExe ${{ matrix.mainExe }} `
@@ -208,87 +186,145 @@ jobs:
             --icon "${{ matrix.icon }}" `
             --outputDir dist/out
 
-      - name: Upload Velopack artifact
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+      - name: Publish to Velopack Flow
+        shell: pwsh
+        env:
+          VPK_API_KEY: ${{ secrets.VELOPACK_FLOW_API_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:VPK_API_KEY)) {
+            throw "VELOPACK_FLOW_API_KEY was not provided."
+          }
+
+          $channel = "${{ matrix.rid }}-${{ needs.meta.outputs.channel }}"
+
+          vpk publish `
+            --outputDir dist/out `
+            --channel $channel
+
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+      - name: Stage GitHub Release assets
+        shell: pwsh
+        run: |
+          $rid = "${{ matrix.rid }}"
+          $channel = "$rid-${{ needs.meta.outputs.channel }}"
+          $friendlyPrefix = "AnimationEditor-$channel"
+
+          $githubReleaseDirectory = "dist/github-release"
+          New-Item -ItemType Directory -Force -Path $githubReleaseDirectory | Out-Null
+
+          $releaseAssets = @(
+            Get-ChildItem -Path dist/out -File |
+              Where-Object {
+                $_.Name -match '(-Setup\.(exe|pkg)|-Portable\.zip|\.AppImage)$'
+              }
+          )
+
+          $expectedCount = if ($rid -eq 'linux-x64') { 1 } else { 2 }
+
+          if ($releaseAssets.Count -ne $expectedCount) {
+            $foundNames = $releaseAssets.Name -join ', '
+            throw "Expected $expectedCount user-facing artifact(s) for '$rid', found $($releaseAssets.Count): $foundNames"
+          }
+
+          foreach ($asset in $releaseAssets) {
+            $suffix =
+              if ($asset.Name -match '-Setup\.exe$') {
+                '-Setup.exe'
+              }
+              elseif ($asset.Name -match '-Setup\.pkg$') {
+                '-Setup.pkg'
+              }
+              elseif ($asset.Name -match '-Portable\.zip$') {
+                '-Portable.zip'
+              }
+              elseif ($asset.Name -match '\.AppImage$') {
+                '.AppImage'
+              }
+              else {
+                throw "Unexpected release asset: $($asset.Name)"
+              }
+
+            $destination = Join-Path $githubReleaseDirectory "$friendlyPrefix$suffix"
+
+            Copy-Item `
+              -Path $asset.FullName `
+              -Destination $destination `
+              -Force
+          }
+
+          Get-ChildItem -Path $githubReleaseDirectory -File |
+            ForEach-Object { Write-Host $_.FullName }
+
+      - name: Upload GitHub Release artifact
         uses: actions/upload-artifact@v4
         with:
-          name: velopack-${{ matrix.rid }}-${{ needs.meta.outputs.channel }}
-          path: dist/out/*
+          name: github-release-${{ matrix.rid }}
+          path: dist/github-release/*
           if-no-files-found: error
           retention-days: 7
 
+  # Test builds are Flow-only. This avoids creating 50 GitHub Releases/month.
+  #
+  # Release and prerelease builds get one normal human-facing GitHub Release
+  # containing installers / portable packages only.
   release:
+    if: ${{ github.event.inputs.release_kind != 'test' }}
     needs: [meta, build]
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Install Velopack CLI
-        run: dotnet tool install -g vpk
-
-      - name: Download all platform artifacts
+      - name: Download all GitHub Release artifacts
         uses: actions/download-artifact@v4
         with:
-          path: dist
+          pattern: github-release-*
+          path: dist/github-release
+          merge-multiple: true
 
-      - name: List generated assets
-        run: find dist -type f -print
+      - name: List GitHub Release assets
+        run: find dist/github-release -type f -print
 
-      - name: Create or update GitHub Release
+      - name: Create GitHub Release
         shell: pwsh
         env:
-          VPK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if ([string]::IsNullOrWhiteSpace($env:VPK_TOKEN)) {
-            throw "VPK_TOKEN was not provided to this step."
-          }
-
-          $repoUrl = "https://github.com/${{ github.repository }}"
-          $releaseFolders = @(
-            Get-ChildItem -Path dist -Directory | Sort-Object Name
+          $assets = @(
+            Get-ChildItem -Path dist/github-release -File -Recurse |
+              Sort-Object Name
           )
 
-          if ($releaseFolders.Count -eq 0) {
-            throw "No Velopack release artifacts were found."
+          if ($assets.Count -ne 7) {
+            $foundNames = $assets.Name -join ', '
+            throw "Expected 7 GitHub Release assets, found $($assets.Count): $foundNames"
           }
 
-          $firstUpload = $true
+          $arguments = @(
+            'release',
+            'create',
+            '${{ needs.meta.outputs.tag }}',
+            '--repo',
+            '${{ github.repository }}',
+            '--target',
+            '${{ github.sha }}',
+            '--title',
+            '${{ needs.meta.outputs.title }}'
+          )
 
-          foreach ($folder in $releaseFolders) {
-            # Artifact name: velopack-{rid}-{releaseKind}
-            # Example: velopack-win-x64-test
-            $channel = $folder.Name -replace '^velopack-', ''
+          if ('${{ needs.meta.outputs.prerelease }}' -eq 'true') {
+            $arguments += '--prerelease'
+          }
 
-            $arguments = @(
-              'upload',
-              'github',
-              '--repoUrl', $repoUrl,
-              '--token', $env:VPK_TOKEN,
-              '--outputDir', $folder.FullName,
-              '--channel', $channel,
-              '--tag', '${{ needs.meta.outputs.tag }}',
-              '--releaseName', '${{ needs.meta.outputs.title }}',
-              '--targetCommitish', '${{ github.sha }}',
-              '--publish'
-            )
+          $arguments += $assets.FullName
 
-            if ('${{ needs.meta.outputs.prerelease }}' -eq 'true') {
-              $arguments += @('--pre', 'true')
-            }
+          gh @arguments
 
-            if (-not $firstUpload) {
-              $arguments += @('--merge', 'true')
-            }
-
-            Write-Host "Uploading Velopack channel '$channel' from '$($folder.FullName)'"
-            vpk @arguments
-
-            if ($LASTEXITCODE -ne 0) {
-              exit $LASTEXITCODE
-            }
-
-            $firstUpload = $false
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
           }
